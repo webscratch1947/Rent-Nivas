@@ -113,6 +113,44 @@ function tableName(table) {
   return resolved;
 }
 
+// Tables whose actual DynamoDB partition key name differs from the app-level "id" field.
+// The app (index.html) always reads/writes "id" — these mappings translate to/from
+// the real AWS attribute name so GetItem/PutItem/UpdateItem/DeleteItem use the correct key.
+const PARTITION_KEY_OVERRIDES = {
+  houses: 'propertyId',
+  Houses: 'propertyId'
+};
+
+function partitionKeyName(table) {
+  return PARTITION_KEY_OVERRIDES[table] || 'id';
+}
+
+// Convert an app-level row (using "id") into the shape DynamoDB expects for this table.
+function toDbItem(table, row) {
+  const pk = partitionKeyName(table);
+  if (pk === 'id') return row;
+  const next = Object.assign({}, row);
+  if (Object.prototype.hasOwnProperty.call(next, 'id')) {
+    next[pk] = next.id;
+    delete next.id;
+  }
+  return next;
+}
+
+// Convert a raw DynamoDB item back into the app-level shape (using "id").
+function fromDbItem(table, item) {
+  if (!item) return item;
+  const pk = partitionKeyName(table);
+  if (pk === 'id') return item;
+  if (Object.prototype.hasOwnProperty.call(item, pk)) {
+    const next = Object.assign({}, item);
+    next.id = next[pk];
+    delete next[pk];
+    return next;
+  }
+  return item;
+}
+
 function keyFor(table, row, filters) {
   const all = Object.assign({}, row || {});
   (filters || []).forEach(f => {
@@ -138,7 +176,8 @@ function keyFor(table, row, filters) {
     all.id = all.user_id;
   }
   if (!all.id) throw new Error(`${table} requires id`);
-  return { id: all.id };
+  const pk = partitionKeyName(table);
+  return { [pk]: all.id };
 }
 
 function applyFilters(items, filters) {
@@ -177,11 +216,11 @@ async function readItems(spec) {
   const key = spec.filters && spec.filters.length ? tryKey(spec.table, spec.filters) : null;
   if (key && (spec.single || spec.maybeSingle || spec.limit === 1)) {
     const got = await ddb.send(new GetItemCommand({ TableName, Key: marshall(key) }));
-    const row = got.Item ? pickColumns(unmarshall(got.Item), spec.select) : null;
+    const row = got.Item ? pickColumns(fromDbItem(spec.table, unmarshall(got.Item)), spec.select) : null;
     return spec.single || spec.maybeSingle ? row : (row ? [row] : []);
   }
   const scanned = await ddb.send(new ScanCommand({ TableName }));
-  let rows = (scanned.Items || []).map(item => unmarshall(item));
+  let rows = (scanned.Items || []).map(item => fromDbItem(spec.table, unmarshall(item)));
   rows = applyFilters(rows, spec.filters);
   rows = applyOrder(rows, spec.order);
   if (spec.limit) rows = rows.slice(0, spec.limit);
@@ -208,11 +247,12 @@ async function putRows(spec, merge) {
     if (merge) {
       const key = keyFor(spec.table, next, spec.filters);
       const existing = await ddb.send(new GetItemCommand({ TableName, Key: marshall(key) }));
-      const merged = Object.assign(existing.Item ? unmarshall(existing.Item) : {}, next, key);
-      await ddb.send(new PutItemCommand({ TableName, Item: marshall(merged, { removeUndefinedValues: true }) }));
+      const existingAppRow = existing.Item ? fromDbItem(spec.table, unmarshall(existing.Item)) : {};
+      const merged = Object.assign(existingAppRow, next, { id: next.id || existingAppRow.id });
+      await ddb.send(new PutItemCommand({ TableName, Item: marshall(toDbItem(spec.table, merged), { removeUndefinedValues: true }) }));
       saved.push(merged);
     } else {
-      await ddb.send(new PutItemCommand({ TableName, Item: marshall(next, { removeUndefinedValues: true }) }));
+      await ddb.send(new PutItemCommand({ TableName, Item: marshall(toDbItem(spec.table, next), { removeUndefinedValues: true }) }));
       saved.push(next);
     }
   }
@@ -223,11 +263,12 @@ async function updateRows(spec) {
   const TableName = tableName(spec.table);
   const patch = Object.assign({}, spec.values || {}, { updated_at: new Date().toISOString() });
   const key = keyFor(spec.table, patch, spec.filters);
+  const pk = partitionKeyName(spec.table);
   const names = {};
   const values = {};
   const sets = [];
   Object.entries(patch).forEach(([k, v], i) => {
-    if (Object.prototype.hasOwnProperty.call(key, k) || typeof v === 'undefined') return;
+    if (k === 'id' || k === pk || Object.prototype.hasOwnProperty.call(key, k) || typeof v === 'undefined') return;
     names[`#k${i}`] = k;
     values[`:v${i}`] = v;
     sets.push(`#k${i} = :v${i}`);
@@ -241,7 +282,7 @@ async function updateRows(spec) {
     ExpressionAttributeValues: marshall(values, { removeUndefinedValues: true }),
     ReturnValues: 'ALL_NEW'
   }));
-  const row = result.Attributes ? unmarshall(result.Attributes) : null;
+  const row = result.Attributes ? fromDbItem(spec.table, unmarshall(result.Attributes)) : null;
   return spec.single || spec.maybeSingle ? row : (row ? [row] : []);
 }
 
@@ -292,4 +333,3 @@ module.exports = async function handler(req, res) {
     });
   }
 };
-
