@@ -74,14 +74,17 @@
 
   function storeSession(authResult) {
     var now = Math.floor(Date.now() / 1000);
+    var prior = getStoredSession() || {};
+    var user = normalizeUser(decodeJwt(authResult.IdToken || authResult.AccessToken));
     var session = {
       access_token: authResult.AccessToken,
       id_token: authResult.IdToken,
-      refresh_token: authResult.RefreshToken || (getStoredSession() || {}).refresh_token,
+      refresh_token: authResult.RefreshToken || prior.refresh_token,
+      username: authResult.Username || prior.username || (user && user.email),
       token_type: authResult.TokenType || 'Bearer',
       expires_in: authResult.ExpiresIn || 3600,
       expires_at: now + (authResult.ExpiresIn || 3600),
-      user: normalizeUser(decodeJwt(authResult.IdToken || authResult.AccessToken))
+      user: user
     };
     localStorage.setItem(CONFIG.storageKey, JSON.stringify(session));
     scheduleRefresh(session);
@@ -101,21 +104,19 @@
   }
 
   async function cognito(target, body) {
-    var resp = await fetch(COGNITO_URL, {
+    var resp = await fetch('/api/auth', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-amz-json-1.1',
-        'X-Amz-Target': 'AWSCognitoIdentityProviderService.' + target
-      },
-      body: JSON.stringify(body)
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ target: target, payload: body })
     });
     var json = await resp.json().catch(function () { return {}; });
-    if (!resp.ok || json.__type) {
-      var err = new Error(friendlyError(json, 'Cognito request failed.'));
-      err.raw = json;
+    if (!resp.ok || json.error) {
+      var errBody = json.error || json;
+      var err = new Error(friendlyError(errBody, 'Cognito request failed.'));
+      err.raw = errBody;
       throw err;
     }
-    return json;
+    return json.data;
   }
 
   async function refreshSession() {
@@ -125,9 +126,9 @@
       var data = await cognito('InitiateAuth', {
         AuthFlow: 'REFRESH_TOKEN_AUTH',
         ClientId: CONFIG.clientId,
-        AuthParameters: { REFRESH_TOKEN: current.refresh_token }
+        AuthParameters: { REFRESH_TOKEN: current.refresh_token, USERNAME: current.username }
       });
-      var session = storeSession(Object.assign({}, data.AuthenticationResult, { RefreshToken: current.refresh_token }));
+      var session = storeSession(Object.assign({}, data.AuthenticationResult, { RefreshToken: current.refresh_token, Username: current.username }));
       notify('TOKEN_REFRESHED', session);
       return { data: { session: session }, error: null };
     } catch (err) {
@@ -380,4 +381,3 @@
   var restored = getStoredSession();
   if (restored) scheduleRefresh(restored);
 })();
-
