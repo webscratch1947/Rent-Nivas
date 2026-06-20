@@ -1,0 +1,156 @@
+// Custom (non-Cognito) signup email verification flow.
+//
+//   POST /api/signup-verify { action: 'request', email, password, name, referral_code }
+//     -> Creates the Cognito user server-side with MessageAction:'SUPPRESS'
+//        (so Cognito never sends its own welcome/confirmation email),
+//        immediately sets the user's real chosen password as permanent
+//        (so they are never stuck in FORCE_CHANGE_PASSWORD), marks
+//        email_verified=false, then generates+stores+sends our own code
+//        via SES.
+//
+//   POST /api/signup-verify { action: 'resend', email }
+//     -> Regenerates and re-sends the code via SES.
+//
+//   POST /api/signup-verify { action: 'confirm', email, code }
+//     -> Verifies the code against DynamoDB, then calls Cognito
+//        AdminUpdateUserAttributes to set email_verified=true.
+const crypto = require('crypto');
+const {
+  CognitoIdentityProviderClient,
+  AdminCreateUserCommand,
+  AdminSetUserPasswordCommand,
+  AdminUpdateUserAttributesCommand
+} = require('@aws-sdk/client-cognito-identity-provider');
+const { REGION, USER_POOL_ID, send, parseBody } = require('./_auth');
+const { generateCode, storeCode, getCode, deleteCode, bumpAttempts, sendCodeEmail, hashCode, MAX_ATTEMPTS } = require('./_ses');
+
+const cognito = new CognitoIdentityProviderClient({ region: REGION });
+
+module.exports = async function handler(req, res) {
+  if (req.method === 'OPTIONS') return send(res, 204, {});
+  if (req.method !== 'POST') return send(res, 405, { error: { message: 'Method not allowed' } });
+
+  let body;
+  try {
+    body = await parseBody(req);
+  } catch (err) {
+    return send(res, 400, { error: { message: 'Invalid request body' } });
+  }
+
+  const action = body.action;
+  const email = String(body.email || '').trim().toLowerCase();
+  if (!email) return send(res, 400, { error: { message: 'Email is required' } });
+
+  if (action === 'request') {
+    const password = body.password;
+    const name = body.name || '';
+    const referralCode = body.referral_code || null;
+    if (!password) return send(res, 400, { error: { message: 'Password is required' } });
+
+    console.log(`[SignupVerify] ── request received for email=${email}`);
+    try {
+      const attrs = [
+        { Name: 'email', Value: email },
+        { Name: 'email_verified', Value: 'false' }
+      ];
+      if (name) attrs.push({ Name: 'name', Value: name });
+      if (referralCode) attrs.push({ Name: 'custom:referral_code', Value: referralCode });
+
+      try {
+        await cognito.send(new AdminCreateUserCommand({
+          UserPoolId: USER_POOL_ID,
+          Username: email,
+          UserAttributes: attrs,
+          MessageAction: 'SUPPRESS', // <-- this is what stops Cognito sending its own email
+          TemporaryPassword: crypto.randomBytes(12).toString('base64') + 'Aa1!'
+        }));
+        console.log(`[SignupVerify] Cognito user created (message suppressed) for ${email}`);
+      } catch (createErr) {
+        if (createErr.name === 'UsernameExistsException') {
+          console.warn(`[SignupVerify] account already exists: ${email}`);
+          return send(res, 400, { error: { message: 'An account with this email already exists.' } });
+        }
+        console.error(`[SignupVerify] AdminCreateUser FAILED for ${email}:`, createErr);
+        throw createErr;
+      }
+
+      await cognito.send(new AdminSetUserPasswordCommand({
+        UserPoolId: USER_POOL_ID,
+        Username: email,
+        Password: password,
+        Permanent: true
+      }));
+      console.log(`[SignupVerify] permanent password set for ${email}`);
+
+      const code = generateCode();
+      await storeCode('signup_verify', email, code);
+
+      console.log(`[SignupVerify] about to call sendCodeEmail() for ${email}`);
+      await sendCodeEmail('signup_verify', email, code);
+      console.log(`[SignupVerify] ✅ SES send completed successfully for ${email}`);
+
+      return send(res, 200, { data: {} });
+    } catch (err) {
+      console.error(`[SignupVerify] ❌ request FAILED for ${email}:`, err);
+      return send(res, 500, { error: { message: err.message || 'Could not create account' } });
+    }
+  }
+
+  if (action === 'resend') {
+    console.log(`[SignupVerify] ── resend received for email=${email}`);
+    try {
+      const code = generateCode();
+      await storeCode('signup_verify', email, code);
+      await sendCodeEmail('signup_verify', email, code);
+      console.log(`[SignupVerify] ✅ resend completed for ${email}`);
+      return send(res, 200, { data: {} });
+    } catch (err) {
+      console.error(`[SignupVerify] ❌ resend FAILED for ${email}:`, err);
+      return send(res, 500, { error: { message: err.message || 'Could not resend code' } });
+    }
+  }
+
+  if (action === 'confirm') {
+    const code = String(body.code || '').trim();
+    if (!code) return send(res, 400, { error: { message: 'Verification code is required' } });
+
+    console.log(`[SignupVerify] ── confirm received for email=${email}`);
+    try {
+      const record = await getCode('signup_verify', email);
+      if (!record) {
+        console.warn(`[SignupVerify] confirm: no code record found for ${email}`);
+        return send(res, 400, { error: { message: 'Invalid or expired code. Please request a new one.' } });
+      }
+      if (Date.now() > record.expiresAt) {
+        console.warn(`[SignupVerify] confirm: code expired for ${email}`);
+        await deleteCode('signup_verify', email);
+        return send(res, 400, { error: { message: 'This code has expired. Please request a new one.' } });
+      }
+      if ((record.attempts || 0) >= MAX_ATTEMPTS) {
+        console.warn(`[SignupVerify] confirm: too many attempts for ${email}`);
+        await deleteCode('signup_verify', email);
+        return send(res, 400, { error: { message: 'Too many incorrect attempts. Please request a new code.' } });
+      }
+      if (record.codeHash !== hashCode(code, email)) {
+        await bumpAttempts('signup_verify', email);
+        console.warn(`[SignupVerify] confirm: code mismatch for ${email}`);
+        return send(res, 400, { error: { message: 'Incorrect code. Please try again.' } });
+      }
+
+      await cognito.send(new AdminUpdateUserAttributesCommand({
+        UserPoolId: USER_POOL_ID,
+        Username: email,
+        UserAttributes: [{ Name: 'email_verified', Value: 'true' }]
+      }));
+      console.log(`[SignupVerify] ✅ email_verified=true set for ${email}`);
+
+      await deleteCode('signup_verify', email);
+      return send(res, 200, { data: {} });
+    } catch (err) {
+      console.error(`[SignupVerify] ❌ confirm FAILED for ${email}:`, err);
+      return send(res, 500, { error: { message: err.message || 'Could not verify email' } });
+    }
+  }
+
+  return send(res, 400, { error: { message: 'Unsupported action' } });
+};
