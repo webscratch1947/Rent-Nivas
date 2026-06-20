@@ -10099,7 +10099,17 @@
       if (btn) { btn.disabled = true; btn.textContent = 'Signing in…'; }
       try {
         const { data, error } = await sb.auth.signInWithPassword({ email, password });
-        if (error) throw error;
+        if (error) {
+          if (error.legacyAccount) {
+            toast('Your account needs a one-time password reset. Sending a verification code…', 'success');
+            const { error: fpError } = await sb.auth.resetPasswordForEmail(email);
+            if (fpError) throw fpError;
+            sessionStorage.setItem('rn-reset-email', email);
+            window.location.href = 'resetpassword.html?email=' + encodeURIComponent(email);
+            return;
+          }
+          throw error;
+        }
         user = data.user;
         await loadCreditsFromDB();
         syncMobNavAuth();
@@ -10149,7 +10159,7 @@
         if (error) throw error;
         if (data.confirmationRequired) {
           showSignupVerificationUI(email);
-          toast('Verification code sent. Check your email to finish creating your account.', 'success');
+          toast('Verification code sent. Check your email (and spam folder) to finish creating your account.', 'success');
         } else if (data.session) {
           user = data.user;
           await loadCreditsFromDB();
@@ -10176,6 +10186,7 @@
         box.id = 'signup-verify-box';
         box.innerHTML = `
           <div class="fg"><label>Verification Code</label><input type="text" id="signup-verification-code" maxlength="12" placeholder="Enter email code" autocomplete="one-time-code" onkeydown="if(event.key==='Enter')doConfirmSignup()"></div>
+          <p style="font-size:13px;color:#8a8a8a;margin:-6px 0 14px;">Didn't get it? Check your spam/junk folder — verification emails sometimes land there.</p>
           <button class="btn btn-terra btn-lg btn-full" id="signup-confirm-btn" onclick="doConfirmSignup()">Verify Email -></button>
           <button class="btn btn-soft btn-sm btn-full" style="margin-top:10px;" onclick="resendSignupCode()">Resend Code</button>
         `;
