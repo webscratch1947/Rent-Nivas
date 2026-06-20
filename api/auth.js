@@ -6,14 +6,14 @@ const CLIENT_SECRET = process.env.COGNITO_CLIENT_SECRET;
 const COGNITO_URL = `https://cognito-idp.${REGION}.amazonaws.com/`;
 const adminClient = new CognitoIdentityProviderClient({ region: REGION });
 
-// Actions that require SecretHash (App Client is configured with a secret)
+// Actions that require SecretHash (App Client is configured with a secret).
+// NOTE: SignUp / ConfirmSignUp / ResendConfirmationCode / ForgotPassword /
+// ConfirmForgotPassword used to live here too, but those flows now go
+// through api/signup-verify.js and api/forgot-password.js (custom SES
+// codes) instead of Cognito's own email sending. InitiateAuth (login) is
+// the only action this proxy still needs to support.
 const SECRET_HASH_ACTIONS = {
-  SignUp: 'Username',
-  InitiateAuth: 'AuthParameters.USERNAME',
-  ForgotPassword: 'Username',
-  ConfirmForgotPassword: 'Username',
-  ConfirmSignUp: 'Username',
-  ResendConfirmationCode: 'Username'
+  InitiateAuth: 'AuthParameters.USERNAME'
 };
 
 function computeSecretHash(username) {
