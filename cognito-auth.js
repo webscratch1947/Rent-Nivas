@@ -116,6 +116,11 @@
       err.raw = errBody;
       throw err;
     }
+    if (json.legacyAccount) {
+      var legacyErr = new Error('LEGACY_ACCOUNT');
+      legacyErr.legacyAccount = true;
+      throw legacyErr;
+    }
     return json.data;
   }
 
@@ -203,6 +208,7 @@
         return { data: { session: session, user: session.user }, error: null };
       } catch (err) {
         log('login failed', err, { email: credentials && credentials.email });
+        if (err.legacyAccount) err.message = 'LEGACY_ACCOUNT';
         return { data: { session: null, user: null }, error: err };
       }
     },
