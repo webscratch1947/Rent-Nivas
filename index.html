@@ -14715,7 +14715,6 @@
       // Cognito password reset is handled by resetpassword.html with an email code.
       const _isReset = false;
       const _isErr = false;
-        || _qp.get('error') === 'access_denied' || _qp.get('error_code') === 'otp_expired';
 
       setLoader(true, 'Loading Rent Nivas...');
       try {
@@ -15741,7 +15740,3 @@
 </body>
 
 </html>
-
-
-
-
