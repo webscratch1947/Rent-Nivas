@@ -1,0 +1,19 @@
+{
+    "name":  "rent-nivas",
+    "version":  "1.0.0",
+    "private":  true,
+    "type":  "commonjs",
+    "scripts":  {
+                    "start":  "vercel dev",
+                    "lint":  "node -e \"console.log(\u0027Static Rent Nivas project: no lint configured\u0027)\""
+                },
+    "dependencies":  {
+                         "@aws-sdk/client-dynamodb":  "^3.600.0",
+                         "@aws-sdk/util-dynamodb":  "^3.600.0",
+                         "@aws-sdk/client-cognito-identity-provider":  "^3.600.0",
+                         "@aws-sdk/client-s3":  "^3.600.0"
+                     },
+    "devDependencies":  {
+                            "vercel":  "^34.3.0"
+                        }
+}
