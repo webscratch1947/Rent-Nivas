@@ -25,16 +25,16 @@ const TABLES = {
   PartnerTaskProgress: process.env.TABLE_PARTNER_TASK_PROGRESS || 'PartnerTaskProgress',
   purchases: process.env.TABLE_PURCHASES || 'Purchases',
   Purchases: process.env.TABLE_PURCHASES || 'Purchases',
-  houses: process.env.TABLE_HOUSES || 'Houses',
-  Houses: process.env.TABLE_HOUSES || 'Houses',
-  listing_questions: process.env.TABLE_LISTING_QUESTIONS || 'ListingQuestions',
-  answers: process.env.TABLE_ANSWERS || 'Answers',
+  houses: process.env.TABLE_HOUSES || 'Properties',
+  Houses: process.env.TABLE_HOUSES || 'Properties',
+  listing_questions: process.env.TABLE_LISTING_QUESTIONS || 'PropertyQuestions',
+  answers: process.env.TABLE_ANSWERS || 'PropertyAnswers',
   admin_announcements: process.env.TABLE_ADMIN_ANNOUNCEMENTS || 'AdminAnnouncements',
-  admin_warnings: process.env.TABLE_ADMIN_WARNINGS || 'AdminWarnings',
+  admin_warnings: process.env.TABLE_ADMIN_WARNINGS || 'Warnings',
   warning_views: process.env.TABLE_WARNING_VIEWS || 'WarningViews',
   announcement_views: process.env.TABLE_ANNOUNCEMENT_VIEWS || 'AnnouncementViews',
-  admin_bans: process.env.TABLE_ADMIN_BANS || 'AdminBans',
-  admin_appeals: process.env.TABLE_ADMIN_APPEALS || 'AdminAppeals'
+  admin_bans: process.env.TABLE_ADMIN_BANS || 'Bans',
+  admin_appeals: process.env.TABLE_ADMIN_APPEALS || 'Appeals'
 };
 
 function send(res, status, payload) {
@@ -123,7 +123,7 @@ function keyFor(table, row, filters) {
     return { task_id: all.task_id, user_id: all.user_id };
   }
   if (table === 'answers') {
-    if (!all.purchase_id || !all.question_id) throw new Error('Answers requires purchase_id and question_id');
+    if (!all.purchase_id || !all.question_id) throw new Error('PropertyAnswers requires purchase_id and question_id');
     return { purchase_id: all.purchase_id, question_id: all.question_id };
   }
   if (table === 'warning_views') {
@@ -262,7 +262,7 @@ async function handleRpc(spec, claims) {
     return { processed: true, referrer_id: users.id };
   }
   if (spec.name === 'award_referral_reward') {
-    throw new Error('award_referral_reward requires a Houses/Listings DynamoDB table mapping. No such table was included in the provided AWS infrastructure list.');
+    throw new Error('award_referral_reward requires the Properties DynamoDB table mapping.');
   }
   throw new Error(`Unsupported RPC "${spec.name}"`);
 }
@@ -292,6 +292,4 @@ module.exports = async function handler(req, res) {
     });
   }
 };
-
-
 
