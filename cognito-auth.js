@@ -124,6 +124,28 @@
     return json.data;
   }
 
+  // Custom backend endpoints (NOT Cognito) for password-reset and signup
+  // email verification. These talk to /api/forgot-password and
+  // /api/signup-verify, which generate their own codes, store them in
+  // DynamoDB, and send them via AWS SES — Cognito is only used afterwards
+  // to actually set/confirm the account (AdminSetUserPassword /
+  // AdminUpdateUserAttributes), not to send any email itself.
+  async function customAuth(path, body) {
+    var resp = await fetch(path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    var json = await resp.json().catch(function () { return {}; });
+    if (!resp.ok || json.error) {
+      var errMsg = (json.error && json.error.message) || (typeof json.error === 'string' ? json.error : 'Request failed.');
+      var err = new Error(errMsg);
+      err.raw = json.error;
+      throw err;
+    }
+    return json.data;
+  }
+
   async function refreshSession() {
     var current = getStoredSession();
     if (!current || !current.refresh_token) return { data: { session: null }, error: null };
@@ -214,24 +236,24 @@
     },
 
     async signUp(payload) {
+      // NOTE: this no longer calls Cognito's public SignUp action (which would
+      // make Cognito send its own confirmation email). Instead /api/signup-verify
+      // creates the Cognito user server-side with MessageAction:'SUPPRESS',
+      // sets the real password immediately, and sends a custom code via SES.
       try {
-        var attrs = [{ Name: 'email', Value: payload.email }];
         var name = payload.options && payload.options.data && payload.options.data.name;
-        if (name) attrs.push({ Name: 'name', Value: name });
-        await cognito('SignUp', {
-          ClientId: CONFIG.clientId,
-          Username: payload.email,
-          Password: payload.password,
-          UserAttributes: attrs,
-          ClientMetadata: {
-            name: name || '',
-            referral_code: (payload.options && payload.options.data && payload.options.data.referral_code) || ''
-          }
+        var referralCode = (payload.options && payload.options.data && payload.options.data.referral_code) || '';
+        await customAuth('/api/signup-verify', {
+          action: 'request',
+          email: payload.email,
+          password: payload.password,
+          name: name || '',
+          referral_code: referralCode || ''
         });
         sessionStorage.setItem('rn-pending-signup', JSON.stringify({
           email: payload.email,
           name: name || '',
-          referral_code: (payload.options && payload.options.data && payload.options.data.referral_code) || ''
+          referral_code: referralCode || ''
         }));
         return { data: { user: { email: payload.email }, session: null, confirmationRequired: true }, error: null };
       } catch (err) {
@@ -242,7 +264,7 @@
 
     async confirmSignUp(email, code) {
       try {
-        await cognito('ConfirmSignUp', { ClientId: CONFIG.clientId, Username: email, ConfirmationCode: code });
+        await customAuth('/api/signup-verify', { action: 'confirm', email: email, code: code });
         var pending = {};
         try { pending = JSON.parse(sessionStorage.getItem('rn-pending-signup') || '{}'); } catch (_) {}
         sessionStorage.removeItem('rn-pending-signup');
@@ -255,7 +277,7 @@
 
     async resendConfirmationCode(email) {
       try {
-        await cognito('ResendConfirmationCode', { ClientId: CONFIG.clientId, Username: email });
+        await customAuth('/api/signup-verify', { action: 'resend', email: email });
         return { data: {}, error: null };
       } catch (err) {
         log('verification resend failed', err, { email: email });
@@ -264,8 +286,11 @@
     },
 
     async resetPasswordForEmail(email) {
+      // Custom SES flow — see /api/forgot-password. Cognito's own
+      // ForgotPassword action is no longer used, so this no longer relies on
+      // (or is limited by) Cognito's built-in email sending.
       try {
-        await cognito('ForgotPassword', { ClientId: CONFIG.clientId, Username: email });
+        await customAuth('/api/forgot-password', { action: 'request', email: email });
         sessionStorage.setItem('rn-reset-email', email);
         return { data: {}, error: null };
       } catch (err) {
@@ -276,11 +301,11 @@
 
     async confirmForgotPassword(email, code, password) {
       try {
-        await cognito('ConfirmForgotPassword', {
-          ClientId: CONFIG.clientId,
-          Username: email,
-          ConfirmationCode: code,
-          Password: password
+        await customAuth('/api/forgot-password', {
+          action: 'confirm',
+          email: email,
+          code: code,
+          newPassword: password
         });
         return { data: {}, error: null };
       } catch (err) {
