@@ -1,81 +1,74 @@
 const crypto = require('crypto');
+const { REGION, APP_CLIENT_ID, send, parseBody } = require('./_auth');
 
-const REGION = process.env.AWS_REGION || process.env.RENT_NIVAS_AWS_REGION || 'eu-north-1';
-const USER_POOL_ID = process.env.COGNITO_USER_POOL_ID || 'eu-north-1_GM7Zi2xvq';
-const APP_CLIENT_ID = process.env.COGNITO_APP_CLIENT_ID || 'ckpmh0heco2apoh0temn8hfnl';
-const ISSUER = `https://cognito-idp.${REGION}.amazonaws.com/${USER_POOL_ID}`;
-const JWKS_URL = `${ISSUER}/.well-known/jwks.json`;
-let jwksCache = null;
-let jwksFetchedAt = 0;
+const CLIENT_SECRET = process.env.COGNITO_CLIENT_SECRET;
+const COGNITO_URL = `https://cognito-idp.${REGION}.amazonaws.com/`;
 
-function send(res, status, payload) {
-  res.statusCode = status;
-  res.setHeader('Content-Type', 'application/json');
-  res.setHeader('Cache-Control', 'no-store');
-  res.end(JSON.stringify(payload));
+// Actions that require SecretHash (App Client is configured with a secret)
+const SECRET_HASH_ACTIONS = {
+  SignUp: 'Username',
+  InitiateAuth: 'AuthParameters.USERNAME',
+  ForgotPassword: 'Username',
+  ConfirmForgotPassword: 'Username',
+  ConfirmSignUp: 'Username',
+  ResendConfirmationCode: 'Username'
+};
+
+function computeSecretHash(username) {
+  if (!CLIENT_SECRET) throw new Error('COGNITO_CLIENT_SECRET environment variable is required');
+  return crypto
+    .createHmac('sha256', CLIENT_SECRET)
+    .update(String(username) + APP_CLIENT_ID)
+    .digest('base64');
 }
 
-function parseBody(req) {
-  return new Promise((resolve, reject) => {
-    let raw = '';
-    req.on('data', chunk => { raw += chunk; });
-    req.on('end', () => {
-      if (!raw) return resolve({});
-      try { resolve(JSON.parse(raw)); } catch (err) { reject(err); }
+function resolveUsername(target, body) {
+  if (target === 'InitiateAuth') {
+    var params = body.AuthParameters || {};
+    // USER_PASSWORD_AUTH uses USERNAME; REFRESH_TOKEN_AUTH needs the username passed
+    // explicitly by the client (it isn't part of the refresh token itself).
+    return params.USERNAME;
+  }
+  return body.Username;
+}
+
+module.exports = async function handler(req, res) {
+  if (req.method === 'OPTIONS') return send(res, 204, {});
+  if (req.method !== 'POST') return send(res, 405, { error: 'Method not allowed' });
+  try {
+    const body = await parseBody(req);
+    const target = body.target;
+    if (!target || !SECRET_HASH_ACTIONS[target]) {
+      throw new Error('Unsupported or missing auth target');
+    }
+
+    const payload = Object.assign({}, body.payload || {});
+    payload.ClientId = APP_CLIENT_ID;
+
+    const username = resolveUsername(target, payload);
+    if (!username) throw new Error('Username is required to compute SecretHash');
+    const secretHash = computeSecretHash(username);
+
+    if (target === 'InitiateAuth') {
+      payload.AuthParameters = Object.assign({}, payload.AuthParameters, { SECRET_HASH: secretHash });
+    } else {
+      payload.SecretHash = secretHash;
+    }
+
+    const resp = await fetch(COGNITO_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-amz-json-1.1',
+        'X-Amz-Target': 'AWSCognitoIdentityProviderService.' + target
+      },
+      body: JSON.stringify(payload)
     });
-    req.on('error', reject);
-  });
-}
-
-function b64url(input) {
-  return Buffer.from(input.replace(/-/g, '+').replace(/_/g, '/'), 'base64');
-}
-
-async function getJwks() {
-  if (jwksCache && Date.now() - jwksFetchedAt < 60 * 60 * 1000) return jwksCache;
-  const resp = await fetch(JWKS_URL);
-  if (!resp.ok) throw new Error('Unable to load Cognito signing keys');
-  jwksCache = await resp.json();
-  jwksFetchedAt = Date.now();
-  return jwksCache;
-}
-
-function jwkToPem(jwk) {
-  const keyObject = crypto.createPublicKey({ key: { kty: jwk.kty, n: jwk.n, e: jwk.e }, format: 'jwk' });
-  return keyObject.export({ type: 'spki', format: 'pem' });
-}
-
-async function verifyToken(req) {
-  const auth = req.headers.authorization || '';
-  const token = auth.startsWith('Bearer ') ? auth.slice(7) : '';
-  if (!token) throw new Error('Missing authorization token');
-  const parts = token.split('.');
-  if (parts.length !== 3) throw new Error('Invalid authorization token');
-  const header = JSON.parse(b64url(parts[0]).toString('utf8'));
-  const payload = JSON.parse(b64url(parts[1]).toString('utf8'));
-  if (payload.iss !== ISSUER) throw new Error('Invalid token issuer');
-  if (payload.client_id !== APP_CLIENT_ID && payload.aud !== APP_CLIENT_ID) throw new Error('Invalid token audience');
-  if (payload.exp * 1000 <= Date.now()) throw new Error('Authorization token expired');
-  const jwks = await getJwks();
-  const jwk = (jwks.keys || []).find(k => k.kid === header.kid);
-  if (!jwk) throw new Error('Unknown token signing key');
-  const verifier = crypto.createVerify('RSA-SHA256');
-  verifier.update(`${parts[0]}.${parts[1]}`);
-  verifier.end();
-  if (!verifier.verify(jwkToPem(jwk), b64url(parts[2]))) throw new Error('Invalid token signature');
-  return payload;
-}
-
-function isAdmin(claims) {
-  const groups = claims['cognito:groups'] || [];
-  const adminEmails = (process.env.ADMIN_EMAILS || '').split(',').map(v => v.trim().toLowerCase()).filter(Boolean);
-  return groups.includes('admin') || groups.includes('Admin') || adminEmails.includes(String(claims.email || '').toLowerCase());
-}
-
-async function requireAdmin(req) {
-  const claims = await verifyToken(req);
-  if (!isAdmin(claims)) throw new Error('Admin access required');
-  return claims;
-}
-
-module.exports = { REGION, USER_POOL_ID, APP_CLIENT_ID, send, parseBody, verifyToken, requireAdmin, isAdmin };
+    const json = await resp.json().catch(function () { return {}; });
+    if (!resp.ok || json.__type) {
+      return send(res, resp.status || 400, { error: json });
+    }
+    return send(res, 200, { data: json });
+  } catch (err) {
+    return send(res, 400, { error: { message: err.message || 'Auth request failed' } });
+  }
+};
