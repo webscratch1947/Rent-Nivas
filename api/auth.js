@@ -1,8 +1,10 @@
 const crypto = require('crypto');
-const { REGION, APP_CLIENT_ID, send, parseBody } = require('./_auth');
+const { CognitoIdentityProviderClient, AdminGetUserCommand } = require('@aws-sdk/client-cognito-identity-provider');
+const { REGION, USER_POOL_ID, APP_CLIENT_ID, send, parseBody } = require('./_auth');
 
 const CLIENT_SECRET = process.env.COGNITO_CLIENT_SECRET;
 const COGNITO_URL = `https://cognito-idp.${REGION}.amazonaws.com/`;
+const adminClient = new CognitoIdentityProviderClient({ region: REGION });
 
 // Actions that require SecretHash (App Client is configured with a secret)
 const SECRET_HASH_ACTIONS = {
@@ -65,6 +67,22 @@ module.exports = async function handler(req, res) {
     });
     const json = await resp.json().catch(function () { return {}; });
     if (!resp.ok || json.__type) {
+      // On a failed password sign-in, check if this is a legacy account imported
+      // from Supabase that's stuck in FORCE_CHANGE_PASSWORD status — Cognito won't
+      // allow USER_PASSWORD_AUTH for those, but won't say why either.
+      if (target === 'InitiateAuth' && payload.AuthFlow === 'USER_PASSWORD_AUTH') {
+        try {
+          const userInfo = await adminClient.send(new AdminGetUserCommand({
+            UserPoolId: USER_POOL_ID,
+            Username: username
+          }));
+          if (userInfo.UserStatus === 'FORCE_CHANGE_PASSWORD' || userInfo.UserStatus === 'RESET_REQUIRED') {
+            return send(res, 200, { data: null, legacyAccount: true });
+          }
+        } catch (lookupErr) {
+          // user truly doesn't exist or lookup failed — fall through to normal error
+        }
+      }
       return send(res, resp.status || 400, { error: json });
     }
     return send(res, 200, { data: json });
