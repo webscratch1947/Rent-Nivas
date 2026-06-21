@@ -15392,7 +15392,7 @@
             if (errorEl) { errorEl.textContent = "❌ That's your own referral code — enter someone else's instead."; errorEl.style.display = 'block'; }
             return;
           }
-          if (nameEl) nameEl.textContent = data.name || '—';
+          if (nameEl) nameEl.textContent = data.name || (data.email ? data.email.split('@')[0] : 'Rent Nivas user');
           if (emailEl) emailEl.textContent = data.email || '—';
           if (resultEl) resultEl.style.display = 'block';
         } catch(e) {
