@@ -3834,6 +3834,33 @@
       gap: 10px;
     }
 
+    .rent-main-tabs {
+      display: flex;
+      gap: 6px;
+      background: var(--card);
+      border: 1.5px solid var(--border);
+      border-radius: 14px;
+      padding: 5px;
+      margin-bottom: 24px;
+      width: fit-content;
+    }
+    .rent-main-tab {
+      padding: 9px 22px;
+      border-radius: 10px;
+      border: none;
+      background: none;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--muted);
+      cursor: pointer;
+      transition: background .18s, color .18s;
+      white-space: nowrap;
+    }
+    .rent-main-tab.active, .rent-main-tab:hover {
+      background: var(--terra);
+      color: #fff;
+    }
+
     .rent-search-enhanced {
       display: flex;
       justify-content: center;
@@ -8887,9 +8914,6 @@
           <button class="nav-btn active" id="rnb-browse" onclick="rentShowSection('browse')">
             <span class="icon">🏘️</span><span class="label" data-i18n="rent_nav_browse">Browse Homes</span>
           </button>
-          <button class="nav-btn" id="rnb-purchased" onclick="rentShowSection('purchased')">
-            <span class="icon">🔓</span><span class="label" data-i18n="rent_nav_unlocked">Unlocked Homes</span>
-          </button>
           <button class="nav-btn" id="rnb-profile" onclick="rentShowSection('profile')">
             <span class="icon">👤</span><span class="label" data-i18n="rent_nav_profile">Profile</span>
           </button>
@@ -8929,6 +8953,12 @@
 
       <!-- ── RENT MAIN CONTENT ── -->
       <main class="ds-main">
+
+        <!-- CENTER TAB BAR: Browse / Unlocked Homes -->
+        <div class="rent-main-tabs" id="rent-main-tabs">
+          <button class="rent-main-tab active" id="rtab-browse" onclick="rentShowSection('browse')">🏘️ Browse Homes</button>
+          <button class="rent-main-tab" id="rtab-purchased" onclick="rentShowSection('purchased')">🔓 Unlocked Homes</button>
+        </div>
 
         <!-- BROWSE SECTION -->
         <div class="ds-section active" id="rent-section-browse">
@@ -11275,15 +11305,18 @@
 
         let refCode = prof?.referral_code;
 
-        // Auto-generate if missing (mirrors ensureReferralCode logic)
+        // Ensure a permanent referral code exists — ensureReferralCode() creates it once and saves it
         if (!refCode) {
-          refCode = String(Math.floor(10000000 + Math.random() * 90000000));
-          await sb.from('profiles').upsert({ id: user.id, referral_code: refCode, email: user.email });
+          await ensureReferralCode();
+          const { data: refData } = await sb.from('profiles').select('referral_code').eq('id', user.id).maybeSingle();
+          refCode = refData?.referral_code || '';
+        } else {
+          showReferralCodeInSidebar(refCode);
         }
 
         // Render referral code card
         const codeEl = document.getElementById('pd-ref-code-display');
-        if (codeEl) codeEl.textContent = refCode;
+        if (codeEl) codeEl.textContent = refCode || '——————';
 
         // Show stats
         const totalXP    = parseInt(prof?.partner_xp ?? prof?.xp ?? 0, 10);
@@ -13557,12 +13590,15 @@
 
       if (prof?.avatar_url) applyAvatarEverywhere(name, prof.avatar_url, 'host');
 
-      // Referral stats — self-heal a missing referral code (mirrors ensureReferralCode)
+      // Referral stats — use ensureReferralCode() as single source of truth
       try {
         let refCode = prof?.referral_code;
-        if (!refCode && typeof generateReferralCode === 'function') {
-          refCode = generateReferralCode();
-          await sb.from('profiles').upsert({ id: user.id, referral_code: refCode, email: user.email }).catch(() => {});
+        if (!refCode) {
+          await ensureReferralCode();
+          const { data: refData } = await sb.from('profiles').select('referral_code').eq('id', user.id).maybeSingle();
+          refCode = refData?.referral_code || '';
+        } else {
+          showReferralCodeInSidebar(refCode);
         }
         const card = document.getElementById('prof-referral-card');
         if (refCode) {
@@ -13647,12 +13683,15 @@
 
       if (prof?.avatar_url) applyAvatarEverywhere(name, prof.avatar_url, 'rent');
 
-      // Referral stats — self-heal a missing referral code (mirrors ensureReferralCode)
+      // Referral stats — use ensureReferralCode() as single source of truth
       try {
         let refCode = prof?.referral_code;
-        if (!refCode && typeof generateReferralCode === 'function') {
-          refCode = generateReferralCode();
-          await sb.from('profiles').upsert({ id: user.id, referral_code: refCode, email: user.email }).catch(() => {});
+        if (!refCode) {
+          await ensureReferralCode();
+          const { data: refData } = await sb.from('profiles').select('referral_code').eq('id', user.id).maybeSingle();
+          refCode = refData?.referral_code || '';
+        } else {
+          showReferralCodeInSidebar(refCode);
         }
         const card = document.getElementById('rent-prof-referral-card');
         if (refCode) {
@@ -13797,6 +13836,12 @@
       if (sectionEl) sectionEl.classList.add('active');
       const btnEl = document.getElementById('rnb-' + sec);
       if (btnEl) btnEl.classList.add('active');
+      // Sync center tab bar
+      const tabBar = document.getElementById('rent-main-tabs');
+      if (tabBar) tabBar.style.display = (sec === 'browse' || sec === 'purchased') ? 'flex' : 'none';
+      document.querySelectorAll('.rent-main-tab').forEach(b => b.classList.remove('active'));
+      const tabEl = document.getElementById('rtab-' + sec);
+      if (tabEl) tabEl.classList.add('active');
       // Close sidebar on mobile
       const sb2 = document.getElementById('rent-ds-sidebar');
       if (sb2 && sb2.classList.contains('mob-open')) { sb2.classList.remove('mob-open'); if (typeof _unlockScroll === 'function') _unlockScroll(); }
@@ -14668,7 +14713,7 @@
         fields: [{ id:'msg', label:'Warning message', type:'textarea', placeholder:'Describe the violation...', required:true }],
         confirmText: 'Send Warning', confirmClass: 'btn-terra',
         onConfirm: async (v) => {
-          const { error } = await sb.from('admin_warnings').insert({ user_id: userId, message: v.msg, global: false });
+          const { error } = await sb.from('admin_warnings').insert({ user_id: userId, message: v.msg, global: false, created_by: user.id, created_at: new Date().toISOString() });
           if (error) throw error;
           toast('⚠️ Warning sent to ' + userName, 'success');
           setTimeout(loadAdminUsers, 500);
@@ -14711,7 +14756,7 @@
           const { data: existing } = await sb.from('partner_requests').select('id').eq('user_id', userId).maybeSingle();
           let error;
           if (existing) {
-            ({ error } = await sb.from('partner_requests').update({ status: 'accepted', full_name: userName, email: userEmail || '', phone: existing.phone || '', partner_type: existing.partner_type || 'admin_grant', city: existing.city || '' }).eq('user_id', userId));
+            ({ error } = await sb.from('partner_requests').update({ status: 'accepted', full_name: userName, email: userEmail || '', phone: existing.phone || '', partner_type: existing.partner_type || 'admin_grant', city: existing.city || '' }).eq('id', existing.id));
           } else {
             ({ error } = await sb.from('partner_requests').insert({ user_id: userId, full_name: userName, email: userEmail || '', phone: '', partner_type: 'admin_grant', city: '', status: 'accepted', created_at: new Date().toISOString() }));
           }
