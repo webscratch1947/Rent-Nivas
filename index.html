@@ -9872,17 +9872,18 @@
             <button class="admin-tab" onclick="adminTab(this,'adm-bans');loadAdminBans()">🚫 Bans</button>
             <button class="admin-tab" onclick="adminTab(this,'adm-appeals');loadAdminAppeals()">📩 Appeals</button>
             <button class="admin-tab" onclick="adminTab(this,'adm-partners');loadAdminPartners()">🤝 Partner Requests</button>
-            <button class="admin-tab" onclick="adminTab(this,'adm-announce')">📢 Announcements</button>
+            <button class="admin-tab" onclick="adminTab(this,'adm-announce');loadAdminAnnouncements()">📢 Announcements</button>
             <button class="admin-tab" onclick="adminTab(this,'adm-tasks');loadAdminTasksTab()">📋 Tasks</button>
           </div>
 
           <!-- USERS TAB -->
           <div class="admin-sub active" id="adm-users">
-            <div style="display:flex;gap:10px;margin-bottom:16px;">
+            <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;">
               <input type="text" id="adm-search-user" placeholder="Search by email or name..."
                 oninput="adminFilterUsers()"
                 style="flex:1;padding:10px 16px;border:1.5px solid var(--border2);border-radius:var(--r);font-family:var(--font);font-size:14px;color:var(--ink);background:var(--white);outline:none;">
               <button class="btn btn-terra btn-sm" onclick="loadAdminUsers()">🔄 Refresh</button>
+              <button class="btn btn-sm" id="adm-backfill-btn" style="background:var(--blue-bg);color:var(--blue);" onclick="adminBackfillProfiles()" title="One-time fix for accounts created before the credits bug was fixed — safe to run repeatedly, never overwrites real data">🔧 Fix Existing Accounts (credits/referral)</button>
             </div>
             <div id="adm-ghost-banner"
               style="display:none;background:var(--amber-bg);color:var(--amber);padding:10px 16px;border-radius:var(--r);margin-bottom:14px;font-size:14px;font-weight:600;border:1.5px solid #fde68a;">
@@ -11126,10 +11127,11 @@
         // creating duplicate partner_requests rows per user, which made
         // admin approval unreliable (approving one row while a newer
         // duplicate stayed pending).
-        const { data: existingRows } = await withTimeout(
+        const { data: existingRows, error: fetchErr } = await withTimeout(
           sb.from('partner_requests').select('id,created_at').eq('user_id', user.id),
           8000, 'Submission timed out. Please try again.'
         );
+        if (fetchErr) throw fetchErr;
         const rows = (existingRows || []).slice().sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
         let error;
         if (rows.length) {
@@ -11607,21 +11609,28 @@
     }
 
     async function loadAdminAnnouncements() {
-      const { data } = await sb.from('admin_announcements').select('*').order('created_at', { ascending: false });
-      adminAnnouncements = data || [];
       const el = document.getElementById('adm-announce-list');
-      if (!adminAnnouncements.length) { el.innerHTML = '<div style="text-align:center;padding:32px;color:var(--muted);">No announcements yet.</div>'; return; }
-      el.innerHTML = adminAnnouncements.slice(0, 20).map(a => {
-        const expiry = a.expires_at ? `<span style="font-size:11px;color:var(--muted);margin-left:6px;">⏰ Expires: ${fmtDate(a.expires_at)}</span>` : '';
-        const expired = a.expires_at && new Date(a.expires_at) < new Date() ? '<span style="font-size:11px;background:#fee2e2;color:#dc2626;padding:2px 7px;border-radius:8px;margin-left:6px;">Expired</span>' : '';
-        return `<div class="announce-card" style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;">
-          <div style="flex:1;min-width:0;">
-            <h4 style="margin:0 0 4px;">${esc(a.message || '').slice(0, 120)}</h4>
-            <p style="margin:0;display:flex;align-items:center;flex-wrap:wrap;gap:4px;">${fmtDate(a.created_at)}${expiry}${expired}</p>
-          </div>
-          <button onclick="deleteAnnouncement('${a.id}')" title="Delete" style="flex-shrink:0;background:none;border:1px solid rgba(220,38,38,.3);color:#dc2626;border-radius:8px;padding:5px 10px;font-size:13px;cursor:pointer;font-weight:600;" onmouseover="this.style.background='#fee2e2'" onmouseout="this.style.background='none'">🗑 Delete</button>
-        </div>`;
-      }).join('');
+      if (!el) return;
+      el.innerHTML = '<div style="text-align:center;padding:32px;color:var(--muted);">Loading announcements...</div>';
+      try {
+        const { data, error } = await sb.from('admin_announcements').select('*').order('created_at', { ascending: false });
+        if (error) throw error;
+        adminAnnouncements = data || [];
+        if (!adminAnnouncements.length) { el.innerHTML = '<div style="text-align:center;padding:32px;color:var(--muted);">No announcements yet.</div>'; return; }
+        el.innerHTML = adminAnnouncements.slice(0, 20).map(a => {
+          const expiry = a.expires_at ? `<span style="font-size:11px;color:var(--muted);margin-left:6px;">⏰ Expires: ${fmtDate(a.expires_at)}</span>` : '';
+          const expired = a.expires_at && new Date(a.expires_at) < new Date() ? '<span style="font-size:11px;background:#fee2e2;color:#dc2626;padding:2px 7px;border-radius:8px;margin-left:6px;">Expired</span>' : '';
+          return `<div class="announce-card" style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;">
+            <div style="flex:1;min-width:0;">
+              <h4 style="margin:0 0 4px;">${esc(a.message || '').slice(0, 120)}</h4>
+              <p style="margin:0;display:flex;align-items:center;flex-wrap:wrap;gap:4px;">${fmtDate(a.created_at)}${expiry}${expired}</p>
+            </div>
+            <button onclick="deleteAnnouncement('${a.id}')" title="Delete" style="flex-shrink:0;background:none;border:1px solid rgba(220,38,38,.3);color:#dc2626;border-radius:8px;padding:5px 10px;font-size:13px;cursor:pointer;font-weight:600;" onmouseover="this.style.background='#fee2e2'" onmouseout="this.style.background='none'">🗑 Delete</button>
+          </div>`;
+        }).join('');
+      } catch (e) {
+        el.innerHTML = `<div style="text-align:center;padding:32px;color:var(--muted);">Failed to load announcements: ${esc(e.message || 'Unknown error')}</div>`;
+      }
     }
 
     async function deleteAnnouncement(id) {
@@ -11639,11 +11648,12 @@
       const payload = { message: msg, created_by: user.id };
       if (expiresInput) payload.expires_at = new Date(expiresInput).toISOString();
       try {
+        console.log('[Admin] Sending announcement:', msg);
         const { data: inserted, error } = await sb.from('admin_announcements').insert(payload).select().single();
         if (error) { toast('Announcement failed: ' + error.message, 'error'); return; }
         document.getElementById('ann-text').value = '';
         document.getElementById('ann-expires').value = '';
-        console.log('[Nestly Admin] Announcement sent:', msg);
+        console.log('[Nestly Admin] Announcement sent:', msg, 'id=', inserted?.id);
         toast('📢 Announcement sent to all users!', 'success');
         await loadAdminAnnouncements();
         // Show the banner for the admin too (using the real id so it dedupes correctly)
@@ -11656,12 +11666,18 @@
     async function sendWarningBanner() {
       const msg = document.getElementById('warn-text').value.trim();
       if (!msg) { toast('Enter a warning message', 'error'); return; }
-      const { data: inserted, error } = await sb.from('admin_warnings').insert({ user_id: null, message: msg, global: true, created_by: user.id }).select().single();
-      if (error) { toast('Warning failed: ' + error.message, 'error'); return; }
-      console.log('[Nestly Admin] Global warning sent:', msg);
-      // Show for admin too with proper id so dedup works
-      if (inserted?.id) showWarningBanner(inserted.id, msg);
-      toast('⚠️ Warning banner shown to all users.', 'success');
+      try {
+        console.log('[Admin] Sending global warning:', msg);
+        const { data: inserted, error } = await sb.from('admin_warnings').insert({ user_id: null, message: msg, global: true, created_by: user.id }).select().single();
+        if (error) { toast('Warning failed: ' + error.message, 'error'); return; }
+        console.log('[Nestly Admin] Global warning sent:', msg, 'id=', inserted?.id);
+        // Show for admin too with proper id so dedup works
+        if (inserted?.id) showWarningBanner(inserted.id, msg);
+        document.getElementById('warn-text').value = '';
+        toast('⚠️ Warning banner shown to all users.', 'success');
+      } catch (e) {
+        toast('Warning failed: ' + (e.message || 'Network error'), 'error');
+      }
     }
 
     async function clearWarningBanner() {
@@ -12003,13 +12019,14 @@
 
       // 2. Always re-verify from DB (catches admin lifting ban, expiry, etc.)
       if (!user) return banned;
-      console.log('[Nestly] checkUserBan() DB verify for:', user.email);
+      console.log('[Nestly] checkUserBan() DB verify for:', user.email, 'user.id=', user.id);
       const { data: bans, error } = await withTimeout(
         sb.from('admin_bans').select('*').eq('user_id', user.id).eq('active', true),
-        20000,
+        8000,
         'Ban check timed out'
       ).catch(e => ({ data: null, error: e }));
-      if (error) { console.warn('[Nestly] Ban check error:', error); return banned; }
+      if (error) { console.warn('[Nestly] Ban check error (fail-open, not blocking login):', error); return banned; }
+      console.log('[Nestly] checkUserBan() found', bans ? bans.length : 0, 'active ban(s) for user.id=', user.id);
 
       if (!bans || !bans.length) {
         _clearStoredBan();
@@ -12245,15 +12262,28 @@
         _clearStoredBan();
       }
 
+      // Authoritative DB ban check — now BLOCKS dashboard render. Previously
+      // this ran inside a background Promise.all() after the page had already
+      // rendered, so a freshly-banned user (or one banned on another device)
+      // would see the full dashboard for a moment — and if anything in that
+      // background promise silently failed, they'd see it indefinitely.
+      // Awaiting it here means: no ban screen possible until we have a real,
+      // current answer from the database, every time.
+      try {
+        const isBanned = await checkUserBan();
+        if (isBanned) return;
+      } catch (e) {
+        console.warn('[Nestly] Blocking ban check failed — proceeding (fail-open):', e.message || e);
+      }
+
       syncMobNavAuth();
       loadUserPurchases().then(() => updateCreditsBadges()).catch(() => {});
       selectRole(savedRole);          // ← page renders HERE, instantly
       checkPartnerCongrats();
       updatePartnerNavBadges();
 
-      // All remaining work runs in the background — never blocks the UI
+      // Non-security background work — fine to run after render
       Promise.all([
-        checkUserBan(),               // DB verify of ban status
         fetchAndShowWarnings(),       // show any admin warnings
         fetchAndShowAnnouncements(),  // show any admin announcements
       ]).catch(() => {}).then(() => setupRealtimeSubscriptions());
@@ -12261,89 +12291,38 @@
 
     let _realtimeChannels = [];
     function setupRealtimeSubscriptions() {
-      // Clear old subscriptions
+      // NOTE: this backend (DynamoDB-based, see cognito-auth.js) has no
+      // realtime/postgres_changes support — sb.channel(...).on(...).subscribe()
+      // is a no-op stub that never fires. The actual mechanism that keeps bans,
+      // warnings, announcements, and credits in sync is the poll timer below.
       _realtimeChannels.forEach(ch => sb.removeChannel(ch));
       _realtimeChannels = [];
-
       if (!user) return;
 
-      // Listen for ban changes affecting this user
-      const banChannel = sb.channel('ban-' + user.id)
-        .on('postgres_changes', {
-          event: '*', schema: 'public', table: 'admin_bans',
-          filter: `user_id=eq.${user.id}`
-        }, () => {
-          console.log('[Nestly Realtime] Ban updated — rechecking');
-          checkUserBan();
-        })
-        .subscribe();
-
-      // Listen for warnings targeted at this specific user
-      const warnChannel = sb.channel('warn-user-' + user.id)
-        .on('postgres_changes', {
-          event: 'INSERT', schema: 'public', table: 'admin_warnings',
-          filter: `user_id=eq.${user.id}`
-        }, (payload) => {
-          console.log('[Nestly Realtime] Personal warning:', payload);
-          const w = payload.new;
-          if (!w?.message || !w?.id) return;
-          if (user?.created_at && w.created_at && new Date(w.created_at) < new Date(user.created_at)) return;
-          showWarningBanner(w.id, w.message);
-          pushNotif('⚠️', w.message);
-        })
-        .subscribe();
-
-      // Listen for global warnings (user_id IS NULL, global=true)
-      // We poll every 30s as a reliable fallback since realtime filter on NULL is tricky
-      const warnGlobalChannel = sb.channel('warn-global')
-        .on('postgres_changes', {
-          event: 'INSERT', schema: 'public', table: 'admin_warnings'
-        }, (payload) => {
-          console.log('[Nestly Realtime] Global warning received:', payload);
-          const w = payload.new;
-          if (!w?.message || !w?.id) return;
-          // Only show if it's a global warning (not targeted at a different user)
-          if (w.global === true || w.user_id === null || w.user_id === undefined) {
-            if (user?.created_at && w.created_at && new Date(w.created_at) < new Date(user.created_at)) return;
-            showWarningBanner(w.id, w.message);
-            pushNotif('⚠️', w.message);
-          }
-        })
-        .subscribe((status) => {
-          console.log('[Nestly] Global warning channel status:', status);
-        });
-
-      // Listen for new announcements (all users)
-      const annChannel = sb.channel('announce-all')
-        .on('postgres_changes', {
-          event: 'INSERT', schema: 'public', table: 'admin_announcements'
-        }, (payload) => {
-          console.log('[Nestly Realtime] Announcement inserted:', payload);
-          const a = payload.new;
-          if (!a?.message || !a?.id) return;
-          if (user?.created_at && a.created_at && new Date(a.created_at) < new Date(user.created_at)) return;
-          showAnnounceBanner(a.id, a.message);
-          pushNotif('📢', a.message);
-        })
-        .subscribe((status) => {
-          console.log('[Nestly] Announce channel status:', status);
-        });
-
-      _realtimeChannels = [banChannel, warnChannel, warnGlobalChannel, annChannel];
-      console.log('[Nestly] Realtime subscriptions active');
-
-      // Polling fallback: check for new warnings/announcements every 30s
-      // (covers cases where realtime doesn't deliver, e.g. global warnings with NULL filter)
+      // Poll for changes every 30s: ban status, warnings, announcements, and
+      // credits (so an admin editing a user's credits, granting partner access,
+      // or lifting/applying a ban shows up on that user's screen automatically
+      // within 30s, instead of only at their next login).
       if (window._nestlyPollTimer) clearInterval(window._nestlyPollTimer);
       window._nestlyPollTimer = setInterval(async () => {
         if (!user) { clearInterval(window._nestlyPollTimer); return; }
-        // Check ban
         await checkUserBan();
-        // Check warnings — reuse the same deduped function (localStorage-backed)
         await fetchAndShowWarnings();
-        // Check announcements — reuse the same deduped function (localStorage-backed)
         await fetchAndShowAnnouncements();
+        await loadCreditsFromDB();
       }, 30000);
+
+      // Also refresh immediately whenever the tab regains focus/visibility —
+      // covers the common case of an admin making a change while the user's
+      // tab was backgrounded, without waiting up to 30s.
+      const refreshOnFocus = async () => {
+        if (!user) return;
+        await checkUserBan();
+        await loadCreditsFromDB();
+      };
+      window.removeEventListener('focus', window._rnFocusRefreshHandler || (() => {}));
+      window._rnFocusRefreshHandler = refreshOnFocus;
+      window.addEventListener('focus', refreshOnFocus);
     }
 
     function initDashUI() {
@@ -13353,23 +13332,36 @@
         `<tr><td colspan="4" style="text-align:center;color:${isErr ? 'var(--red)' : 'var(--muted)'};padding:24px;">${esc(msg)}<br><button type="button" class="btn btn-terra btn-sm" style="margin-top:10px;" onclick="loadClientsDashboard()">Retry</button></td></tr>`;
 
       try {
-        const { data: purchases, error } = await withTimeout(
-          sb
-            .from('purchases')
-            .select('id, user_id, listing_id, created_at, houses!inner(id, title, owner_id)')
-            .eq('houses.owner_id', user.id)
-            .order('created_at', { ascending: false }),
-          40000,
-          'Clients request timed out. Check your connection and try again.'
+        // NOTE: this backend has no relational joins or dotted-path filters
+        // (Supabase's `houses!inner(...)` + `.eq('houses.owner_id', ...)`) —
+        // fetch this owner's houses first, then purchases for those listings,
+        // and join manually in JS.
+        const { data: ownedHouses, error: hErr } = await withTimeout(
+          sb.from('houses').select('id,title,owner_id').eq('owner_id', user.id),
+          15000, 'Listings request timed out. Check your connection and try again.'
         );
-
-        if (error) {
-          if (tbody) tbody.innerHTML = errRow(error.message, true);
-          toast('Clients: ' + error.message, 'error');
+        if (hErr) {
+          if (tbody) tbody.innerHTML = errRow(hErr.message, true);
+          toast('Clients: ' + hErr.message, 'error');
           return;
         }
+        const houseMap = new Map((ownedHouses || []).map(h => [h.id, h]));
+        const houseIds = [...houseMap.keys()];
+        let pRows = [];
+        if (houseIds.length) {
+          const { data: purchases, error } = await withTimeout(
+            sb.from('purchases').select('id, user_id, listing_id, created_at').in('listing_id', houseIds).order('created_at', { ascending: false }),
+            40000,
+            'Clients request timed out. Check your connection and try again.'
+          );
+          if (error) {
+            if (tbody) tbody.innerHTML = errRow(error.message, true);
+            toast('Clients: ' + error.message, 'error');
+            return;
+          }
+          pRows = (purchases || []).map(p => Object.assign({}, p, { houses: houseMap.get(p.listing_id) || null }));
+        }
 
-        const pRows = purchases || [];
         ownerClientsCache = pRows;
         if (!pRows.length) {
           if (tbody) tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:24px;">No clients yet.</td></tr>';
@@ -13423,9 +13415,11 @@
       }
 
       const { data: buyer } = await sb.from('profiles').select('name, email').eq('id', row.user_id).maybeSingle();
+      // NOTE: relational join unsupported by this backend — fetch answers,
+      // then the matching questions, then join manually in JS.
       const { data: ans, error } = await sb
         .from('answers')
-        .select('answer_text, listing_questions(question_text)')
+        .select('answer_text, question_id')
         .eq('purchase_id', purchaseId);
 
       if (error) {
@@ -13434,6 +13428,13 @@
       }
 
       const answers = ans || [];
+      const questionIds = [...new Set(answers.map(a => a.question_id).filter(Boolean))];
+      let questionMap = new Map();
+      if (questionIds.length) {
+        const { data: questions } = await sb.from('listing_questions').select('id, question_text').in('id', questionIds);
+        questionMap = new Map((questions || []).map(q => [q.id, q]));
+      }
+      answers.forEach(a => { a.listing_questions = questionMap.get(a.question_id) || null; });
       detail.innerHTML = `
         <div style="padding:6px 4px;">
           <div style="font-size:18px;font-weight:800;color:var(--ink);margin-bottom:4px;">${esc((buyer?.name || buyer?.email || 'Buyer'))}</div>
@@ -14529,6 +14530,21 @@
 
     let _adminUsersCache = [];
 
+    async function adminBackfillProfiles() {
+      const btn = document.getElementById('adm-backfill-btn');
+      if (btn) { btn.disabled = true; btn.textContent = '⏳ Fixing existing accounts...'; }
+      try {
+        const { data, error } = await sb.rpc('admin_backfill_profile_defaults', {});
+        if (error) throw error;
+        toast(`✅ Checked ${data.scanned} accounts (fixed ${data.fixed} missing credits/referral fields), deduped ${data.dedupedUsers || 0} users' partner applications (removed ${data.deletedRows || 0} duplicate rows)`, 'success');
+        setTimeout(loadAdminUsers, 500);
+      } catch (e) {
+        toast('Backfill failed: ' + (e.message || 'Unknown error'), 'error');
+      } finally {
+        if (btn) { btn.disabled = false; btn.textContent = '🔧 Fix Existing Accounts (credits/referral)'; }
+      }
+    }
+
     async function loadAdmin() {
       if (!isAdmin()) return;
       try {
@@ -14702,12 +14718,14 @@
     function closeAdminModal() { const w=document.getElementById('adm-modal-wrap'); if(w) w.style.display='none'; }
 
     async function adminWarnUser(userId, userName) {
+      if (!userId) { toast('Cannot warn: this user has no id.', 'error'); return; }
       openAdminModal({
         title: '⚠️ Warn User',
         subtitle: 'Sending a warning to: ' + userName,
         fields: [{ id:'msg', label:'Warning message', type:'textarea', placeholder:'Describe the violation...', required:true }],
         confirmText: 'Send Warning', confirmClass: 'btn-terra',
         onConfirm: async (v) => {
+          console.log('[Admin] Warning user_id=', userId, 'name=', userName);
           const { error } = await sb.from('admin_warnings').insert({ user_id: userId, message: v.msg, global: false, created_by: user.id, created_at: new Date().toISOString() });
           if (error) throw error;
           toast('⚠️ Warning sent to ' + userName, 'success');
@@ -14717,6 +14735,7 @@
     }
 
     async function adminBanUser(userId, userName, isTemp) {
+      if (!userId) { toast('Cannot ban: this user has no id.', 'error'); return; }
       openAdminModal({
         title: isTemp ? '⏱️ Temp Ban User' : '🚫 Permanently Ban User',
         subtitle: 'User: ' + userName,
@@ -14733,8 +14752,21 @@
             if (!d || d < 1) throw new Error('Enter a valid number of days.');
             until = new Date(Date.now() + d * 86400000).toISOString();
           }
+          console.log('[Admin] Banning user_id=', userId, 'name=', userName);
           const { error } = await sb.from('admin_bans').insert({ user_id: userId, reason: v.reason, active: true, type: isTemp ? 'temp' : 'perm', until });
           if (error) throw error;
+          // Verify the ban can actually be found by the same query the banned
+          // user's own browser will run (checkUserBan). If this comes back
+          // empty, the ban silently won't apply — surface that immediately
+          // instead of showing a false "success" toast.
+          try {
+            const { data: verify } = await sb.from('admin_bans').select('id').eq('user_id', userId).eq('active', true);
+            if (!verify || !verify.length) {
+              toast('⚠️ Ban was saved but could not be verified — please refresh the Bans tab and check it appears there.', 'error');
+              setTimeout(loadAdminUsers, 500);
+              return;
+            }
+          } catch (e) { /* non-fatal — verification is best-effort */ }
           toast((isTemp ? '⏱️ Temp banned' : '🚫 Banned') + ' ' + userName, 'success');
           setTimeout(loadAdminUsers, 500);
         }
@@ -14742,13 +14774,22 @@
     }
 
     async function adminGivePartner(userId, userName, userEmail) {
+      if (!userId) { toast('Cannot grant partner access: this user has no id.', 'error'); return; }
       openAdminModal({
         title: '🤝 Grant Partner Status',
         subtitle: 'This will give partner dashboard access to: ' + userName,
         fields: [],
         confirmText: 'Grant Partner', confirmClass: 'btn-terra',
         onConfirm: async () => {
-          const { data: existingRows } = await sb.from('partner_requests').select('id,phone,partner_type,city,created_at').eq('user_id', userId);
+          console.log('[Admin] Granting partner access to user_id=', userId, 'name=', userName);
+          const { data: existingRows, error: fetchErr } = await sb.from('partner_requests').select('id,phone,partner_type,city,created_at').eq('user_id', userId);
+          // IMPORTANT: previously this ignored fetchErr and treated any failed
+          // lookup the same as "no existing application" — which meant a
+          // transient read failure could create a brand-new 'accepted' row
+          // while the user's real pending application stayed untouched and
+          // (depending on timestamps) could still be the row the user-facing
+          // partner-status check picks up, leaving them stuck on the form.
+          if (fetchErr) throw new Error('Could not check existing partner applications: ' + fetchErr.message);
           const rows = (existingRows || []).slice().sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
           let error;
           if (rows.length) {
@@ -14764,6 +14805,19 @@
             ({ error } = await sb.from('partner_requests').insert({ user_id: userId, full_name: userName, email: userEmail || '', phone: '', partner_type: 'admin_grant', city: '', status: 'accepted', created_at: new Date().toISOString() }));
           }
           if (error) throw error;
+          // Verify: re-read using the EXACT same query the user's own browser
+          // runs (goToPartnerArea / loadPartnerPage), so we catch — at grant
+          // time, not days later — any case where the row the user will see
+          // isn't actually the accepted one.
+          try {
+            const { data: verify } = await sb.from('partner_requests').select('status').eq('user_id', userId).order('created_at', { ascending: false }).limit(1).maybeSingle();
+            if (!verify || verify.status !== 'accepted') {
+              toast('⚠️ Granted, but verification shows status="' + (verify?.status || 'none') + '" — there may be a duplicate application row. Check Partner Requests tab.', 'error');
+              setTimeout(loadAdminUsers, 500);
+              if (document.getElementById('adm-partners')?.style.display !== 'none') setTimeout(loadAdminPartners, 500);
+              return;
+            }
+          } catch (e) { /* non-fatal — verification is best-effort */ }
           toast('🤝 Partner access granted to ' + userName, 'success');
           setTimeout(loadAdminUsers, 500);
           // Also refresh the partner requests list if it is currently visible
@@ -14773,6 +14827,7 @@
     }
 
     async function adminEditCredits(userId, userName, current) {
+      if (!userId) { toast('Cannot edit credits: this user has no id.', 'error'); return; }
       openAdminModal({
         title: '💰 Edit Credits',
         subtitle: userName + ' — current: ' + current + ' credits',
@@ -14781,9 +14836,17 @@
         onConfirm: async (v) => {
           const val = Number(v.credits);
           if (isNaN(val) || val < 0) throw new Error('Enter a valid number.');
-          const { error } = await sb.from('profiles').update({ credits: val }).eq('id', userId);
+          console.log('[Admin] Setting credits for user_id=', userId, 'to', val);
+          const { data: updated, error } = await sb.from('profiles').update({ credits: val }).eq('id', userId);
           if (error) throw error;
-          toast('💰 Credits updated for ' + userName, 'success');
+          const newVal = Array.isArray(updated) ? updated[0]?.credits : updated?.credits;
+          if (newVal !== val) {
+            console.warn('[Admin] Credits write returned unexpected value:', newVal, 'expected', val);
+          }
+          // Note: the user's own browser caches credits in localStorage and
+          // refreshes from the DB every 30s (poll) or immediately when they
+          // next focus their tab — not instantly on this write.
+          toast('💰 Credits updated for ' + userName + ' (their screen updates within ~30s, or instantly if they switch back to the tab)', 'success');
           loadAdminUsers();
         }
       });
@@ -14839,8 +14902,10 @@
       if (!picker) return;
       picker.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:8px;">Loading partners...</div>';
       try {
+        // NOTE: this backend has no relational joins (unlike Supabase) — fetch
+        // partner_requests and profiles separately and join them manually.
         const { data, error } = await withTimeout(
-          sb.from('partner_requests').select('user_id, profiles(name,email)').eq('status', 'accepted'),
+          sb.from('partner_requests').select('user_id').eq('status', 'accepted'),
           6000, 'Partner load timed out'
         );
         if (error) throw error;
@@ -14848,11 +14913,20 @@
           picker.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:8px;">No approved partners yet.</div>';
           return;
         }
-        picker.innerHTML = data.map(r => `
+        const userIds = [...new Set(data.map(r => r.user_id).filter(Boolean))];
+        let profMap = {};
+        if (userIds.length) {
+          const { data: profs } = await sb.from('profiles').select('id,name,email').in('id', userIds);
+          (profs || []).forEach(p => { profMap[p.id] = p; });
+        }
+        picker.innerHTML = data.map(r => {
+          const p = profMap[r.user_id];
+          return `
           <label style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;cursor:pointer;font-size:13px;color:var(--ink);">
             <input type="checkbox" value="${esc(r.user_id)}" style="margin:0;">
-            ${esc(r.profiles?.name || r.profiles?.email || r.user_id)}
-          </label>`).join('');
+            ${esc(p?.name || p?.email || r.user_id)}
+          </label>`;
+        }).join('');
       } catch (e) {
         picker.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:8px;">Failed to load partners.</div>';
       }
@@ -15100,17 +15174,27 @@
         el.innerHTML = '<div style="text-align:center;padding:32px;color:var(--muted);">Loading appeals...</div>';
         try {
           const { data, error } = await withTimeout(
-            sb.from('admin_appeals').select('id,user_id,message,status,created_at,profiles(name,email)').order('created_at', { ascending: false }).limit(200),
+            sb.from('admin_appeals').select('id,user_id,message,status,created_at').order('created_at', { ascending: false }).limit(200),
             8000, 'Appeals load timed out'
           );
           if (error) throw error;
           if (!data?.length) { el.innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted);">No appeals found.</div>'; return; }
+          // This backend has no relational joins — fetch names/emails separately.
+          try {
+            const userIds = [...new Set(data.map(a => a.user_id).filter(Boolean))];
+            if (userIds.length) {
+              const { data: profs } = await sb.from('profiles').select('id,name,email').in('id', userIds);
+              const profMap = {};
+              (profs || []).forEach(p => { profMap[p.id] = p; });
+              data.forEach(a => { a.profile = profMap[a.user_id] || null; });
+            }
+          } catch (e) { /* non-fatal — falls back to showing the raw user_id */ }
           el.innerHTML = data.map(a => `
             <div style="border:1px solid var(--border2);border-radius:var(--r);margin-bottom:10px;background:var(--bg2);padding:12px 14px;">
               <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:8px;">
                 <div>
-                  <div style="font-size:14px;font-weight:700;color:var(--ink);">${esc(a.profiles?.name||a.profiles?.email||a.user_id||'Unknown')}</div>
-                  <div style="font-size:12px;color:var(--muted);">${esc(a.profiles?.email||'—')} &nbsp;·&nbsp; ${a.created_at?new Date(a.created_at).toLocaleDateString('en-IN'):'—'}</div>
+                  <div style="font-size:14px;font-weight:700;color:var(--ink);">${esc(a.profile?.name||a.profile?.email||a.user_id||'Unknown')}</div>
+                  <div style="font-size:12px;color:var(--muted);">${esc(a.profile?.email||'—')} &nbsp;·&nbsp; ${a.created_at?new Date(a.created_at).toLocaleDateString('en-IN'):'—'}</div>
                 </div>
                 <span style="padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;background:${a.status==='pending'?'var(--amber-bg)':a.status==='accepted'?'var(--green-bg)':'var(--red-bg)'};color:${a.status==='pending'?'var(--amber)':a.status==='accepted'?'var(--green)':'var(--red)'};">${esc(a.status||'pending')}</span>
               </div>
