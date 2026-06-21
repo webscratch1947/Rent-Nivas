@@ -359,6 +359,27 @@ function tryKey(table, filters) {
   catch (_) { return null; }
 }
 
+// Fields a brand-new row gets on its FIRST-EVER creation, keyed by table.
+// Applied server-side inside putRows so it's atomic and race-proof — no
+// matter which of the many client-side `profiles.upsert({id,...})` calls
+// happens to be the one that creates the row first, the new user always
+// ends up with these defaults. Only applied when no existing row was found
+// (i.e. this upsert is truly creating the row, not updating it), and only
+// for fields the caller didn't already explicitly provide.
+const NEW_ROW_DEFAULTS = {
+  profiles: {
+    credits: 10,
+    xp: 0,
+    partner_xp: 0,
+    referred_by_code: null,
+    total_referrals: 0,
+    registration_referrals: 0,
+    listing_referrals: 0,
+  },
+  users: { credits: 10, xp: 0, partner_xp: 0, referred_by_code: null, total_referrals: 0, registration_referrals: 0, listing_referrals: 0 },
+  Users: { credits: 10, xp: 0, partner_xp: 0, referred_by_code: null, total_referrals: 0, registration_referrals: 0, listing_referrals: 0 },
+};
+
 async function putRows(spec, merge) {
   const TableName = tableName(spec.table);
   const inputRows = Array.isArray(spec.values) ? spec.values : [spec.values];
@@ -373,12 +394,22 @@ async function putRows(spec, merge) {
       const key = keyFor(spec.table, next, spec.filters);
       const existing = await runDdb('upsert', spec.table, () => ddb.send(new GetItemCommand({ TableName, Key: marshall(key) })));
       const existingAppRow = existing.Item ? fromDbItem(spec.table, unmarshall(existing.Item)) : {};
-      const merged = Object.assign(existingAppRow, next, { id: next.id || existingAppRow.id });
+      const isFirstCreation = !existing.Item;
+      const defaults = isFirstCreation ? (NEW_ROW_DEFAULTS[spec.table] || {}) : {};
+      // Order matters: defaults < existing row < caller's explicit values,
+      // so defaults only fill gaps and never clobber a real existing value
+      // or something the caller explicitly asked to set.
+      const merged = Object.assign({}, defaults, existingAppRow, next, { id: next.id || existingAppRow.id });
       await runDdb('upsert', spec.table, () => ddb.send(new PutItemCommand({ TableName, Item: marshall(toDbItem(spec.table, merged), { removeUndefinedValues: true }) })));
+      if (isFirstCreation && Object.keys(defaults).length) {
+        console.log(`[RentNivas API] First-creation defaults applied for ${spec.table}:`, Object.keys(defaults).join(', '));
+      }
       saved.push(merged);
     } else {
-      await runDdb('insert', spec.table, () => ddb.send(new PutItemCommand({ TableName, Item: marshall(toDbItem(spec.table, next), { removeUndefinedValues: true }) })));
-      saved.push(next);
+      const defaults = NEW_ROW_DEFAULTS[spec.table] || {};
+      const withDefaults = Object.assign({}, defaults, next);
+      await runDdb('insert', spec.table, () => ddb.send(new PutItemCommand({ TableName, Item: marshall(toDbItem(spec.table, withDefaults), { removeUndefinedValues: true }) })));
+      saved.push(withDefaults);
     }
   }
   return spec.single ? saved[0] : saved;
@@ -687,6 +718,63 @@ async function handleRpc(spec, claims) {
 
     console.log(`[Referral] Listing referral reward given: house=${houseId} referrer=${referrer.id}`);
     return { awarded: true, referrer_id: referrer.id, reward };
+  }
+
+  // ── admin_backfill_profile_defaults ────────────────────────────────────────
+  // One-time/repeatable admin fix: scans every row in Users and applies
+  // migrateProfileReferralFields (which fills in credits:10, xp:0, referral_code,
+  // etc. ONLY for fields that are currently missing — never overwrites a real
+  // existing value) to every profile that's missing them. Safe to run multiple
+  // times. This fixes accounts that were created before the race-condition fix
+  // in putRows() existed, where some signups ended up with no `credits` field
+  // at all because a non-credit-granting profile upsert won the race.
+  if (spec.name === 'admin_backfill_profile_defaults') {
+    const adminEmails = (process.env.ADMIN_EMAILS || '').split(',').map(v => v.trim().toLowerCase()).filter(Boolean);
+    const isAdminCaller = (claims['cognito:groups'] || []).includes('admin') || adminEmails.includes(String(claims.email || '').toLowerCase());
+    if (!isAdminCaller) throw new Error('Admin access required');
+
+    const TableName = tableName('profiles');
+    const scanned = await runDdb('read', 'profiles', () => ddb.send(new ScanCommand({ TableName })));
+    const rows = (scanned.Items || []).map(item => fromDbItem('profiles', unmarshall(item)));
+    let fixed = 0;
+    for (const row of rows) {
+      if (!row.id) continue;
+      const before = JSON.stringify({
+        credits: row.credits, xp: row.xp, partner_xp: row.partner_xp,
+        referral_code: row.referral_code, total_referrals: row.total_referrals,
+      });
+      await migrateProfileReferralFields(row.id);
+      // Re-read to log accurately (migrateProfileReferralFields only patches missing fields)
+      const after = await readItems({ table: 'profiles', op: 'select', select: 'credits,xp,partner_xp,referral_code,total_referrals', filters: [{ op: 'eq', column: 'id', value: row.id }], maybeSingle: true });
+      if (JSON.stringify({ credits: after?.credits, xp: after?.xp, partner_xp: after?.partner_xp, referral_code: after?.referral_code, total_referrals: after?.total_referrals }) !== before) fixed++;
+    }
+
+    // Dedupe partner_requests: for any user with multiple application rows,
+    // keep the one that is 'accepted' if any are, otherwise the most recent,
+    // and delete the rest. Fixes accounts left stuck on the partner form
+    // because an old duplicate pending row was "winning" the user-facing
+    // most-recent-row lookup over a real accepted row.
+    const prTable = tableName('partner_requests');
+    const prScanned = await runDdb('read', 'partner_requests', () => ddb.send(new ScanCommand({ TableName: prTable })));
+    const prRows = (prScanned.Items || []).map(item => fromDbItem('partner_requests', unmarshall(item)));
+    const byUser = {};
+    prRows.forEach(r => { if (r.user_id) (byUser[r.user_id] = byUser[r.user_id] || []).push(r); });
+    let dedupedUsers = 0, deletedRows = 0;
+    for (const [uid, userRows] of Object.entries(byUser)) {
+      if (userRows.length < 2) continue;
+      const accepted = userRows.filter(r => r.status === 'accepted').sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+      const keep = accepted.length ? accepted[0] : userRows.slice().sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0];
+      const toDelete = userRows.filter(r => r.id !== keep.id);
+      for (const dupe of toDelete) {
+        await deleteRows({ table: 'partner_requests', op: 'delete', filters: [{ op: 'eq', column: 'id', value: dupe.id }] }).catch(() => {});
+        deletedRows++;
+      }
+      dedupedUsers++;
+      console.log(`[Admin] Deduped partner_requests for user ${uid}: kept ${keep.id} (status=${keep.status}), removed ${toDelete.length}`);
+    }
+
+    console.log(`[Admin] Backfilled defaults for ${fixed}/${rows.length} profiles; deduped ${dedupedUsers} users' partner applications (${deletedRows} duplicate rows removed)`);
+    return { scanned: rows.length, fixed, dedupedUsers, deletedRows };
   }
 
   throw new Error(`Unsupported RPC "${spec.name}"`);
