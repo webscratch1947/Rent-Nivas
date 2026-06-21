@@ -2362,75 +2362,141 @@
     /* PROFILE */
     .prof-layout {
       display: grid;
-      grid-template-columns: 280px 1fr;
-      gap: 24px;
+      grid-template-columns: 340px 1fr;
+      gap: 28px;
+      max-width: 1100px;
     }
 
     .prof-ava-wrap {
-      padding: 32px 20px 20px;
+      padding: 40px 24px 24px;
       text-align: center;
       border-bottom: 1px solid var(--border);
     }
 
     .prof-ava {
-      width: 72px;
-      height: 72px;
+      width: 96px;
+      height: 96px;
       border-radius: 50%;
       background: linear-gradient(135deg, var(--terra), var(--terra2));
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 26px;
+      font-size: 34px;
       font-weight: 800;
       color: #fff;
-      margin: 0 auto 14px;
+      margin: 0 auto 16px;
+      box-shadow: 0 8px 20px -6px rgba(0,0,0,.25);
     }
 
     .prof-name {
-      font-size: 18px;
+      font-size: 20px;
       font-weight: 700;
       color: var(--ink);
     }
 
     .prof-email {
-      font-size: 14px;
+      font-size: 14.5px;
       color: var(--muted);
-      margin-top: 3px;
+      margin-top: 4px;
     }
 
     .prof-stats {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
-      gap: 6px;
-      margin-top: 16px;
+      gap: 10px;
+      margin-top: 20px;
     }
 
     .pst-item {
       text-align: center;
-      padding: 12px 8px;
+      padding: 16px 10px;
       background: var(--bg);
-      border-radius: 10px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      transition: transform .15s ease, box-shadow .15s ease;
+    }
+
+    .pst-item:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--sh0);
     }
 
     .pst-val {
-      font-size: 20px;
+      font-size: 22px;
       font-weight: 800;
       color: var(--terra);
       font-family: var(--font-display);
     }
 
     .pst-lbl {
-      font-size: 11px;
+      font-size: 11.5px;
       color: var(--muted);
-      margin-top: 3px;
+      margin-top: 4px;
     }
 
     .prof-card {
       background: var(--white);
       border: 1px solid var(--border);
       border-radius: var(--rl);
-      padding: 28px;
+      padding: 32px;
       box-shadow: var(--sh0);
+    }
+
+    /* EMPTY STATE (e.g. Unlocked Homes) — perfectly centered, both axes */
+    .rn-empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      min-height: 50vh;
+      padding: 48px 24px;
+      margin: 0 auto;
+      max-width: 420px;
+      color: var(--muted);
+    }
+
+    .rn-empty-icon {
+      font-size: 48px;
+      line-height: 1;
+      margin-bottom: 18px;
+    }
+
+    .rn-empty-title {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--ink);
+      margin-bottom: 8px;
+    }
+
+    .rn-empty-desc {
+      font-size: 14.5px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .rn-empty-btn {
+      margin-top: 20px;
+    }
+
+    @media (max-width: 640px) {
+      .rn-empty-state {
+        min-height: 40vh;
+        padding: 32px 16px;
+      }
+
+      .rn-empty-icon {
+        font-size: 40px;
+        margin-bottom: 14px;
+      }
+
+      .rn-empty-title {
+        font-size: 18px;
+      }
+
+      .rn-empty-desc {
+        font-size: 14px;
+      }
     }
 
     /* SETTINGS */
@@ -8624,7 +8690,7 @@
         <!-- UNLOCKED HOMES SECTION (inline, loaded on demand) -->
         <div class="ds-section" id="rent-section-purchased">
           <div id="rent-purchased-inner" style="padding:0;">
-            <div style="text-align:center;padding:64px;color:var(--muted);">Loading unlocked homes...</div>
+            <div class="rn-empty-state"><div class="rn-empty-icon">⏳</div><p class="rn-empty-desc">Loading unlocked homes...</p></div>
           </div>
         </div>
 
@@ -12916,6 +12982,15 @@
       }
     }
 
+    function rnMemberSinceInfo(rawDate) {
+      // Returns { label, days } safely — never "Invalid Date" / NaN.
+      let ts = rawDate ? new Date(rawDate).getTime() : NaN;
+      if (!isFinite(ts) || ts <= 0) ts = Date.now(); // fallback: treat as joined today
+      const label = new Date(ts).toLocaleDateString('en-IN', { year: 'numeric', month: 'long' });
+      const days = Math.max(0, Math.floor((Date.now() - ts) / (24 * 60 * 60 * 1000)));
+      return { label, days };
+    }
+
     async function loadRentProfile() {
       if (!user) return;
       const name = user.user_metadata?.name || user.email.split('@')[0] || 'User';
@@ -12934,17 +13009,14 @@
       const emailInput = document.getElementById('rent-pf-email');
       if (emailInput) emailInput.value = user.email;
       const since = document.getElementById('rent-pst-since');
-      if (since) since.textContent = new Date(user.created_at).toLocaleDateString('en-IN', { year: 'numeric', month: 'long' });
+      const totalUnlockEl = document.getElementById('rent-pst-days');
+      const memberInfo = rnMemberSinceInfo(user.created_at);
+      if (since) since.textContent = memberInfo.label;
       const credEl = document.getElementById('rent-pst-credits');
       if (credEl) credEl.textContent = fmtCredits(credits);
       const unlockEl = document.getElementById('rent-pst-unlocks');
       if (unlockEl) unlockEl.textContent = validUnlocks.length;
-      const totalUnlockEl = document.getElementById('rent-pst-days');
-      if (totalUnlockEl) {
-        const joined = new Date(user.created_at).getTime();
-        const days = Math.max(0, Math.floor((Date.now() - joined) / (24 * 60 * 60 * 1000)));
-        totalUnlockEl.textContent = days;
-      }
+      if (totalUnlockEl) totalUnlockEl.textContent = memberInfo.days;
       // Load referral stats
       try {
         const { data: prof } = await sb.from('profiles').select('referral_code').eq('id', user.id).maybeSingle();
@@ -13121,7 +13193,7 @@
         await loadUserPurchases();
         const unlocks = getUnlocks();
         const ids = unlocks.map(u => u.id);
-        if (!ids.length) { container.innerHTML = '<div style="text-align:center;padding:64px;color:var(--muted);"><div style="font-size:48px;margin-bottom:16px;">🔓</div><h3 style="font-size:20px;font-weight:700;color:var(--ink);margin-bottom:8px;">No unlocked homes yet</h3><p>Browse listings and use credits to unlock contact details</p><button class="btn btn-terra" style="margin-top:16px;" onclick="rentShowSection(\'browse\')">Browse Listings →</button></div>'; return; }
+        if (!ids.length) { container.innerHTML = '<div class="rn-empty-state"><div class="rn-empty-icon">🔓</div><h3 class="rn-empty-title">No unlocked homes yet</h3><p class="rn-empty-desc">Browse listings and use credits to unlock contact details</p><button class="btn btn-terra rn-empty-btn" onclick="rentShowSection(\'browse\')">Browse Listings →</button></div>'; return; }
         const { data, error } = await withTimeout(
           sb.from('houses').select('*').in('id', ids),
           6000,
