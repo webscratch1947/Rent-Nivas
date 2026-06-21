@@ -19,12 +19,37 @@ const {
   CognitoIdentityProviderClient,
   AdminCreateUserCommand,
   AdminSetUserPasswordCommand,
-  AdminUpdateUserAttributesCommand
+  AdminUpdateUserAttributesCommand,
+  ListUsersCommand
 } = require('@aws-sdk/client-cognito-identity-provider');
 const { REGION, USER_POOL_ID, send, parseBody } = require('./_auth');
 const { generateCode, storeCode, getCode, markCodeUsed, deleteCode, bumpAttempts, sendCodeEmail, hashCode, MAX_ATTEMPTS } = require('./_brevo');
 
 const cognito = new CognitoIdentityProviderClient({ region: REGION });
+
+// FIX (duplicate accounts): this used to rely entirely on AdminCreateUser
+// throwing UsernameExistsException to catch "this email already signed up".
+// That only actually catches a duplicate if the User Pool's username
+// attribute is configured to literally BE the email string. If the pool
+// instead uses an auto-generated username and treats email only as a
+// sign-in alias (a common Cognito setup), then Username: email never
+// collides on a second attempt — Cognito just creates a brand new user
+// with a new internal id ("sub") every time the same email signs up again.
+// That is exactly what produced two separate "Niranjan Developer" rows
+// with two different credit balances in the admin panel: two real,
+// distinct Cognito users, both using webscratch99@gmail.com.
+//
+// Fix: explicitly search by the email ATTRIBUTE (not the username) before
+// ever attempting to create anything. This catches a duplicate regardless
+// of how the pool's username policy is configured.
+async function findExistingUserByEmail(email) {
+  const page = await cognito.send(new ListUsersCommand({
+    UserPoolId: USER_POOL_ID,
+    Filter: `email = "${email}"`,
+    Limit: 1
+  }));
+  return (page.Users && page.Users[0]) || null;
+}
 
 module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') return send(res, 204, {});
@@ -49,6 +74,56 @@ module.exports = async function handler(req, res) {
 
     console.log(`[SignupVerify] ── request received for email=${email}`);
     try {
+      // Explicit duplicate check by email attribute — see
+      // findExistingUserByEmail() comment above for why this is necessary
+      // in addition to (not instead of) the UsernameExistsException catch
+      // further down.
+      const existing = await findExistingUserByEmail(email).catch(err => {
+        console.warn(`[SignupVerify] ListUsers pre-check failed (continuing, AdminCreateUser try/catch below still guards):`, err.message || err);
+        return null;
+      });
+
+      if (existing) {
+        const existingAttrs = (existing.Attributes || []).reduce((acc, a) => { acc[a.Name] = a.Value; return acc; }, {});
+        const alreadyVerified = existingAttrs.email_verified === 'true';
+
+        if (alreadyVerified) {
+          // A real, completed account already owns this email — block, don't duplicate.
+          console.warn(`[SignupVerify] account already exists and is verified: ${email}`);
+          return send(res, 400, { error: { message: 'An account with this email already exists.' } });
+        }
+
+        // Unverified leftover from a previous incomplete signup attempt
+        // (they never entered the code, or it never arrived). Reuse this
+        // SAME Cognito user instead of creating a second one — this is the
+        // actual fix for the duplicate-account bug: every retry before
+        // confirmation now lands on the same account instead of spawning
+        // a new one with a new sub.
+        console.log(`[SignupVerify] found unverified existing user for ${email} — reusing instead of creating a duplicate`);
+        await cognito.send(new AdminSetUserPasswordCommand({
+          UserPoolId: USER_POOL_ID,
+          Username: existing.Username,
+          Password: password,
+          Permanent: true
+        }));
+        const updateAttrs = [];
+        if (name) updateAttrs.push({ Name: 'name', Value: name });
+        if (referralCode) updateAttrs.push({ Name: 'custom:referral_code', Value: referralCode });
+        if (updateAttrs.length) {
+          await cognito.send(new AdminUpdateUserAttributesCommand({
+            UserPoolId: USER_POOL_ID,
+            Username: existing.Username,
+            UserAttributes: updateAttrs
+          })).catch(err => console.warn('[SignupVerify] could not update attrs on reused user:', err.message || err));
+        }
+
+        const code = generateCode();
+        await storeCode('signup_verify', email, code);
+        await sendCodeEmail('signup_verify', email, code);
+        console.log(`[SignupVerify] ✅ resent code to reused unverified account for ${email}`);
+        return send(res, 200, { data: {} });
+      }
+
       const attrs = [
         { Name: 'email', Value: email },
         { Name: 'email_verified', Value: 'false' }
