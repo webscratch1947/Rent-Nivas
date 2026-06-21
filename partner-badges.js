@@ -439,11 +439,22 @@
         }).eq('task_id', t.id).eq('user_id', user.id);
       } catch (e) { console.warn('[Nestly] mark expired error:', e.message || e); }
 
+      // FIX: previously this only showed a one-time toast() popup. If the
+      // user wasn't actively looking at the screen at the exact moment the
+      // 30s timer tick (or this load) caught the expiry — which is the
+      // common case, since tasks expire silently in the background — they
+      // never saw it at all. The task just disappeared from the list with
+      // no record anywhere of what happened to it or why their XP dropped.
+      // Now it also goes into the persistent notification bell (pushNotif),
+      // same system used for admin warnings/announcements, so it's there
+      // whenever they next check, not just in the instant it happened.
       if (penalty > 0) {
         await applyXPDelta(-penalty);
         toast(`⏰ "${t.title}" expired — you lost ${penalty} XP`, 'error');
+        if (typeof pushNotif === 'function') pushNotif('⏰', `Task "${t.title}" expired — you lost ${penalty} XP for not completing it in time.`);
       } else {
         toast(`⏰ "${t.title}" expired.`, 'error');
+        if (typeof pushNotif === 'function') pushNotif('⏰', `Task "${t.title}" expired.`);
       }
     }
   }
