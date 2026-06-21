@@ -37,7 +37,7 @@ module.exports = async function handler(req, res) {
     } while (PaginationToken);
 
     try {
-      const profiles = await ddb.send(new ScanCommand({ TableName: 'Users' }));
+      const profiles = await ddb.send(new ScanCommand({ TableName: process.env.TABLE_USERS || 'Users' }));
       const byId = new Map((profiles.Items || []).map(item => {
         const p = unmarshall(item);
         return [String(p.id), p];
