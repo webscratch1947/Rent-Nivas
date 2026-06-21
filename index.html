@@ -1475,6 +1475,7 @@
       display: flex;
       align-items: center;
       gap: 14px;
+      margin-left: auto;
     }
 
     .topbar-notif {
@@ -2667,9 +2668,8 @@
       justify-content: center;
       text-align: center;
       min-height: 50vh;
+      width: 100%;
       padding: 48px 24px;
-      margin: 0 auto;
-      max-width: 420px;
       color: var(--muted);
     }
 
@@ -8874,7 +8874,7 @@
             <div class="sidebar-user-info">
               <div class="sidebar-user-name" id="rent-user-nm">Renter</div>
               <div class="sidebar-user-email" id="rent-sb-em">—</div>
-              <div id="rent-sb-ref" style="font-size:11px;color:var(--terra);font-weight:700;margin-top:3px;letter-spacing:.5px;display:none;cursor:pointer;" title="Click to copy your referral code" onclick="copyRefCode(this)">RC: —</div>
+              <div id="rent-sb-ref" style="margin-top:5px;display:none;cursor:pointer;line-height:1.3;" title="Click to copy your referral code" onclick="copyRefCode(this)"></div>
             </div>
           </div>
         </div>
@@ -8957,7 +8957,7 @@
 
         <!-- UNLOCKED HOMES SECTION (inline, loaded on demand) -->
         <div class="ds-section" id="rent-section-purchased">
-          <div id="rent-purchased-inner" style="padding:0;">
+          <div id="rent-purchased-inner" style="padding:0;display:flex;flex-direction:column;align-items:center;width:100%;">
             <div class="rn-empty-state"><div class="rn-empty-icon">⏳</div><p class="rn-empty-desc">Loading unlocked homes...</p></div>
           </div>
         </div>
@@ -9057,7 +9057,7 @@
             <div class="sidebar-user-info">
               <div class="sidebar-user-name" id="sb-nm">Host</div>
               <div class="sidebar-user-email" id="sb-em">—</div>
-              <div id="sb-ref" style="font-size:11px;color:var(--terra);font-weight:700;margin-top:3px;letter-spacing:.5px;display:none;cursor:pointer;" title="Click to copy your referral code" onclick="copyRefCode(this)">RC: —</div>
+              <div id="sb-ref" style="margin-top:5px;display:none;cursor:pointer;line-height:1.3;" title="Click to copy your referral code" onclick="copyRefCode(this)"></div>
             </div>
           </div>
         </div>
@@ -11071,7 +11071,7 @@
       <div class="form-sec">
         <div class="form-sec-title"><span class="form-sec-icon">📝</span> Partner Application</div>
         <p style="color:var(--muted);font-size:14px;margin-bottom:20px;">Tell us a bit about you and your business. Our team reviews every application personally — approved partners get a verified Partner Badge and access to the Partner Dashboard.</p>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 20px;">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 20px;">
           <div class="fg"><label>Full Name</label><input id="pf-name" type="text" value="${name}" placeholder="Your full name"></div>
           <div class="fg"><label>Email Address</label><input id="pf-email" type="email" value="${email}" readonly style="opacity:.7;"></div>
           <div class="fg"><label>Phone Number</label><input id="pf-phone" type="tel" placeholder="e.g. +91 98765 43210"></div>
@@ -13075,7 +13075,8 @@
         const priorRow = isEdit ? allHouses.find(h => h.id === houseId) : null;
         let expiresAt = null;
         if (status === 'published') {
-          if (priorRow?.status === 'published' && priorRow.expires_at) {
+          if (isEdit && priorRow?.expires_at) {
+            // Preserve the original expiry — editing a listing must never reset its 1-year clock
             expiresAt = priorRow.expires_at;
           } else {
             expiresAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString();
@@ -14690,10 +14691,11 @@
         fields: [],
         confirmText: 'Grant Partner', confirmClass: 'btn-terra',
         onConfirm: async () => {
-          const { data: existing } = await sb.from('partner_requests').select('id').eq('user_id', userId).maybeSingle();
+          const { data: existing } = await sb.from('partner_requests').select('id,phone,partner_type,city').eq('user_id', userId).maybeSingle();
           let error;
-          if (existing) {
-            ({ error } = await sb.from('partner_requests').update({ status: 'accepted', full_name: userName, email: userEmail || '', phone: existing.phone || '', partner_type: existing.partner_type || 'admin_grant', city: existing.city || '' }).eq('user_id', userId));
+          if (existing && existing.id) {
+            // Update by id (DynamoDB requires the partition key — user_id is not the PK)
+            ({ error } = await sb.from('partner_requests').update({ status: 'accepted', full_name: userName, email: userEmail || '', phone: existing.phone || '', partner_type: existing.partner_type || 'admin_grant', city: existing.city || '' }).eq('id', existing.id));
           } else {
             ({ error } = await sb.from('partner_requests').insert({ user_id: userId, full_name: userName, email: userEmail || '', phone: '', partner_type: 'admin_grant', city: '', status: 'accepted', created_at: new Date().toISOString() }));
           }
@@ -15154,11 +15156,11 @@
       }
 
       function showReferralCodeInSidebar(code) {
-        const label = 'RC: ' + code;
         const hostEl = document.getElementById('sb-ref');
         const rentEl = document.getElementById('rent-sb-ref');
-        if (hostEl) { hostEl.textContent = label; hostEl.style.display = 'block'; hostEl.dataset.code = code; }
-        if (rentEl) { rentEl.textContent = label; rentEl.style.display = 'block'; rentEl.dataset.code = code; }
+        const html = `<span style="display:block;font-size:10px;font-weight:600;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;line-height:1;">Referral Code</span><span style="display:block;font-size:13px;font-weight:800;color:var(--terra);letter-spacing:.5px;margin-top:2px;">${esc(code)}</span>`;
+        if (hostEl) { hostEl.innerHTML = html; hostEl.style.display = 'block'; hostEl.dataset.code = code; }
+        if (rentEl) { rentEl.innerHTML = html; rentEl.style.display = 'block'; rentEl.dataset.code = code; }
       }
 
       function copyProfRefCode() {
@@ -15255,7 +15257,9 @@
               await setCredits(currentCredits);
               throw new Error('Unlock failed: ' + error.message);
             }
-            upsertPurchaseCache(house.id, purchase?.id || 'local-' + Date.now(), purchase?.created_at || new Date().toISOString());
+            // purchase may be an array (putRows returns array) or a single row; handle both
+            const purchaseRow = Array.isArray(purchase) ? purchase[0] : purchase;
+            upsertPurchaseCache(house.id, purchaseRow?.id || 'local-' + Date.now(), purchaseRow?.created_at || new Date().toISOString());
             updateCreditsBadges();
             toast('🔓 Unlocked! Full contact details are now visible.', 'success');
             if (typeof showHouseDetail === 'function') showHouseDetail(house.id || house);
@@ -15479,6 +15483,17 @@
           if (sub) sub.textContent = 'This link has expired.';
           if (errEl) errEl.style.display = 'none';
         }, 100);
+      })();
+
+      // Handle ?page=login redirect from resetpassword.html and any deep-links
+      (function handleUrlPageParam() {
+        try {
+          const _p = new URLSearchParams(window.location.search).get('page');
+          if (_p === 'login') {
+            history.replaceState(null, '', window.location.pathname);
+            showPage('login-page');
+          }
+        } catch (e) {}
       })();
 
       sb.auth.onAuthStateChange(async (event, session) => {
@@ -15848,9 +15863,15 @@
           const email = user.email || '';
           userInfo.style.display = 'flex';
           userInfo.style.cssText = 'display:flex;align-items:center;gap:12px;padding:14px 18px 10px;border-bottom:1px solid rgba(255,255,255,.08);';
-          userInfo.innerHTML = `<div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,var(--terra),var(--terra2));display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;color:#fff;flex-shrink:0;overflow:hidden;" id="mob-sb-av">${name[0].toUpperCase()}</div><div style="overflow:hidden;"><div style="font-size:15px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" id="mob-sb-nm">${name}</div><div style="font-size:12px;color:rgba(255,255,255,.5);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" id="mob-sb-em">${email}</div></div>`;
+          userInfo.innerHTML = `<div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,var(--terra),var(--terra2));display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;color:#fff;flex-shrink:0;overflow:hidden;" id="mob-sb-av">${name[0].toUpperCase()}</div><div style="overflow:hidden;flex:1;min-width:0;"><div style="font-size:15px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" id="mob-sb-nm">${name}</div><div style="font-size:12px;color:rgba(255,255,255,.5);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" id="mob-sb-em">${email}</div><div id="mob-sb-ref" style="font-size:11px;color:#d4845f;font-weight:700;margin-top:3px;display:none;cursor:pointer;letter-spacing:.3px;" title="Click to copy referral code" onclick="copyRefCode(this)"></div></div>`;
           if (typeof fetchProfileRow === 'function') {
-            fetchProfileRow().then(prof => { if (prof?.avatar_url) applyAvatarVisual(document.getElementById('mob-sb-av'), name, prof.avatar_url); }).catch(() => {});
+            fetchProfileRow().then(prof => {
+              if (prof?.avatar_url) applyAvatarVisual(document.getElementById('mob-sb-av'), name, prof.avatar_url);
+              if (prof?.referral_code) {
+                const mobRef = document.getElementById('mob-sb-ref');
+                if (mobRef) { mobRef.textContent = 'RC: ' + prof.referral_code; mobRef.style.display = 'block'; mobRef.dataset.code = prof.referral_code; }
+              }
+            }).catch(() => {});
           }
         } else {
           userInfo.style.display = 'none';
