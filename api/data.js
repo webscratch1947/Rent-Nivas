@@ -130,8 +130,12 @@ function tableName(table) {
 // schema").
 function validateSpec(spec) {
   if (!spec || typeof spec !== 'object') throw new Error('Request body must be a JSON object');
-  if (!spec.table) throw new Error('Request is missing "table"');
   if (!spec.op) throw new Error('Request is missing "op"');
+  if (spec.op === 'rpc') {
+    if (!spec.name) throw new Error('Request is missing "name" for rpc op');
+    return; // rpc requests have no "table" — they're routed by spec.name in handleRpc
+  }
+  if (!spec.table) throw new Error('Request is missing "table"');
   tableName(spec.table); // throws if table has no backend mapping
 }
 
@@ -563,7 +567,7 @@ async function migrateProfileReferralFields(userId) {
     const profile = await readItems({
       table: 'profiles',
       op: 'select',
-      select: 'id,referral_code,referred_by_code,partner_xp,credits,total_referrals,registration_referrals,listing_referrals',
+      select: 'id,name,email,referral_code,referred_by_code,partner_xp,credits,total_referrals,registration_referrals,listing_referrals',
       filters: [{ op: 'eq', column: 'id', value: userId }],
       maybeSingle: true,
     });
@@ -573,6 +577,14 @@ async function migrateProfileReferralFields(userId) {
     const patch = {};
     if (!profile.referral_code) {
       patch.referral_code = String(Math.floor(10000000 + Math.random() * 90000000));
+    }
+    if (!profile.name && profile.email) {
+      // Old/broken accounts (created before name was reliably saved) show up
+      // as a blank "—" everywhere a name is displayed — including in the
+      // referral-code-verified box on the Add Listing form, and the admin
+      // user list. Derive a readable placeholder from their email so the UI
+      // never shows a bare dash for an existing real user.
+      patch.name = profile.email.split('@')[0];
     }
     if (profile.referred_by_code === undefined) patch.referred_by_code = null;
     if (profile.partner_xp     === undefined)  patch.partner_xp = 0;
