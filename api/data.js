@@ -34,7 +34,17 @@ const TABLES = {
   warning_views: process.env.TABLE_WARNING_VIEWS || 'WarningViews',
   announcement_views: process.env.TABLE_ANNOUNCEMENT_VIEWS || 'AnnouncementViews',
   admin_bans: process.env.TABLE_ADMIN_BANS || 'Bans',
-  admin_appeals: process.env.TABLE_ADMIN_APPEALS || 'Appeals'
+  admin_appeals: process.env.TABLE_ADMIN_APPEALS || 'Appeals',
+  user_house_unlocks: process.env.TABLE_USER_HOUSE_UNLOCKS || 'UserHouseUnlocks',
+  UserHouseUnlocks: process.env.TABLE_USER_HOUSE_UNLOCKS || 'UserHouseUnlocks',
+  favorites: process.env.TABLE_FAVORITES || 'Favorites',
+  Favorites: process.env.TABLE_FAVORITES || 'Favorites',
+  notifications: process.env.TABLE_NOTIFICATIONS || 'Notifications',
+  Notifications: process.env.TABLE_NOTIFICATIONS || 'Notifications',
+  contacts: process.env.TABLE_CONTACTS || 'Contacts',
+  Contacts: process.env.TABLE_CONTACTS || 'Contacts',
+  verification_codes: process.env.TABLE_VERIFICATION_CODES || 'VerificationCodes',
+  VerificationCodes: process.env.TABLE_VERIFICATION_CODES || 'VerificationCodes',
 };
 
 function send(res, status, payload) {
@@ -142,21 +152,76 @@ async function runDdb(action, table, fn) {
 }
 
 // Tables whose actual DynamoDB partition key name differs from the app-level "id" field.
-// The app (index.html) always reads/writes "id" — these mappings translate to/from
-// the real AWS attribute name so GetItem/PutItem/UpdateItem/DeleteItem use the correct key.
+// Source of truth: actual DynamoDB table schemas (verified from AWS console).
 const PARTITION_KEY_OVERRIDES = {
-  houses: 'propertyId',
-  Houses: 'propertyId',
-  admin_warnings: 'warningId',
-  Warnings: 'warningId'
+  // Users table
+  profiles: 'userId', users: 'userId', Users: 'userId',
+  // Properties table
+  houses: 'propertyId', Houses: 'propertyId', Properties: 'propertyId',
+  // Purchases table
+  purchases: 'purchaseId', Purchases: 'purchaseId',
+  // PartnerApplications table
+  partner_requests: 'applicationId', partner_applications: 'applicationId',
+  PartnerApplications: 'applicationId',
+  // PartnerTasks table
+  partner_tasks: 'taskId', PartnerTasks: 'taskId',
+  // Warnings table
+  admin_warnings: 'warningId', Warnings: 'warningId',
+  // AdminAnnouncements table
+  admin_announcements: 'announcementId', AdminAnnouncements: 'announcementId',
+  // Bans table
+  admin_bans: 'banId', Bans: 'banId',
+  // Appeals table
+  admin_appeals: 'appealId', Appeals: 'appealId',
+  // Contacts table
+  contacts: 'contactId', Contacts: 'contactId',
+  // VerificationCodes table — PK is literally 'pk'
+  verification_codes: 'pk', VerificationCodes: 'pk',
+};
+
+// Composite-key tables: maps app-level snake_case field names → DynamoDB camelCase attribute names.
+// For these tables, toDbItem/fromDbItem rename fields on the way in/out instead of
+// the simple id→PK rename used for single-key tables.
+const COMPOSITE_KEY_MAP = {
+  warning_views:         { user_id: 'userId', warning_id: 'warningId' },
+  WarningViews:          { user_id: 'userId', warning_id: 'warningId' },
+  announcement_views:    { user_id: 'userId', announcement_id: 'announcementId' },
+  AnnouncementViews:     { user_id: 'userId', announcement_id: 'announcementId' },
+  partner_task_progress: { user_id: 'userId', task_id: 'taskId' },
+  PartnerTaskProgress:   { user_id: 'userId', task_id: 'taskId' },
+  user_house_unlocks:    { user_id: 'userId', property_id: 'propertyId' },
+  UserHouseUnlocks:      { user_id: 'userId', property_id: 'propertyId' },
+  favorites:             { user_id: 'userId', property_id: 'propertyId' },
+  Favorites:             { user_id: 'userId', property_id: 'propertyId' },
+  notifications:         { user_id: 'userId', notification_id: 'notificationId' },
+  Notifications:         { user_id: 'userId', notification_id: 'notificationId' },
+  // PropertyQuestions: PK=propertyId, SK=questionId; app auto-generates 'id' as questionId
+  listing_questions:     { property_id: 'propertyId', id: 'questionId' },
+  PropertyQuestions:     { property_id: 'propertyId', id: 'questionId' },
+  // PropertyAnswers: PK=purchaseId, SK=answerId; app uses question_id as the sort key
+  answers:               { purchase_id: 'purchaseId', question_id: 'answerId' },
+  PropertyAnswers:       { purchase_id: 'purchaseId', question_id: 'answerId' },
 };
 
 function partitionKeyName(table) {
   return PARTITION_KEY_OVERRIDES[table] || 'id';
 }
 
-// Convert an app-level row (using "id") into the shape DynamoDB expects for this table.
+// Convert an app-level row into the shape DynamoDB expects for this table.
+// For composite-key tables: rename snake_case fields → DynamoDB camelCase key attrs.
+// For single-PK tables: rename 'id' → actual partition key name.
 function toDbItem(table, row) {
+  const keyMap = COMPOSITE_KEY_MAP[table];
+  if (keyMap) {
+    const next = Object.assign({}, row);
+    for (const [snake, camel] of Object.entries(keyMap)) {
+      if (Object.prototype.hasOwnProperty.call(next, snake)) {
+        if (!Object.prototype.hasOwnProperty.call(next, camel)) next[camel] = next[snake];
+        delete next[snake];
+      }
+    }
+    return next;
+  }
   const pk = partitionKeyName(table);
   if (pk === 'id') return row;
   const next = Object.assign({}, row);
@@ -167,9 +232,21 @@ function toDbItem(table, row) {
   return next;
 }
 
-// Convert a raw DynamoDB item back into the app-level shape (using "id").
+// Convert a raw DynamoDB item back into the app-level shape.
+// Reverses toDbItem: camelCase key attrs → snake_case, and PK attr → 'id'.
 function fromDbItem(table, item) {
   if (!item) return item;
+  const keyMap = COMPOSITE_KEY_MAP[table];
+  if (keyMap) {
+    const next = Object.assign({}, item);
+    for (const [snake, camel] of Object.entries(keyMap)) {
+      if (Object.prototype.hasOwnProperty.call(next, camel)) {
+        if (!Object.prototype.hasOwnProperty.call(next, snake)) next[snake] = next[camel];
+        delete next[camel];
+      }
+    }
+    return next;
+  }
   const pk = partitionKeyName(table);
   if (pk === 'id') return item;
   if (Object.prototype.hasOwnProperty.call(item, pk)) {
@@ -186,31 +263,43 @@ function keyFor(table, row, filters) {
   (filters || []).forEach(f => {
     if (f.op === 'eq') all[f.column] = f.value;
   });
+  // Composite-key tables — use camelCase to match actual DynamoDB attribute names
   if (table === 'partner_task_progress' || table === 'PartnerTaskProgress') {
     if (!all.task_id || !all.user_id) throw new Error('PartnerTaskProgress requires task_id and user_id');
-    return { task_id: all.task_id, user_id: all.user_id };
+    return { userId: all.user_id, taskId: all.task_id };
   }
-  if (table === 'answers') {
+  if (table === 'answers' || table === 'PropertyAnswers') {
     if (!all.purchase_id || !all.question_id) throw new Error('PropertyAnswers requires purchase_id and question_id');
-    return { purchase_id: all.purchase_id, question_id: all.question_id };
+    return { purchaseId: all.purchase_id, answerId: all.question_id };
   }
-  if (table === 'warning_views') {
+  if (table === 'warning_views' || table === 'WarningViews') {
     if (!all.user_id || !all.warning_id) throw new Error('WarningViews requires user_id and warning_id');
-    return { user_id: all.user_id, warning_id: all.warning_id };
+    return { userId: all.user_id, warningId: all.warning_id };
   }
-  if (table === 'announcement_views') {
+  if (table === 'announcement_views' || table === 'AnnouncementViews') {
     if (!all.user_id || !all.announcement_id) throw new Error('AnnouncementViews requires user_id and announcement_id');
-    return { user_id: all.user_id, announcement_id: all.announcement_id };
+    return { userId: all.user_id, announcementId: all.announcement_id };
   }
-  // NOTE (Partner Panel fix): we intentionally do NOT synthesize an "id" from
-  // "user_id" for partner_requests/partner_applications here. The Partner
-  // Panel looks up "my application" by user_id, but each row's real id is a
-  // generated UUID (see putRows), not the user_id — guessing Key={id:user_id}
-  // built a key that didn't correspond to any real row/key schema and caused
-  // DynamoDB to reject the request ("The provided key element does not match
-  // the schema"). When only user_id is known (no real id), keyFor() below
-  // throws and the caller (tryKey) safely falls back to a validated Scan+filter
-  // instead of a guessed GetItem — see readItems().
+  if (table === 'listing_questions' || table === 'PropertyQuestions') {
+    if (!all.property_id) throw new Error('PropertyQuestions requires property_id');
+    if (!all.id) throw new Error('PropertyQuestions requires id (questionId)');
+    return { propertyId: all.property_id, questionId: all.id };
+  }
+  if (table === 'user_house_unlocks' || table === 'UserHouseUnlocks') {
+    if (!all.user_id || !all.property_id) throw new Error('UserHouseUnlocks requires user_id and property_id');
+    return { userId: all.user_id, propertyId: all.property_id };
+  }
+  if (table === 'favorites' || table === 'Favorites') {
+    if (!all.user_id || !all.property_id) throw new Error('Favorites requires user_id and property_id');
+    return { userId: all.user_id, propertyId: all.property_id };
+  }
+  if (table === 'notifications' || table === 'Notifications') {
+    if (!all.user_id || !all.notification_id) throw new Error('Notifications requires user_id and notification_id');
+    return { userId: all.user_id, notificationId: all.notification_id };
+  }
+  // Single-PK tables: look up the PK name from PARTITION_KEY_OVERRIDES.
+  // If only user_id is known (no 'id'), keyFor throws → tryKey returns null
+  // → readItems falls back to Scan+filter instead of a bad GetItem call.
   if (!all.id) throw new Error(`${table} requires id`);
   const pk = partitionKeyName(table);
   return { [pk]: all.id };
@@ -277,7 +366,7 @@ async function putRows(spec, merge) {
   for (const row of inputRows) {
     const now = new Date().toISOString();
     const next = Object.assign({}, row);
-    if (!next.id && !['partner_task_progress','PartnerTaskProgress','answers','warning_views','announcement_views'].includes(spec.table)) next.id = crypto.randomUUID();
+    if (!next.id && !['partner_task_progress','PartnerTaskProgress','answers','PropertyAnswers','warning_views','WarningViews','announcement_views','AnnouncementViews','user_house_unlocks','UserHouseUnlocks','favorites','Favorites','notifications','Notifications'].includes(spec.table)) next.id = crypto.randomUUID();
     if (!next.created_at) next.created_at = now;
     next.updated_at = now;
     if (merge) {
