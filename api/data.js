@@ -327,18 +327,277 @@ async function deleteRows(spec) {
   return [];
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// REFERRAL SYSTEM HELPERS
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Check whether a given user_id has an accepted Partner Panel application.
+ * Returns true if PartnerApplications contains a row with
+ *   { user_id, status: 'accepted' }.
+ */
+async function hasPartnerAccess(userId) {
+  try {
+    const TableName = tableName('partner_requests');
+    const scanned = await runDdb('read', 'partner_requests', () =>
+      ddb.send(new ScanCommand({ TableName }))
+    );
+    const rows = (scanned.Items || []).map(i => unmarshall(i));
+    return rows.some(r => r.user_id === userId && r.status === 'accepted');
+  } catch (err) {
+    console.error('[Referral] hasPartnerAccess check failed:', err.message);
+    return false;
+  }
+}
+
+/**
+ * Award a referral reward to `referrerId`.
+ * type = 'registration'  → +15 XP (partner) or +0.50 credits (non-partner)
+ * type = 'listing'       → +10 XP (partner) or +0.50 credits (non-partner)
+ *
+ * Atomic-safe: reads the current profile, adds the delta, writes back.
+ * Returns the applied reward shape.
+ */
+async function applyReferralReward(referrerId, type) {
+  const isPartner = await hasPartnerAccess(referrerId);
+
+  // Fetch referrer profile — we need current XP / credits / counters
+  const referrer = await readItems({
+    table: 'profiles',
+    op: 'select',
+    select: 'id,xp,credits,partner_xp,registration_referrals,listing_referrals,total_referrals',
+    filters: [{ op: 'eq', column: 'id', value: referrerId }],
+    maybeSingle: true,
+  });
+
+  if (!referrer || !referrer.id) {
+    throw new Error(`Referrer profile not found for id=${referrerId}`);
+  }
+
+  const currentXP       = parseInt(referrer.xp              || referrer.partner_xp || '0', 10);
+  const currentCredits  = parseFloat(referrer.credits        || '0');
+  const currentTotal    = parseInt(referrer.total_referrals  || '0', 10);
+  const currentReg      = parseInt(referrer.registration_referrals || '0', 10);
+  const currentList     = parseInt(referrer.listing_referrals      || '0', 10);
+
+  let patch = {
+    total_referrals: currentTotal + 1,
+    updated_at: new Date().toISOString(),
+  };
+
+  let rewardDesc;
+  if (type === 'registration') {
+    patch.registration_referrals = currentReg + 1;
+    if (isPartner) {
+      patch.xp         = currentXP + 15;
+      patch.partner_xp = currentXP + 15;
+      rewardDesc = '+15 XP (partner registration referral)';
+    } else {
+      patch.credits = Math.round((currentCredits + 0.50) * 100) / 100;
+      rewardDesc = '+0.50 credits (registration referral)';
+    }
+  } else if (type === 'listing') {
+    patch.listing_referrals = currentList + 1;
+    if (isPartner) {
+      patch.xp         = currentXP + 10;
+      patch.partner_xp = currentXP + 10;
+      rewardDesc = '+10 XP (partner listing referral)';
+    } else {
+      patch.credits = Math.round((currentCredits + 0.50) * 100) / 100;
+      rewardDesc = '+0.50 credits (listing referral)';
+    }
+  } else {
+    throw new Error(`Unknown referral reward type "${type}"`);
+  }
+
+  await updateRows({
+    table: 'profiles',
+    op: 'update',
+    values: patch,
+    filters: [{ op: 'eq', column: 'id', value: referrerId }],
+  });
+
+  console.log(`[Referral] Awarded to referrer ${referrerId}: ${rewardDesc}`);
+  return { referrer_id: referrerId, is_partner: isPartner, reward: rewardDesc };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MIGRATION HELPER
+// Backfills any existing Users row that is missing the required referral fields.
+// Called transparently inside process_registration_referral and
+// award_referral_reward so all touched profiles are always up-to-date.
+// Fields added (only when absent):
+//   referral_code            – 8-digit numeric string, unique per user
+//   referred_by_code         – null (not yet referred)
+//   referred_by_user_id      – null
+//   partner_xp               – 0
+//   credits                  – 10  (preserve existing if already set)
+//   total_referrals          – 0
+//   registration_referrals   – 0
+//   listing_referrals        – 0
+// ─────────────────────────────────────────────────────────────────────────────
+async function migrateProfileReferralFields(userId) {
+  try {
+    const profile = await readItems({
+      table: 'profiles',
+      op: 'select',
+      select: 'id,referral_code,referred_by_code,partner_xp,credits,total_referrals,registration_referrals,listing_referrals',
+      filters: [{ op: 'eq', column: 'id', value: userId }],
+      maybeSingle: true,
+    });
+
+    if (!profile || !profile.id) return; // nothing to migrate
+
+    const patch = {};
+    if (!profile.referral_code) {
+      patch.referral_code = String(Math.floor(10000000 + Math.random() * 90000000));
+    }
+    if (profile.referred_by_code === undefined) patch.referred_by_code = null;
+    if (profile.partner_xp     === undefined)  patch.partner_xp = 0;
+    if (profile.credits        === undefined)  patch.credits = 10;
+    if (profile.total_referrals          === undefined) patch.total_referrals = 0;
+    if (profile.registration_referrals   === undefined) patch.registration_referrals = 0;
+    if (profile.listing_referrals        === undefined) patch.listing_referrals = 0;
+
+    if (Object.keys(patch).length > 0) {
+      await updateRows({
+        table: 'profiles',
+        op: 'update',
+        values: patch,
+        filters: [{ op: 'eq', column: 'id', value: userId }],
+      });
+      console.log(`[Referral] Migrated referral fields for user ${userId}:`, Object.keys(patch).join(', '));
+    }
+  } catch (err) {
+    // Non-fatal — log and continue
+    console.warn(`[Referral] migrateProfileReferralFields failed for ${userId}:`, err.message);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// RPC HANDLER
+// ─────────────────────────────────────────────────────────────────────────────
 async function handleRpc(spec, claims) {
+
+  // ── process_registration_referral ─────────────────────────────────────────
+  // Called once per new user on their first login.
+  // Idempotent: stamps profiles.referred_by_code on the new user so a second
+  // call (same session refresh) is a no-op.
   if (spec.name === 'process_registration_referral') {
     const code = String((spec.params && spec.params.p_referral_code) || '').trim();
-    if (!code) return { processed: false };
-    const users = await readItems({ table: 'profiles', op: 'select', select: 'id,email,name,referral_code', filters: [{ op: 'eq', column: 'referral_code', value: code }], maybeSingle: true });
-    if (!users || !users.id || users.id === claims.sub) return { processed: false };
-    await updateRows({ table: 'profiles', op: 'update', values: { referred_by_code: code, referred_by_user_id: users.id }, filters: [{ op: 'eq', column: 'id', value: claims.sub }] });
-    return { processed: true, referrer_id: users.id };
+    if (!code) return { processed: false, reason: 'no_code' };
+
+    // Backfill referral fields on the new user if needed
+    await migrateProfileReferralFields(claims.sub);
+
+    // Fetch the new user's profile — check for already-processed guard
+    const newUser = await readItems({
+      table: 'profiles',
+      op: 'select',
+      select: 'id,referred_by_code,referred_by_user_id',
+      filters: [{ op: 'eq', column: 'id', value: claims.sub }],
+      maybeSingle: true,
+    });
+
+    // Duplicate-reward guard: if referred_by_code is already set, skip
+    if (newUser && newUser.referred_by_code) {
+      console.log(`[Referral] Registration referral already processed for user ${claims.sub} — skipping`);
+      return { processed: false, reason: 'already_processed' };
+    }
+
+    // Look up the referrer by their referral code
+    const referrer = await readItems({
+      table: 'profiles',
+      op: 'select',
+      select: 'id,email,name,referral_code',
+      filters: [{ op: 'eq', column: 'referral_code', value: code }],
+      maybeSingle: true,
+    });
+
+    // Validate referrer exists and is not the new user themselves
+    if (!referrer || !referrer.id || referrer.id === claims.sub) {
+      return { processed: false, reason: 'referrer_not_found' };
+    }
+
+    // Backfill referral fields on the referrer if needed
+    await migrateProfileReferralFields(referrer.id);
+
+    // Stamp the new user so this is idempotent going forward
+    await updateRows({
+      table: 'profiles',
+      op: 'update',
+      values: { referred_by_code: code, referred_by_user_id: referrer.id },
+      filters: [{ op: 'eq', column: 'id', value: claims.sub }],
+    });
+
+    // Award the referrer their reward
+    const reward = await applyReferralReward(referrer.id, 'registration');
+
+    console.log(`[Referral] Registration referral processed: new_user=${claims.sub} referrer=${referrer.id}`);
+    return { processed: true, referrer_id: referrer.id, reward };
   }
+
+  // ── award_referral_reward ──────────────────────────────────────────────────
+  // Called when a referred user publishes their first property listing.
+  // p_house_id is passed; we look up the referral_code on the property,
+  // then find the referrer who owns that code, and award them.
+  // Duplicate-reward guard: a reward is only issued once per property.
   if (spec.name === 'award_referral_reward') {
-    throw new Error('award_referral_reward requires the Properties DynamoDB table mapping.');
+    const houseId = String((spec.params && spec.params.p_house_id) || '').trim();
+    if (!houseId) return { awarded: false, reason: 'no_house_id' };
+
+    // Fetch the property
+    const house = await readItems({
+      table: 'houses',
+      op: 'select',
+      select: 'id,referral_code,referral_reward_given,owner_id',
+      filters: [{ op: 'eq', column: 'id', value: houseId }],
+      maybeSingle: true,
+    });
+
+    if (!house || !house.id) return { awarded: false, reason: 'house_not_found' };
+
+    // Duplicate-reward guard: only award once per listing
+    if (house.referral_reward_given) {
+      console.log(`[Referral] Listing reward already given for house ${houseId} — skipping`);
+      return { awarded: false, reason: 'already_awarded' };
+    }
+
+    const refCode = String(house.referral_code || '').trim();
+    if (!refCode) return { awarded: false, reason: 'no_referral_code' };
+
+    // Self-referral guard: don't reward the property owner for using their own code
+    const referrer = await readItems({
+      table: 'profiles',
+      op: 'select',
+      select: 'id,referral_code',
+      filters: [{ op: 'eq', column: 'referral_code', value: refCode }],
+      maybeSingle: true,
+    });
+
+    if (!referrer || !referrer.id) return { awarded: false, reason: 'referrer_not_found' };
+    if (referrer.id === house.owner_id || referrer.id === claims.sub) {
+      return { awarded: false, reason: 'self_referral' };
+    }
+
+    // Backfill referral fields on the referrer if needed
+    await migrateProfileReferralFields(referrer.id);
+
+    // Mark the listing so duplicate calls are no-ops
+    await updateRows({
+      table: 'houses',
+      op: 'update',
+      values: { referral_reward_given: true },
+      filters: [{ op: 'eq', column: 'id', value: houseId }],
+    });
+
+    // Award the referrer
+    const reward = await applyReferralReward(referrer.id, 'listing');
+
+    console.log(`[Referral] Listing referral reward given: house=${houseId} referrer=${referrer.id}`);
+    return { awarded: true, referrer_id: referrer.id, reward };
   }
+
   throw new Error(`Unsupported RPC "${spec.name}"`);
 }
 
