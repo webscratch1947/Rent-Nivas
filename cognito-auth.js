@@ -243,7 +243,13 @@
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + session.access_token
+        // Use the ID token, not the Access Token — Cognito Access Tokens
+        // never carry the `email` claim (only ID Tokens do), and the
+        // backend's admin checks (ADMIN_EMAILS) read claims.email. Sending
+        // the Access Token here meant claims.email was always undefined,
+        // so admin checks could only ever pass via Cognito group membership,
+        // never via ADMIN_EMAILS.
+        'Authorization': 'Bearer ' + (session.id_token || session.access_token)
       },
       body: JSON.stringify(spec)
     });
@@ -444,7 +450,7 @@
           if (!session) return { data: null, error: { message: 'Not authenticated' } };
           var resp = await fetch('/api/storage', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token },
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (session.id_token || session.access_token) },
             body: JSON.stringify(Object.assign({ bucket: bucket }, payload))
           });
           var json = await resp.json().catch(function () { return { error: { message: 'Invalid storage response' } }; });
