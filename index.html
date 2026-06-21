@@ -3834,33 +3834,6 @@
       gap: 10px;
     }
 
-    .rent-main-tabs {
-      display: flex;
-      gap: 6px;
-      background: var(--card);
-      border: 1.5px solid var(--border);
-      border-radius: 14px;
-      padding: 5px;
-      margin-bottom: 24px;
-      width: fit-content;
-    }
-    .rent-main-tab {
-      padding: 9px 22px;
-      border-radius: 10px;
-      border: none;
-      background: none;
-      font-size: 14px;
-      font-weight: 600;
-      color: var(--muted);
-      cursor: pointer;
-      transition: background .18s, color .18s;
-      white-space: nowrap;
-    }
-    .rent-main-tab.active, .rent-main-tab:hover {
-      background: var(--terra);
-      color: #fff;
-    }
-
     .rent-search-enhanced {
       display: flex;
       justify-content: center;
@@ -8954,12 +8927,6 @@
       <!-- ── RENT MAIN CONTENT ── -->
       <main class="ds-main">
 
-        <!-- CENTER TAB BAR: Browse / Unlocked Homes -->
-        <div class="rent-main-tabs" id="rent-main-tabs">
-          <button class="rent-main-tab active" id="rtab-browse" onclick="rentShowSection('browse')">🏘️ Browse Homes</button>
-          <button class="rent-main-tab" id="rtab-purchased" onclick="rentShowSection('purchased')">🔓 Unlocked Homes</button>
-        </div>
-
         <!-- BROWSE SECTION -->
         <div class="ds-section active" id="rent-section-browse">
           <div style="margin-bottom:28px;">
@@ -8979,6 +8946,9 @@
               </div>
             </div>
           </div>
+          <div style="text-align:right;margin-bottom:12px;">
+            <button class="btn btn-soft btn-sm" onclick="rentShowSection('purchased')" style="font-weight:600;gap:6px;">🔓 My Unlocked Homes →</button>
+          </div>
           <div class="rent-grid" id="rent-grid">
             <div style="grid-column:1/-1;text-align:center;padding:64px;color:var(--muted);font-size:15px;">Loading
               listings...</div>
@@ -8987,6 +8957,13 @@
 
         <!-- UNLOCKED HOMES SECTION (inline, loaded on demand) -->
         <div class="ds-section" id="rent-section-purchased">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px;">
+            <button onclick="rentShowSection('browse')" style="background:none;border:1.5px solid var(--border);border-radius:10px;padding:8px 16px;font-size:14px;font-weight:600;color:var(--ink);cursor:pointer;">← Back to Browse</button>
+            <div>
+              <div style="font-size:22px;font-weight:800;letter-spacing:-.3px;">🔓 Unlocked Homes</div>
+              <div style="font-size:13px;color:var(--muted);margin-top:2px;">Properties you have unlocked</div>
+            </div>
+          </div>
           <div id="rent-purchased-inner" style="padding:0;">
             <div class="rn-empty-state"><div class="rn-empty-icon">⏳</div><p class="rn-empty-desc">Loading unlocked homes...</p></div>
           </div>
@@ -13836,12 +13813,6 @@
       if (sectionEl) sectionEl.classList.add('active');
       const btnEl = document.getElementById('rnb-' + sec);
       if (btnEl) btnEl.classList.add('active');
-      // Sync center tab bar
-      const tabBar = document.getElementById('rent-main-tabs');
-      if (tabBar) tabBar.style.display = (sec === 'browse' || sec === 'purchased') ? 'flex' : 'none';
-      document.querySelectorAll('.rent-main-tab').forEach(b => b.classList.remove('active'));
-      const tabEl = document.getElementById('rtab-' + sec);
-      if (tabEl) tabEl.classList.add('active');
       // Close sidebar on mobile
       const sb2 = document.getElementById('rent-ds-sidebar');
       if (sb2 && sb2.classList.contains('mob-open')) { sb2.classList.remove('mob-open'); if (typeof _unlockScroll === 'function') _unlockScroll(); }
