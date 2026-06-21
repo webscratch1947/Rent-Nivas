@@ -10942,6 +10942,201 @@
       document.getElementById('role-rent-btn')?.classList.remove('active');
       updateProfileBtnRing();
       loadPartnerTasks();
+      loadPartnerReferralStats(false);
+    }
+
+    // ══════════════════════════════════════
+    // REFERRAL STATS + HISTORY
+    // ══════════════════════════════════════
+
+    // Copy the partner's referral code to clipboard
+    function pdCopyRefCode() {
+      const codeEl = document.getElementById('pd-ref-code-display');
+      const code = (codeEl?.textContent || '').replace(/—/g, '').trim();
+      if (!code) { toast('No referral code found', 'warn'); return; }
+      const btn = document.getElementById('pd-copy-ref-btn');
+      navigator.clipboard.writeText(code).then(() => {
+        if (btn) { const prev = btn.innerHTML; btn.innerHTML = '✅ Copied!'; setTimeout(() => { btn.innerHTML = prev; }, 1800); }
+      }).catch(() => {
+        // Fallback for browsers without clipboard API
+        const t = document.createElement('textarea');
+        t.value = code;
+        document.body.appendChild(t); t.select(); document.execCommand('copy'); document.body.removeChild(t);
+        if (btn) { const prev = btn.innerHTML; btn.innerHTML = '✅ Copied!'; setTimeout(() => { btn.innerHTML = prev; }, 1800); }
+      });
+    }
+
+    // Returns true if the referrer is an approved partner (checks PartnerApplications)
+    async function _pdIsPartner(userId) {
+      try {
+        const { data } = await sb.from('partner_requests').select('status').eq('user_id', userId).eq('status', 'accepted').limit(1).maybeSingle();
+        return !!(data && data.status === 'accepted');
+      } catch { return false; }
+    }
+
+    // Load and render all referral stats + history for the current partner
+    async function loadPartnerReferralStats(showRefreshToast) {
+      if (!user) return;
+
+      // ── 1. Ensure referral code exists ──────────────────────────────────
+      try {
+        const { data: prof, error: profErr } = await sb.from('profiles')
+          .select('referral_code,partner_xp,xp,credits,total_referrals,registration_referrals,listing_referrals')
+          .eq('id', user.id).maybeSingle();
+
+        if (profErr) throw profErr;
+
+        let refCode = prof?.referral_code;
+
+        // Auto-generate if missing (mirrors ensureReferralCode logic)
+        if (!refCode) {
+          refCode = String(Math.floor(10000000 + Math.random() * 90000000));
+          await sb.from('profiles').upsert({ id: user.id, referral_code: refCode, email: user.email });
+        }
+
+        // Render referral code card
+        const codeEl = document.getElementById('pd-ref-code-display');
+        if (codeEl) codeEl.textContent = refCode;
+
+        // Show stats
+        const totalXP    = parseInt(prof?.partner_xp ?? prof?.xp ?? 0, 10);
+        const credits    = parseFloat(prof?.credits ?? 0);
+        const totalRefs  = parseInt(prof?.total_referrals ?? 0, 10);
+        const regRefs    = parseInt(prof?.registration_referrals ?? 0, 10);
+        const listRefs   = parseInt(prof?.listing_referrals ?? 0, 10);
+
+        const setEl = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+        setEl('pd-stat-total',   totalRefs);
+        setEl('pd-stat-reg',     regRefs);
+        setEl('pd-stat-list',    listRefs);
+        setEl('pd-stat-xp',      totalXP + ' XP');
+        setEl('pd-stat-credits', credits % 1 === 0 ? credits + ' Credits' : credits.toFixed(2) + ' Credits');
+
+        // ── 2. Build referral history ──────────────────────────────────────
+        await _renderReferralHistory(refCode);
+
+        if (showRefreshToast) toast('✅ Referral stats refreshed', 'success');
+
+      } catch (e) {
+        console.warn('[PD] loadPartnerReferralStats error:', e.message);
+        const histEl = document.getElementById('pd-referral-history');
+        if (histEl) histEl.innerHTML = `<div style="text-align:center;padding:32px;color:var(--muted);font-size:13px;">Could not load referral data.</div>`;
+      }
+    }
+
+    async function _renderReferralHistory(refCode) {
+      const histEl = document.getElementById('pd-referral-history');
+      if (!histEl) return;
+
+      histEl.innerHTML = `<div style="text-align:center;padding:28px;color:var(--muted);font-size:13px;">Loading history...</div>`;
+
+      try {
+        const isPartner = await _pdIsPartner(user.id);
+
+        // Fetch users who registered using this referral code
+        const regPromise = sb.from('profiles')
+          .select('id,name,email,created_at,referred_by_code')
+          .eq('referred_by_code', refCode)
+          .order('created_at', { ascending: false })
+          .limit(100);
+
+        // Fetch properties created with this referral code
+        const listPromise = sb.from('houses')
+          .select('id,title,referral_code,created_at,owner_id,referral_reward_given')
+          .eq('referral_code', refCode)
+          .order('created_at', { ascending: false })
+          .limit(100);
+
+        const [regResult, listResult] = await Promise.all([regPromise, listPromise]);
+
+        const regRows  = (regResult.data  || []);
+        const listRows = (listResult.data || []);
+
+        // Merge into a unified event list
+        const events = [];
+
+        regRows.forEach(u => {
+          events.push({
+            type:       'registration',
+            date:       u.created_at,
+            user_name:  u.name || u.email || 'Unknown user',
+            user_email: u.email || '',
+            action:     'Signed up',
+            reward:     isPartner ? '+15 XP' : '+0.50 Credits',
+            reward_type: isPartner ? 'xp' : 'credits',
+          });
+        });
+
+        listRows.forEach(h => {
+          if (!h.referral_reward_given) return; // only show confirmed rewards
+          events.push({
+            type:       'listing',
+            date:       h.created_at,
+            user_name:  h.title || 'Untitled property',
+            user_email: '',
+            action:     'Created listing',
+            reward:     isPartner ? '+10 XP' : '+0.50 Credits',
+            reward_type: isPartner ? 'xp' : 'credits',
+          });
+        });
+
+        // Sort newest first
+        events.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+        if (!events.length) {
+          histEl.innerHTML = `
+            <div style="text-align:center;padding:48px 20px;color:var(--muted);border:1.5px dashed var(--border);border-radius:16px;">
+              <div style="font-size:40px;margin-bottom:12px;">🔗</div>
+              <div style="font-size:15px;font-weight:700;color:var(--ink);margin-bottom:6px;">No referrals yet</div>
+              <div style="font-size:13px;">Share your code above — you'll earn rewards every time someone signs up or lists a property.</div>
+            </div>`;
+          return;
+        }
+
+        // Table header
+        const rows = events.map(ev => {
+          const isXP  = ev.reward_type === 'xp';
+          const badge = isXP
+            ? `<span style="background:#fef3c7;color:#78350f;border:1px solid #fcd34d;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700;">⚡ ${ev.reward}</span>`
+            : `<span style="background:#ecfdf5;color:#065f46;border:1px solid #6ee7b7;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700;">🪙 ${ev.reward}</span>`;
+
+          const actionIcon = ev.type === 'registration' ? '👤' : '🏠';
+          const actionBg   = ev.type === 'registration' ? '#eef2ff' : '#f0fdf4';
+          const actionClr  = ev.type === 'registration' ? '#4338ca' : '#15803d';
+
+          const userLine = ev.user_email
+            ? `<div style="font-size:13px;font-weight:700;color:var(--ink);">${esc(ev.user_name)}</div><div style="font-size:11px;color:var(--muted);">${esc(ev.user_email)}</div>`
+            : `<div style="font-size:13px;font-weight:700;color:var(--ink);">${esc(ev.user_name)}</div>`;
+
+          return `
+            <div style="display:grid;grid-template-columns:1fr auto auto;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid var(--border);transition:background .12s;" onmouseover="this.style.background='var(--bg2)'" onmouseout="this.style.background=''">
+              <!-- User / property -->
+              <div style="min-width:0;">${userLine}</div>
+              <!-- Action pill -->
+              <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
+                <span style="background:${actionBg};color:${actionClr};padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700;white-space:nowrap;">${actionIcon} ${esc(ev.action)}</span>
+                <span style="font-size:11px;color:var(--muted);white-space:nowrap;">${fmtDate(ev.date)}</span>
+              </div>
+              <!-- Reward badge -->
+              <div style="flex-shrink:0;">${badge}</div>
+            </div>`;
+        }).join('');
+
+        histEl.innerHTML = `
+          <div style="border:1.5px solid var(--border);border-radius:16px;overflow:hidden;background:var(--bg);">
+            <!-- Header row -->
+            <div style="display:grid;grid-template-columns:1fr auto auto;gap:12px;padding:10px 16px;background:var(--bg2);border-bottom:1.5px solid var(--border);">
+              <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;">Referred User / Property</div>
+              <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;text-align:right;">Action / Date</div>
+              <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;">Reward</div>
+            </div>
+            ${rows}
+          </div>`;
+
+      } catch (e) {
+        console.warn('[PD] _renderReferralHistory error:', e.message);
+        histEl.innerHTML = `<div style="text-align:center;padding:28px;color:var(--muted);font-size:13px;">Could not load history.</div>`;
+      }
     }
 
     function markTaskDone(taskId) {
@@ -15461,13 +15656,88 @@
     </div>
 
     <div style="max-width:720px;margin:0 auto;padding:24px 20px 80px;">
+
       <!-- Greeting -->
-      <div style="margin-bottom:28px;">
+      <div style="margin-bottom:24px;">
         <div style="font-size:26px;font-weight:900;color:var(--ink);letter-spacing:-.5px;" id="pd-greeting">Welcome, Partner 🎉</div>
-        <p style="color:var(--muted);font-size:14px;margin-top:4px;">Complete tasks below to earn XP and level up.</p>
+        <p style="color:var(--muted);font-size:14px;margin-top:4px;">Track your referrals, earn rewards, and complete tasks.</p>
       </div>
 
-      <!-- Tasks heading -->
+      <!-- ══ REFERRAL CODE CARD ══ -->
+      <div id="pd-ref-code-card" style="background:linear-gradient(135deg,#7c2d12,#b45309 60%,#d97706);border-radius:20px;padding:20px 22px;margin-bottom:20px;position:relative;overflow:hidden;">
+        <div style="position:absolute;top:-30px;right:-30px;width:130px;height:130px;border-radius:50%;background:rgba(255,255,255,.07);pointer-events:none;"></div>
+        <div style="position:absolute;bottom:-20px;left:-15px;width:90px;height:90px;border-radius:50%;background:rgba(255,255,255,.05);pointer-events:none;"></div>
+        <div style="position:relative;z-index:1;">
+          <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,.6);letter-spacing:.8px;text-transform:uppercase;margin-bottom:6px;">Your Referral Code</div>
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+            <div style="font-size:30px;font-weight:900;color:#fff;letter-spacing:3px;font-family:monospace;" id="pd-ref-code-display">——————</div>
+            <button onclick="pdCopyRefCode()" id="pd-copy-ref-btn"
+              style="display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.18);border:1.5px solid rgba(255,255,255,.3);color:#fff;padding:8px 16px;border-radius:12px;font-size:13px;font-weight:700;cursor:pointer;backdrop-filter:blur(4px);transition:background .15s;"
+              onmouseover="this.style.background='rgba(255,255,255,.28)'" onmouseout="this.style.background='rgba(255,255,255,.18)'">
+              📋 Copy Code
+            </button>
+          </div>
+          <div style="font-size:12px;color:rgba(255,255,255,.55);margin-top:8px;">Share your code — earn XP or credits for every signup &amp; listing.</div>
+        </div>
+      </div>
+
+      <!-- ══ REFERRAL STATS GRID ══ -->
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px;" id="pd-ref-stats-grid">
+        <!-- Total Referrals -->
+        <div style="background:var(--bg);border:1.5px solid var(--border);border-radius:16px;padding:16px 14px;text-align:center;">
+          <div style="font-size:26px;font-weight:900;color:var(--terra);line-height:1;margin-bottom:4px;" id="pd-stat-total">—</div>
+          <div style="font-size:10px;color:var(--muted);font-weight:700;letter-spacing:.4px;text-transform:uppercase;">Total</div>
+        </div>
+        <!-- Registration Referrals -->
+        <div style="background:var(--bg);border:1.5px solid var(--border);border-radius:16px;padding:16px 14px;text-align:center;">
+          <div style="font-size:26px;font-weight:900;color:#6366f1;line-height:1;margin-bottom:4px;" id="pd-stat-reg">—</div>
+          <div style="font-size:10px;color:var(--muted);font-weight:700;letter-spacing:.4px;text-transform:uppercase;">Signups</div>
+        </div>
+        <!-- Listing Referrals -->
+        <div style="background:var(--bg);border:1.5px solid var(--border);border-radius:16px;padding:16px 14px;text-align:center;">
+          <div style="font-size:26px;font-weight:900;color:#10b981;line-height:1;margin-bottom:4px;" id="pd-stat-list">—</div>
+          <div style="font-size:10px;color:var(--muted);font-weight:700;letter-spacing:.4px;text-transform:uppercase;">Listings</div>
+        </div>
+      </div>
+
+      <!-- ══ REWARDS EARNED ROW ══ -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:24px;">
+        <!-- Total XP Earned -->
+        <div style="background:linear-gradient(135deg,#fef3c7,#fde68a);border:1.5px solid #fcd34d;border-radius:16px;padding:18px 16px;display:flex;align-items:center;gap:12px;">
+          <div style="font-size:28px;line-height:1;">⚡</div>
+          <div>
+            <div style="font-size:22px;font-weight:900;color:#78350f;line-height:1;" id="pd-stat-xp">— XP</div>
+            <div style="font-size:11px;color:#92400e;font-weight:600;margin-top:3px;">Total XP Earned</div>
+          </div>
+        </div>
+        <!-- Credits Earned -->
+        <div style="background:linear-gradient(135deg,#ecfdf5,#d1fae5);border:1.5px solid #6ee7b7;border-radius:16px;padding:18px 16px;display:flex;align-items:center;gap:12px;">
+          <div style="font-size:28px;line-height:1;">🪙</div>
+          <div>
+            <div style="font-size:22px;font-weight:900;color:#065f46;line-height:1;" id="pd-stat-credits">— Credits</div>
+            <div style="font-size:11px;color:#047857;font-weight:600;margin-top:3px;">Credits Earned</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ REFERRAL HISTORY ══ -->
+      <div style="margin-bottom:28px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+          <div style="font-size:16px;font-weight:800;color:var(--ink);">📜 Referral History</div>
+          <button onclick="loadPartnerReferralStats(true)" title="Refresh"
+            style="background:none;border:1.5px solid var(--border);border-radius:10px;padding:5px 10px;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer;"
+            onmouseover="this.style.borderColor='var(--terra)';this.style.color='var(--terra)'"
+            onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">↻ Refresh</button>
+        </div>
+        <div id="pd-referral-history">
+          <div style="text-align:center;padding:40px 20px;color:var(--muted);">
+            <div style="font-size:36px;margin-bottom:10px;">📭</div>
+            <div style="font-size:14px;font-weight:600;">Loading referral history...</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ TASKS ══ -->
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px;">
         <div style="font-size:16px;font-weight:800;color:var(--ink);">📋 Your Tasks</div>
         <div id="pd-tasks-count" style="background:var(--terra);color:#fff;font-size:11px;font-weight:800;padding:2px 8px;border-radius:20px;display:none;"></div>
