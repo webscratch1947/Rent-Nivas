@@ -127,7 +127,7 @@
   // Custom backend endpoints (NOT Cognito) for password-reset and signup
   // email verification. These talk to /api/forgot-password and
   // /api/signup-verify, which generate their own codes, store them in
-  // DynamoDB, and send them via AWS SES — Cognito is only used afterwards
+  // DynamoDB, and send them via Brevo SMTP — Cognito is only used afterwards
   // to actually set/confirm the account (AdminSetUserPassword /
   // AdminUpdateUserAttributes), not to send any email itself.
   async function customAuth(path, body) {
@@ -239,7 +239,7 @@
       // NOTE: this no longer calls Cognito's public SignUp action (which would
       // make Cognito send its own confirmation email). Instead /api/signup-verify
       // creates the Cognito user server-side with MessageAction:'SUPPRESS',
-      // sets the real password immediately, and sends a custom code via SES.
+      // sets the real password immediately, and sends a custom code via Brevo.
       try {
         var name = payload.options && payload.options.data && payload.options.data.name;
         var referralCode = (payload.options && payload.options.data && payload.options.data.referral_code) || '';
@@ -286,7 +286,7 @@
     },
 
     async resetPasswordForEmail(email) {
-      // Custom SES flow — see /api/forgot-password. Cognito's own
+      // Custom Brevo flow — see /api/forgot-password. Cognito's own
       // ForgotPassword action is no longer used, so this no longer relies on
       // (or is limited by) Cognito's built-in email sending.
       try {
