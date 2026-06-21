@@ -146,23 +146,85 @@
     return json.data;
   }
 
+  // FIX: previously, ANY failure here (a one-off network blip, a slow
+  // connection, Cognito briefly throttling, the tab waking up from being
+  // backgrounded mid-request) immediately cleared the session and signed
+  // the user out — permanently, with no retry. That is the cause of the
+  // "auto logout after idle time" complaint: it usually wasn't really about
+  // idle time at all, it was that the FIRST refresh attempt after any gap
+  // happened to hit a transient hiccup and that one failure was treated as
+  // "this user must be logged out".
+  //
+  // Fix: distinguish between
+  //   (a) Cognito explicitly telling us the refresh token is invalid/expired
+  //       (NotAuthorizedException) — this is a REAL logout, the session truly
+  //       cannot be renewed, so we sign out.
+  //   (b) anything else (network error, timeout, 5xx, throttling) — this is
+  //       almost certainly transient, so we retry a few times with backoff
+  //       before giving up, and even then we do NOT clear localStorage or
+  //       sign the user out automatically — we just leave the existing
+  //       (possibly stale) session in place and let the next natural retry
+  //       (next user action, next visibility change) try again. The user
+  //       is only ever actually signed out by an explicit, confirmed
+  //       "this refresh token is no longer valid" response from Cognito.
+  var REFRESH_RETRY_DELAYS_MS = [2000, 5000, 15000];
+
+  function isDefinitelyInvalidRefreshToken(err) {
+    var msg = (err && (err.raw && (err.raw.__type || err.raw.message))) || (err && err.message) || '';
+    return /NotAuthorizedException/i.test(msg) || /Refresh Token has expired/i.test(msg) || /Invalid Refresh Token/i.test(msg);
+  }
+
+  async function attemptRefresh(current) {
+    return cognito('InitiateAuth', {
+      AuthFlow: 'REFRESH_TOKEN_AUTH',
+      ClientId: CONFIG.clientId,
+      AuthParameters: { REFRESH_TOKEN: current.refresh_token, USERNAME: current.username }
+    });
+  }
+
+  function sleep(ms) { return new Promise(function (resolve) { setTimeout(resolve, ms); }); }
+
+  var _refreshInFlight = null;
   async function refreshSession() {
     var current = getStoredSession();
     if (!current || !current.refresh_token) return { data: { session: null }, error: null };
+    // De-dupe concurrent callers (multiple tabs/components asking for a
+    // refresh at once) into a single in-flight attempt.
+    if (_refreshInFlight) return _refreshInFlight;
+    _refreshInFlight = (async function () {
+      var lastErr = null;
+      for (var attempt = 0; attempt <= REFRESH_RETRY_DELAYS_MS.length; attempt++) {
+        try {
+          var data = await attemptRefresh(current);
+          var session = storeSession(Object.assign({}, data.AuthenticationResult, { RefreshToken: current.refresh_token, Username: current.username }));
+          notify('TOKEN_REFRESHED', session);
+          return { data: { session: session }, error: null };
+        } catch (err) {
+          lastErr = err;
+          if (isDefinitelyInvalidRefreshToken(err)) {
+            log('refresh token is genuinely invalid — signing out', err);
+            clearSession();
+            notify('SIGNED_OUT', null);
+            return { data: { session: null }, error: err };
+          }
+          log('session refresh attempt ' + (attempt + 1) + ' failed (will retry if attempts remain)', err);
+          if (attempt < REFRESH_RETRY_DELAYS_MS.length) {
+            await sleep(REFRESH_RETRY_DELAYS_MS[attempt]);
+          }
+        }
+      }
+      // All retries exhausted on what looks like a transient issue.
+      // Do NOT sign the user out — keep the existing session as-is so the
+      // next natural opportunity (next action, next tab focus) can try
+      // again. Re-arm the timer to try again shortly rather than giving up.
+      log('session refresh exhausted retries (transient) — keeping session, will retry later', lastErr);
+      refreshTimer = setTimeout(refreshSession, 30000);
+      return { data: { session: current }, error: lastErr };
+    })();
     try {
-      var data = await cognito('InitiateAuth', {
-        AuthFlow: 'REFRESH_TOKEN_AUTH',
-        ClientId: CONFIG.clientId,
-        AuthParameters: { REFRESH_TOKEN: current.refresh_token, USERNAME: current.username }
-      });
-      var session = storeSession(Object.assign({}, data.AuthenticationResult, { RefreshToken: current.refresh_token, Username: current.username }));
-      notify('TOKEN_REFRESHED', session);
-      return { data: { session: session }, error: null };
-    } catch (err) {
-      log('session refresh failed', err);
-      clearSession();
-      notify('SIGNED_OUT', null);
-      return { data: { session: null }, error: err };
+      return await _refreshInFlight;
+    } finally {
+      _refreshInFlight = null;
     }
   }
 
@@ -206,6 +268,12 @@
   Query.prototype.delete = function () { this.spec.op = 'delete'; return this; };
   Query.prototype.eq = function (column, value) { this.spec.filters.push({ op: 'eq', column: column, value: value }); return this; };
   Query.prototype.in = function (column, values) { this.spec.filters.push({ op: 'in', column: column, values: values }); return this; };
+  // FIX: .is() was called from index.html (ensureReferralCode's
+  // `.is('referral_code', null)` guard) but was never implemented here.
+  // Every call threw a synchronous TypeError ("...is is not a function"),
+  // which silently aborted referral code generation for every user, every
+  // time. Implemented to mirror Supabase's .is() (used for null/bool checks).
+  Query.prototype.is = function (column, value) { this.spec.filters.push({ op: 'eq', column: column, value: value }); return this; };
   Query.prototype.or = function () { return this; };
   Query.prototype.order = function (column, opts) { this.spec.order = { column: column, ascending: !(opts && opts.ascending === false) }; return this; };
   Query.prototype.limit = function (n) { this.spec.limit = n; return this; };
