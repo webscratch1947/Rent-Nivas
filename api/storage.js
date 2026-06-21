@@ -57,7 +57,7 @@ module.exports = async function handler(req, res) {
       const prefix = normalizePath(body.prefix || '');
       const listed = await s3.send(new ListObjectsV2Command({ Bucket: BUCKET, Prefix: prefix }));
       return send(res, 200, {
-        data: (listed.Contents || []).map(obj => ({ name: obj.Key, id: obj.ETag, updated_at: obj.LastModified, metadata: { size: obj.Size } })),
+        data: (listed.Contents || []).map(obj => ({ name: obj.Key.split('/').pop(), fullKey: obj.Key, id: obj.ETag, updated_at: obj.LastModified, metadata: { size: obj.Size } })),
         error: null
       });
     }
