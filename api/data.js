@@ -113,6 +113,34 @@ function tableName(table) {
   return resolved;
 }
 
+// Validates the incoming request spec before any DynamoDB call is made.
+// Catches malformed requests early with a clear, actionable error instead of
+// letting a bad shape reach DynamoDB (which would surface as an opaque
+// ValidationException like "the provided key element does not match the
+// schema").
+function validateSpec(spec) {
+  if (!spec || typeof spec !== 'object') throw new Error('Request body must be a JSON object');
+  if (!spec.table) throw new Error('Request is missing "table"');
+  if (!spec.op) throw new Error('Request is missing "op"');
+  tableName(spec.table); // throws if table has no backend mapping
+}
+
+// Wraps a DynamoDB SDK call with friendly, consistent error handling so raw
+// AWS exceptions (e.g. ValidationException: key schema mismatch) never leak
+// to the UI unexplained, and are always logged with enough context to debug.
+async function runDdb(action, table, fn) {
+  try {
+    return await fn();
+  } catch (err) {
+    const code = err && (err.name || err.__type || '');
+    console.error(`[RentNivas API] DynamoDB ${action} failed for table "${table}":`, code, err && err.message);
+    if (/ValidationException/i.test(code) || /key element does not match the schema/i.test(err && err.message || '')) {
+      throw new Error(`Could not ${action.toLowerCase()} "${table}" — the request key did not match the table's schema. This has been logged.`);
+    }
+    throw err;
+  }
+}
+
 // Tables whose actual DynamoDB partition key name differs from the app-level "id" field.
 // The app (index.html) always reads/writes "id" — these mappings translate to/from
 // the real AWS attribute name so GetItem/PutItem/UpdateItem/DeleteItem use the correct key.
@@ -172,9 +200,15 @@ function keyFor(table, row, filters) {
     if (!all.user_id || !all.announcement_id) throw new Error('AnnouncementViews requires user_id and announcement_id');
     return { user_id: all.user_id, announcement_id: all.announcement_id };
   }
-  if (!all.id && all.user_id && (table === 'partner_requests' || table === 'partner_applications' || table === 'PartnerApplications')) {
-    all.id = all.user_id;
-  }
+  // NOTE (Partner Panel fix): we intentionally do NOT synthesize an "id" from
+  // "user_id" for partner_requests/partner_applications here. The Partner
+  // Panel looks up "my application" by user_id, but each row's real id is a
+  // generated UUID (see putRows), not the user_id — guessing Key={id:user_id}
+  // built a key that didn't correspond to any real row/key schema and caused
+  // DynamoDB to reject the request ("The provided key element does not match
+  // the schema"). When only user_id is known (no real id), keyFor() below
+  // throws and the caller (tryKey) safely falls back to a validated Scan+filter
+  // instead of a guessed GetItem — see readItems().
   if (!all.id) throw new Error(`${table} requires id`);
   const pk = partitionKeyName(table);
   return { [pk]: all.id };
@@ -215,11 +249,11 @@ async function readItems(spec) {
   const TableName = tableName(spec.table);
   const key = spec.filters && spec.filters.length ? tryKey(spec.table, spec.filters) : null;
   if (key && (spec.single || spec.maybeSingle || spec.limit === 1)) {
-    const got = await ddb.send(new GetItemCommand({ TableName, Key: marshall(key) }));
+    const got = await runDdb('read', spec.table, () => ddb.send(new GetItemCommand({ TableName, Key: marshall(key) })));
     const row = got.Item ? pickColumns(fromDbItem(spec.table, unmarshall(got.Item)), spec.select) : null;
     return spec.single || spec.maybeSingle ? row : (row ? [row] : []);
   }
-  const scanned = await ddb.send(new ScanCommand({ TableName }));
+  const scanned = await runDdb('read', spec.table, () => ddb.send(new ScanCommand({ TableName })));
   let rows = (scanned.Items || []).map(item => fromDbItem(spec.table, unmarshall(item)));
   rows = applyFilters(rows, spec.filters);
   rows = applyOrder(rows, spec.order);
@@ -246,13 +280,13 @@ async function putRows(spec, merge) {
     next.updated_at = now;
     if (merge) {
       const key = keyFor(spec.table, next, spec.filters);
-      const existing = await ddb.send(new GetItemCommand({ TableName, Key: marshall(key) }));
+      const existing = await runDdb('upsert', spec.table, () => ddb.send(new GetItemCommand({ TableName, Key: marshall(key) })));
       const existingAppRow = existing.Item ? fromDbItem(spec.table, unmarshall(existing.Item)) : {};
       const merged = Object.assign(existingAppRow, next, { id: next.id || existingAppRow.id });
-      await ddb.send(new PutItemCommand({ TableName, Item: marshall(toDbItem(spec.table, merged), { removeUndefinedValues: true }) }));
+      await runDdb('upsert', spec.table, () => ddb.send(new PutItemCommand({ TableName, Item: marshall(toDbItem(spec.table, merged), { removeUndefinedValues: true }) })));
       saved.push(merged);
     } else {
-      await ddb.send(new PutItemCommand({ TableName, Item: marshall(toDbItem(spec.table, next), { removeUndefinedValues: true }) }));
+      await runDdb('insert', spec.table, () => ddb.send(new PutItemCommand({ TableName, Item: marshall(toDbItem(spec.table, next), { removeUndefinedValues: true }) })));
       saved.push(next);
     }
   }
@@ -274,14 +308,14 @@ async function updateRows(spec) {
     sets.push(`#k${i} = :v${i}`);
   });
   if (!sets.length) return spec.single ? null : [];
-  const result = await ddb.send(new UpdateItemCommand({
+  const result = await runDdb('update', spec.table, () => ddb.send(new UpdateItemCommand({
     TableName,
     Key: marshall(key),
     UpdateExpression: `SET ${sets.join(', ')}`,
     ExpressionAttributeNames: names,
     ExpressionAttributeValues: marshall(values, { removeUndefinedValues: true }),
     ReturnValues: 'ALL_NEW'
-  }));
+  })));
   const row = result.Attributes ? fromDbItem(spec.table, unmarshall(result.Attributes)) : null;
   return spec.single || spec.maybeSingle ? row : (row ? [row] : []);
 }
@@ -289,7 +323,7 @@ async function updateRows(spec) {
 async function deleteRows(spec) {
   const TableName = tableName(spec.table);
   const key = keyFor(spec.table, {}, spec.filters);
-  await ddb.send(new DeleteItemCommand({ TableName, Key: marshall(key) }));
+  await runDdb('delete', spec.table, () => ddb.send(new DeleteItemCommand({ TableName, Key: marshall(key) })));
   return [];
 }
 
@@ -313,6 +347,7 @@ module.exports = async function handler(req, res) {
   try {
     const claims = await verifyToken(req);
     const spec = await parseBody(req);
+    validateSpec(spec);
     console.log('[RentNivas API] data request', { op: spec.op, table: spec.table, sub: claims.sub });
 
     let data;
