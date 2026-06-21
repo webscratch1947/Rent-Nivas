@@ -8887,6 +8887,9 @@
           <button class="nav-btn active" id="rnb-browse" onclick="rentShowSection('browse')">
             <span class="icon">🏘️</span><span class="label" data-i18n="rent_nav_browse">Browse Homes</span>
           </button>
+          <button class="nav-btn" id="rnb-purchased" onclick="rentShowSection('purchased')">
+            <span class="icon">🔓</span><span class="label" data-i18n="rent_nav_unlocked">Unlocked Homes</span>
+          </button>
           <button class="nav-btn" id="rnb-profile" onclick="rentShowSection('profile')">
             <span class="icon">👤</span><span class="label" data-i18n="rent_nav_profile">Profile</span>
           </button>
@@ -8946,9 +8949,6 @@
               </div>
             </div>
           </div>
-          <div style="text-align:right;margin-bottom:12px;">
-            <button class="btn btn-soft btn-sm" onclick="rentShowSection('purchased')" style="font-weight:600;gap:6px;">🔓 My Unlocked Homes →</button>
-          </div>
           <div class="rent-grid" id="rent-grid">
             <div style="grid-column:1/-1;text-align:center;padding:64px;color:var(--muted);font-size:15px;">Loading
               listings...</div>
@@ -8957,13 +8957,6 @@
 
         <!-- UNLOCKED HOMES SECTION (inline, loaded on demand) -->
         <div class="ds-section" id="rent-section-purchased">
-          <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px;">
-            <button onclick="rentShowSection('browse')" style="background:none;border:1.5px solid var(--border);border-radius:10px;padding:8px 16px;font-size:14px;font-weight:600;color:var(--ink);cursor:pointer;">← Back to Browse</button>
-            <div>
-              <div style="font-size:22px;font-weight:800;letter-spacing:-.3px;">🔓 Unlocked Homes</div>
-              <div style="font-size:13px;color:var(--muted);margin-top:2px;">Properties you have unlocked</div>
-            </div>
-          </div>
           <div id="rent-purchased-inner" style="padding:0;">
             <div class="rn-empty-state"><div class="rn-empty-icon">⏳</div><p class="rn-empty-desc">Loading unlocked homes...</p></div>
           </div>
@@ -11117,21 +11110,37 @@
       }
       setLoader(true, 'Submitting application...');
       try {
-        const { error } = await withTimeout(
-          sb.from('partner_requests').insert({
-            user_id: user.id,
-            full_name: name,
-            email: user.email,
-            phone, business_name: business || null,
-            partner_type: type,
-            city,
-            experience: exp || null,
-            website: web || null,
-            message: msg || null,
-            status: 'pending'
-          }),
+        const fields = {
+          full_name: name,
+          email: user.email,
+          phone, business_name: business || null,
+          partner_type: type,
+          city,
+          experience: exp || null,
+          website: web || null,
+          message: msg || null,
+          status: 'pending'
+        };
+        // One application per user. Reuse the existing row instead of
+        // inserting a new one each time — repeated inserts here were
+        // creating duplicate partner_requests rows per user, which made
+        // admin approval unreliable (approving one row while a newer
+        // duplicate stayed pending).
+        const { data: existingRows } = await withTimeout(
+          sb.from('partner_requests').select('id,created_at').eq('user_id', user.id),
           8000, 'Submission timed out. Please try again.'
         );
+        const rows = (existingRows || []).slice().sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        let error;
+        if (rows.length) {
+          ({ error } = await sb.from('partner_requests').update(fields).eq('id', rows[0].id));
+          // Self-heal: clean up any leftover duplicate rows from before this fix.
+          for (const dupe of rows.slice(1)) {
+            await sb.from('partner_requests').delete().eq('id', dupe.id).catch(() => {});
+          }
+        } else {
+          ({ error } = await sb.from('partner_requests').insert(Object.assign({ user_id: user.id }, fields)));
+        }
         if (error) throw error;
         toast('🎉 Application submitted! We\'ll review it soon.', 'success');
         loadPartnerPage();
@@ -13167,6 +13176,21 @@
         };
         if (imgUrls.length) payload.images = imgUrls;
 
+        // ── SELF-REFERRAL GUARD ──
+        // Don't let someone use their own referral code on their own listing.
+        // (award_referral_reward also blocks the reward server-side, but this
+        // stops the bad value from ever being saved in the first place.)
+        if (!isEdit && payload.referral_code) {
+          try {
+            const { data: ownProfile } = await sb.from('profiles').select('referral_code').eq('id', cu.id).maybeSingle();
+            if (ownProfile?.referral_code && String(ownProfile.referral_code) === String(payload.referral_code)) {
+              setLoader(false);
+              toast("You can't use your own referral code for your own listing.", 'error');
+              return;
+            }
+          } catch (e) { /* non-fatal — server-side guard still applies */ }
+        }
+
         let dbResult;
         if (isEdit) {
           // EDIT: update existing row — keep existing images if no new files uploaded
@@ -14724,10 +14748,18 @@
         fields: [],
         confirmText: 'Grant Partner', confirmClass: 'btn-terra',
         onConfirm: async () => {
-          const { data: existing } = await sb.from('partner_requests').select('id').eq('user_id', userId).maybeSingle();
+          const { data: existingRows } = await sb.from('partner_requests').select('id,phone,partner_type,city,created_at').eq('user_id', userId);
+          const rows = (existingRows || []).slice().sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
           let error;
-          if (existing) {
-            ({ error } = await sb.from('partner_requests').update({ status: 'accepted', full_name: userName, email: userEmail || '', phone: existing.phone || '', partner_type: existing.partner_type || 'admin_grant', city: existing.city || '' }).eq('id', existing.id));
+          if (rows.length) {
+            const primary = rows[0];
+            ({ error } = await sb.from('partner_requests').update({ status: 'accepted', full_name: userName, email: userEmail || '', phone: primary.phone || '', partner_type: primary.partner_type || 'admin_grant', city: primary.city || '' }).eq('id', primary.id));
+            // Remove any duplicate application rows for this user — the user-facing
+            // status check always reads "the latest row", so leftover duplicates
+            // could still show as pending even after this one is accepted.
+            for (const dupe of rows.slice(1)) {
+              await sb.from('partner_requests').delete().eq('id', dupe.id).catch(() => {});
+            }
           } else {
             ({ error } = await sb.from('partner_requests').insert({ user_id: userId, full_name: userName, email: userEmail || '', phone: '', partner_type: 'admin_grant', city: '', status: 'accepted', created_at: new Date().toISOString() }));
           }
@@ -15014,23 +15046,52 @@
         el.innerHTML = '<div style="text-align:center;padding:32px;color:var(--muted);">Loading bans...</div>';
         try {
           const { data, error } = await withTimeout(
-            sb.from('admin_bans').select('id,user_id,reason,type,until,active,created_at,profiles(name,email)').order('created_at', { ascending: false }).limit(200),
+            sb.from('admin_bans').select('id,user_id,reason,type,until,active,created_at').order('created_at', { ascending: false }).limit(200),
             8000, 'Bans load timed out'
           );
           if (error) throw error;
           if (!data?.length) { el.innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted);">No bans found.</div>'; return; }
+          // This backend has no relational joins — fetch names/emails separately.
+          try {
+            const userIds = [...new Set(data.map(b => b.user_id).filter(Boolean))];
+            if (userIds.length) {
+              const { data: profs } = await sb.from('profiles').select('id,name,email').in('id', userIds);
+              const profMap = {};
+              (profs || []).forEach(p => { profMap[p.id] = p; });
+              data.forEach(b => { b.profile = profMap[b.user_id] || null; });
+            }
+          } catch (e) { /* non-fatal — falls back to showing the raw user_id */ }
           el.innerHTML = data.map(b => `
             <div style="border:1px solid var(--border2);border-radius:var(--r);margin-bottom:10px;background:var(--bg2);padding:12px 14px;display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
               <div style="min-width:0;">
-                <div style="font-size:14px;font-weight:700;color:var(--ink);margin-bottom:2px;">${esc(b.profiles?.name||b.profiles?.email||b.user_id||'Unknown')}</div>
-                <div style="font-size:12px;color:var(--muted);">${esc(b.profiles?.email||'—')} &nbsp;·&nbsp; <span style="font-weight:600;color:${b.active?'var(--red)':'var(--muted)'}">${b.active?'Active':'Lifted'}</span> &nbsp;·&nbsp; ${b.type==='perm'?'Permanent':'Temporary'}</div>
+                <div style="font-size:14px;font-weight:700;color:var(--ink);margin-bottom:2px;">${esc(b.profile?.name || b.profile?.email || b.user_id || 'Unknown')}</div>
+                <div style="font-size:12px;color:var(--muted);">${esc(b.profile?.email || '—')} &nbsp;·&nbsp; <span style="font-weight:600;color:${b.active?'var(--red)':'var(--muted)'}">${b.active?'Active':'Lifted'}</span> &nbsp;·&nbsp; ${b.type==='perm'?'Permanent':'Temporary'}</div>
                 <div style="font-size:12px;color:var(--muted);margin-top:3px;">Reason: ${esc(b.reason||'—')}${b.until?' · Until: '+new Date(b.until).toLocaleDateString('en-IN'):''}</div>
               </div>
-              <div style="font-size:11px;color:var(--muted2);flex-shrink:0;">${b.created_at?new Date(b.created_at).toLocaleDateString('en-IN'):'—'}</div>
+              <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px;flex-shrink:0;">
+                <div style="font-size:11px;color:var(--muted2);">${b.created_at?new Date(b.created_at).toLocaleDateString('en-IN'):'—'}</div>
+                ${b.active ? `<button class="btn btn-sm" style="background:var(--green-bg);color:var(--green);font-size:12px;" onclick="adminUnbanUser('${esc(b.id)}','${esc(b.profile?.name||b.profile?.email||b.user_id||'this user')}')">✅ Unban</button>` : ''}
+              </div>
             </div>`).join('');
         } catch(e) {
           el.innerHTML = `<div style="padding:24px;text-align:center;color:var(--muted);">Failed to load: ${esc(e.message)}</div>`;
         }
+      }
+
+      async function adminUnbanUser(banId, userName) {
+        openAdminModal({
+          title: '✅ Lift Ban',
+          subtitle: 'This will restore access for: ' + userName,
+          fields: [],
+          confirmText: 'Lift Ban', confirmClass: 'btn-terra',
+          onConfirm: async () => {
+            const { error } = await sb.from('admin_bans').update({ active: false }).eq('id', banId);
+            if (error) throw error;
+            toast('✅ Ban lifted for ' + userName, 'success');
+            setTimeout(loadAdminBans, 400);
+            setTimeout(loadAdmin, 600);
+          }
+        });
       }
 
       async function loadAdminAppeals() {
@@ -15238,12 +15299,21 @@
         if (resultEl) resultEl.style.display = 'none';
         if (errorEl) errorEl.style.display = 'none';
         try {
-          const { data, error } = await sb.from('profiles').select('name,email').eq('referral_code', code).maybeSingle();
-          if (error || !data) { if (errorEl) errorEl.style.display = 'block'; return; }
+          const { data, error } = await sb.from('profiles').select('id,name,email').eq('referral_code', code).maybeSingle();
+          if (error || !data) {
+            if (errorEl) { errorEl.textContent = '❌ Invalid referral code. Please check and try again.'; errorEl.style.display = 'block'; }
+            return;
+          }
+          if (user && data.id === user.id) {
+            if (errorEl) { errorEl.textContent = "❌ That's your own referral code — enter someone else's instead."; errorEl.style.display = 'block'; }
+            return;
+          }
           if (nameEl) nameEl.textContent = data.name || '—';
           if (emailEl) emailEl.textContent = data.email || '—';
           if (resultEl) resultEl.style.display = 'block';
-        } catch(e) { if (errorEl) errorEl.style.display = 'block'; }
+        } catch(e) {
+          if (errorEl) { errorEl.textContent = '❌ Invalid referral code. Please check and try again.'; errorEl.style.display = 'block'; }
+        }
       }
       function onReferralCodeInput(val) {
         const code = (val || '').trim();
@@ -16008,10 +16078,10 @@
 
   <!-- ══ PARTNER APPLICATION / STATUS PAGE ══ -->
   <div class="page" id="partner-page">
-    <div class="purchased-topbar">
+    <div class="purchased-topbar" style="position:static;">
       <button class="detail-back-btn" onclick="closeModal();if(typeof switchToHost==='function'){switchToHost();}else{showPage('host-dashboard');}">← Back</button>
     </div>
-    <div class="detail-content" style="max-width:640px;">
+    <div class="detail-content" style="max-width:900px;">
       <div style="margin-bottom:24px;text-align:center;">
         <div class="detail-title" style="font-size:24px;font-weight:800;">🤝 Rent Nivas Partner Program</div>
         <p style="color:var(--muted);font-size:15px;margin-top:8px;">Grow your business with India's fastest-growing rental platform</p>
