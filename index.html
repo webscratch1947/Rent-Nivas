@@ -9884,7 +9884,9 @@
                 style="flex:1;padding:10px 16px;border:1.5px solid var(--border2);border-radius:var(--r);font-family:var(--font);font-size:14px;color:var(--ink);background:var(--white);outline:none;">
               <button class="btn btn-terra btn-sm" onclick="loadAdminUsers()">🔄 Refresh</button>
               <button class="btn btn-sm" id="adm-backfill-btn" style="background:var(--blue-bg);color:var(--blue);" onclick="adminBackfillProfiles()" title="One-time fix for accounts created before the credits bug was fixed — safe to run repeatedly, never overwrites real data">🔧 Fix Existing Accounts (credits/referral)</button>
+              <button class="btn btn-sm" id="adm-find-dupes-btn" style="background:var(--red-bg);color:var(--red);" onclick="adminFindDuplicateAccounts()" title="Read-only scan — finds accounts sharing the same email. Does not delete or change anything automatically.">🔍 Find Duplicate Accounts</button>
             </div>
+            <div id="adm-dupes-banner" style="display:none;background:var(--red-bg);color:var(--red);padding:14px 16px;border-radius:var(--r);margin-bottom:14px;font-size:13px;border:1.5px solid #fecaca;line-height:1.6;"></div>
             <div id="adm-ghost-banner"
               style="display:none;background:var(--amber-bg);color:var(--amber);padding:10px 16px;border-radius:var(--r);margin-bottom:14px;font-size:14px;font-weight:600;border:1.5px solid #fde68a;">
             </div>
@@ -10819,14 +10821,35 @@
       renderNotifBadge();
       renderNotifList();
     }
+    function closeNotif() {
+      const dd = document.getElementById('notif-dd');
+      if (dd) dd.style.display = 'none';
+    }
     function clearNotifs() {
       saveNotifs([]);
       renderNotifBadge();
       renderNotifList();
     }
 
+    // FIX: the notification dropdown previously only closed if the bell
+    // icon itself was clicked again — clicking anywhere else on the page,
+    // or navigating to a different page/tab inside the app, left it stuck
+    // open on screen. Two fixes:
+    //  1. A global click listener that closes it on any click outside the
+    //     dropdown or the bell button.
+    //  2. showPage() (called on every in-app navigation) also force-closes
+    //     it, so switching pages always closes it too.
+    document.addEventListener('click', (e) => {
+      const dd = document.getElementById('notif-dd');
+      const bell = document.getElementById('notif-bell');
+      if (!dd || dd.style.display !== 'block') return;
+      if (dd.contains(e.target) || (bell && bell.contains(e.target))) return;
+      closeNotif();
+    });
+
     // ══ PAGE ROUTING ══
     function showPage(id) {
+      closeNotif();
       // If user is temp-banned, block all navigation except logout/landing
       if (id !== 'landing-page' && id !== 'login-page') {
         const storedBan = _getStoredBan ? _getStoredBan() : null;
@@ -14616,6 +14639,79 @@
       }
     }
 
+    // Read-only scan for accounts sharing the same email (the duplicate
+    // Cognito user bug — fixed going forward in signup-verify.js, but this
+    // finds any that were already created before that fix). Shows a report
+    // so you can decide per-pair which account to keep (usually the one
+    // with real activity — listings, credits, referrals) before manually
+    // deleting the other with the existing 🗑️ Delete button.
+    async function adminFindDuplicateAccounts() {
+      const btn = document.getElementById('adm-find-dupes-btn');
+      const banner = document.getElementById('adm-dupes-banner');
+      if (btn) { btn.disabled = true; btn.textContent = '⏳ Scanning...'; }
+      try {
+        const { data, error } = await sb.rpc('admin_find_duplicate_accounts', {});
+        if (error) throw error;
+        if (!data.duplicateEmailCount) {
+          if (banner) { banner.style.display = 'none'; }
+          toast('✅ No duplicate accounts found.', 'success');
+          return;
+        }
+        if (banner) {
+          banner.style.display = 'block';
+          banner.innerHTML = `<div style="font-weight:800;margin-bottom:10px;">⚠️ Found ${data.duplicateEmailCount} email(s) with multiple accounts. Pick which one to keep for each — its listings/credits/bookings stay, and everything from the other account (credits, XP, listings, bookings) gets moved onto it before its login is removed:</div>` +
+            data.duplicates.map(group => `
+              <div style="background:var(--white);border-radius:8px;padding:10px 12px;margin-bottom:8px;">
+                <div style="font-weight:700;margin-bottom:6px;">${esc(group.email)}</div>
+                ${group.accounts.map(a => `
+                  <div style="font-size:12px;color:var(--ink);padding:6px 0;border-top:1px solid var(--border2);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+                    <div>
+                      id: <span style="font-family:monospace;">${esc(a.id)}</span> —
+                      ${esc(a.name||'(no name)')} —
+                      💰 ${a.credits??0} credits —
+                      ${a.referral_code ? 'RC: '+esc(a.referral_code) : 'no referral code'} —
+                      created ${a.created_at ? new Date(a.created_at).toLocaleDateString('en-IN') : '—'}
+                    </div>
+                    <button class="btn btn-sm" style="background:var(--green-bg);color:var(--green);font-size:11px;white-space:nowrap;"
+                      onclick='adminConfirmMergeAccounts(${JSON.stringify(group.accounts.map(x=>x.id))}, "${esc(a.id)}", "${esc(group.email)}")'>
+                      ✅ Keep this one
+                    </button>
+                  </div>`).join('')}
+              </div>`).join('');
+        }
+        toast(`⚠️ Found ${data.duplicateEmailCount} duplicate account group(s) — see list above.`, 'error');
+      } catch (e) {
+        toast('Duplicate scan failed: ' + (e.message || 'Unknown error'), 'error');
+      } finally {
+        if (btn) { btn.disabled = false; btn.textContent = '🔍 Find Duplicate Accounts'; }
+      }
+    }
+
+    // allAccountIds: every account id in this email's duplicate group.
+    // keeperId: the one the admin clicked "Keep this one" on.
+    // Merges every OTHER account in the group into the keeper, one at a
+    // time (handles groups of 3+ duplicates, not just pairs).
+    function adminConfirmMergeAccounts(allAccountIds, keeperId, email) {
+      const losers = allAccountIds.filter(id => id !== keeperId);
+      openAdminModal({
+        title: '⚠️ Merge Duplicate Accounts',
+        subtitle: `Keep "${keeperId}" as the account for ${email}. Credits, XP, listings, and bookings from the other ${losers.length} account(s) will be moved onto it, then ${losers.length === 1 ? 'its login' : 'their logins'} will be permanently deleted. This cannot be undone.`,
+        fields: [{ id:'confirm', label:'Type MERGE to confirm', type:'text', placeholder:'MERGE', required:true }],
+        confirmText: 'Merge Accounts', confirmClass: 'btn-danger-soft',
+        onConfirm: async (v) => {
+          if (v.confirm !== 'MERGE') throw new Error('You must type MERGE exactly to confirm.');
+          let mergedCount = 0;
+          for (const loserId of losers) {
+            const { data, error } = await sb.rpc('admin_merge_duplicate_accounts', { p_keeper_id: keeperId, p_loser_id: loserId });
+            if (error) throw new Error(`Failed merging ${loserId}: ${error.message}`);
+            mergedCount++;
+          }
+          toast(`✅ Merged ${mergedCount} duplicate account(s) into ${keeperId} for ${email}`, 'success');
+          setTimeout(() => { loadAdminUsers(); adminFindDuplicateAccounts(); }, 600);
+        }
+      });
+    }
+
     async function loadAdmin() {
       if (!isAdmin()) return;
       try {
@@ -15034,6 +15130,24 @@
         const checked = [...document.querySelectorAll('#task-partner-picker input[type="checkbox"]:checked')].map(i => i.value);
         if (!checked.length) { toast('Select at least one partner.', 'error'); return; }
         assigned_to = checked;
+      } else {
+        // FIX: "Send to all" used to mean "everyone who is or ever becomes a
+        // partner" (assigned_to left null forever), because the visibility
+        // filter in loadPartnerTasks() treats !assigned_to as "show to
+        // everyone". That meant test/old broadcast tasks from months ago
+        // kept showing up for brand-new partners who joined long after the
+        // task (and its real deadline, for the people it was meant for)
+        // was relevant. Snapshot the partner list that exists RIGHT NOW
+        // instead, so "all" means "everyone who is currently a partner",
+        // not "everyone, forever, including people who join later".
+        try {
+          const { data: currentPartners } = await sb.from('partner_requests').select('user_id').eq('status', 'accepted');
+          assigned_to = [...new Set((currentPartners || []).map(p => p.user_id).filter(Boolean))];
+          if (!assigned_to.length) assigned_to = null; // no partners yet — fall back to old "everyone" behavior
+        } catch (e) {
+          console.warn('[Admin] Could not snapshot current partners for task — falling back to assigned_to:null (visible to all):', e.message || e);
+          assigned_to = null;
+        }
       }
 
       try {
@@ -15872,6 +15986,7 @@
     document.addEventListener('visibilitychange', async () => {
       if (document.visibilityState === 'hidden') {
         _rnLastHiddenAt = Date.now();
+        closeNotif(); // FIX: dropdown was staying stuck open after switching tabs
         return;
       }
 
