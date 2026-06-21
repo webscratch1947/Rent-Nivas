@@ -40,9 +40,19 @@ module.exports = async function handler(req, res) {
       const profiles = await ddb.send(new ScanCommand({ TableName: process.env.TABLE_USERS || 'Users' }));
       const byId = new Map((profiles.Items || []).map(item => {
         const p = unmarshall(item);
-        return [String(p.id), p];
+        // The Users table's real partition key is "userId" — older rows
+        // (migrated before that was discovered) may still carry a legacy
+        // "id" attribute instead. Accept either so every account merges.
+        const key = p.userId || p.id;
+        return [String(key), p];
       }));
-      users.forEach(u => Object.assign(u, byId.get(String(u.id)) || {}));
+      users.forEach(u => {
+        const profile = byId.get(String(u.id));
+        if (profile) {
+          const { userId, id, ...rest } = profile; // keep u.id as the Cognito sub
+          Object.assign(u, rest);
+        }
+      });
     } catch (err) {
       console.warn('[RentNivas] Could not merge Users table profiles:', err.message || err);
     }
