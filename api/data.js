@@ -370,19 +370,39 @@ function tryKey(table, filters) {
 // ends up with these defaults. Only applied when no existing row was found
 // (i.e. this upsert is truly creating the row, not updating it), and only
 // for fields the caller didn't already explicitly provide.
+//
+// referral_code is a FUNCTION (not a static value) so every new profile
+// gets its own unique code generated at creation time — previously this
+// relied entirely on a client-side follow-up call (ensureReferralCode)
+// that had a bug (.is() was undefined) and so never ran successfully.
+// Generating it here means every account gets a permanent code the moment
+// the row is created, with no separate step that can fail or race.
+function freshReferralCode() {
+  return String(Math.floor(10000000 + Math.random() * 90000000));
+}
 const NEW_ROW_DEFAULTS = {
   profiles: {
     credits: 10,
     xp: 0,
     partner_xp: 0,
+    referral_code: freshReferralCode,
     referred_by_code: null,
     total_referrals: 0,
     registration_referrals: 0,
     listing_referrals: 0,
   },
-  users: { credits: 10, xp: 0, partner_xp: 0, referred_by_code: null, total_referrals: 0, registration_referrals: 0, listing_referrals: 0 },
-  Users: { credits: 10, xp: 0, partner_xp: 0, referred_by_code: null, total_referrals: 0, registration_referrals: 0, listing_referrals: 0 },
+  users: { credits: 10, xp: 0, partner_xp: 0, referral_code: freshReferralCode, referred_by_code: null, total_referrals: 0, registration_referrals: 0, listing_referrals: 0 },
+  Users: { credits: 10, xp: 0, partner_xp: 0, referral_code: freshReferralCode, referred_by_code: null, total_referrals: 0, registration_referrals: 0, listing_referrals: 0 },
 };
+
+// Resolves any function-valued defaults (e.g. freshReferralCode) into a concrete value.
+// Called once per row creation so each new row gets its own freshly-generated value
+// instead of every row in a batch sharing one.
+function resolveDefaults(defaults) {
+  const out = {};
+  for (const [k, v] of Object.entries(defaults)) out[k] = typeof v === 'function' ? v() : v;
+  return out;
+}
 
 async function putRows(spec, merge) {
   const TableName = tableName(spec.table);
@@ -399,7 +419,7 @@ async function putRows(spec, merge) {
       const existing = await runDdb('upsert', spec.table, () => ddb.send(new GetItemCommand({ TableName, Key: marshall(key) })));
       const existingAppRow = existing.Item ? fromDbItem(spec.table, unmarshall(existing.Item)) : {};
       const isFirstCreation = !existing.Item;
-      const defaults = isFirstCreation ? (NEW_ROW_DEFAULTS[spec.table] || {}) : {};
+      const defaults = isFirstCreation ? resolveDefaults(NEW_ROW_DEFAULTS[spec.table] || {}) : {};
       // Order matters: defaults < existing row < caller's explicit values,
       // so defaults only fill gaps and never clobber a real existing value
       // or something the caller explicitly asked to set.
@@ -410,7 +430,7 @@ async function putRows(spec, merge) {
       }
       saved.push(merged);
     } else {
-      const defaults = NEW_ROW_DEFAULTS[spec.table] || {};
+      const defaults = resolveDefaults(NEW_ROW_DEFAULTS[spec.table] || {});
       const withDefaults = Object.assign({}, defaults, next);
       await runDdb('insert', spec.table, () => ddb.send(new PutItemCommand({ TableName, Item: marshall(toDbItem(spec.table, withDefaults), { removeUndefinedValues: true }) })));
       saved.push(withDefaults);
@@ -434,16 +454,48 @@ async function updateRows(spec) {
     sets.push(`#k${i} = :v${i}`);
   });
   if (!sets.length) return spec.single ? null : [];
-  const result = await runDdb('update', spec.table, () => ddb.send(new UpdateItemCommand({
-    TableName,
-    Key: marshall(key),
-    UpdateExpression: `SET ${sets.join(', ')}`,
-    ExpressionAttributeNames: names,
-    ExpressionAttributeValues: marshall(values, { removeUndefinedValues: true }),
-    ReturnValues: 'ALL_NEW'
-  })));
-  const row = result.Attributes ? fromDbItem(spec.table, unmarshall(result.Attributes)) : null;
-  return spec.single || spec.maybeSingle ? row : (row ? [row] : []);
+  // FIX: DynamoDB's UpdateItemCommand creates the item if the key doesn't
+  // already exist — it has no "must already exist" semantics by default.
+  // Previously this meant: if any plain .update() call (e.g. setCredits(),
+  // setting an avatar_url, etc.) happened to be the FIRST write ever made
+  // for a given user (a real race that can happen on a brand-new account,
+  // e.g. unlocking a listing before the profile-creation upsert finishes),
+  // DynamoDB would silently create a bare-bones row containing ONLY the
+  // fields in this one update — no credits, no xp, no referral_code, none
+  // of NEW_ROW_DEFAULTS. That partial row then permanently blocked defaults
+  // from ever being applied later, because putRows() only applies
+  // NEW_ROW_DEFAULTS when the row doesn't exist yet ("first creation") —
+  // and this partial row already "existed".
+  //
+  // Fix: add a ConditionExpression requiring the partition key to already
+  // exist. If it doesn't, fall back to putRows(merge=true) instead, which
+  // DOES correctly apply full NEW_ROW_DEFAULTS for a true first creation.
+  // This guarantees every profile row — no matter which code path happens
+  // to create it — always gets the full default set exactly once.
+  const condition = `attribute_exists(${pk})`;
+  try {
+    const result = await runDdb('update', spec.table, () => ddb.send(new UpdateItemCommand({
+      TableName,
+      Key: marshall(key),
+      UpdateExpression: `SET ${sets.join(', ')}`,
+      ExpressionAttributeNames: names,
+      ExpressionAttributeValues: marshall(values, { removeUndefinedValues: true }),
+      ConditionExpression: condition,
+      ReturnValues: 'ALL_NEW'
+    })));
+    const row = result.Attributes ? fromDbItem(spec.table, unmarshall(result.Attributes)) : null;
+    return spec.single || spec.maybeSingle ? row : (row ? [row] : []);
+  } catch (err) {
+    const code = err && (err.name || err.__type || '');
+    if (/ConditionalCheckFailedException/i.test(code)) {
+      // Row didn't exist — create it properly (with full NEW_ROW_DEFAULTS)
+      // instead of leaving a partial row behind.
+      console.log(`[RentNivas API] update() target row didn't exist for "${spec.table}" — creating via putRows with full defaults instead of a partial row.`);
+      const created = await putRows({ table: spec.table, values: Object.assign({}, fromDbItem(spec.table, key), spec.values || {}), single: true }, true);
+      return spec.single || spec.maybeSingle ? created : (created ? [created] : []);
+    }
+    throw err;
+  }
 }
 
 async function deleteRows(spec) {
