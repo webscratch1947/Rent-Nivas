@@ -2,9 +2,9 @@
   'use strict';
 
   var CONFIG = {
-    region: 'eu-north-1',
-    userPoolId: 'eu-north-1_GM7Zi2xvq',
-    clientId: 'ckpmh0heco2apoh0temn8hfnl',
+    region:     (window.__RN_AWS_REGION              || 'eu-north-1'),
+    userPoolId: (window.__RN_COGNITO_USER_POOL_ID    || 'eu-north-1_GM7Zi2xvq'),
+    clientId:   (window.__RN_COGNITO_CLIENT_ID       || 'ckpmh0heco2apoh0temn8hfnl'),
     authFlow: 'USER_PASSWORD_AUTH',
     storageKey: 'rentnivas-auth'
   };
@@ -160,23 +160,8 @@
       return { data: { session: session }, error: null };
     } catch (err) {
       log('session refresh failed', err);
-      // Only hard-sign-out if the refresh token is definitively invalid/expired.
-      // Network failures, timeouts, and transient errors must NOT log the user out —
-      // they are common on mobile, slow connections, and when a tab wakes from sleep.
-      var msg = (err && (err.message || (err.raw && (err.raw.message || err.raw.__type)))) || '';
-      var definitelyInvalid = /NotAuthorizedException|NotAuthorized|invalid.{0,20}token|token.{0,20}expired|refresh.{0,20}invalid|invalid.{0,20}refresh|UserNotFoundException|UserNotConfirmedException/i.test(msg);
-      if (definitelyInvalid) {
-        clearSession();
-        notify('SIGNED_OUT', null);
-      } else {
-        // Transient error — keep the existing session alive and retry in 30 s.
-        var surviving = getStoredSession();
-        if (surviving) {
-          var retryMs = 30000;
-          if (refreshTimer) clearTimeout(refreshTimer);
-          refreshTimer = setTimeout(refreshSession, retryMs);
-        }
-      }
+      clearSession();
+      notify('SIGNED_OUT', null);
       return { data: { session: null }, error: err };
     }
   }
@@ -281,7 +266,7 @@
       try {
         await customAuth('/api/signup-verify', { action: 'confirm', email: email, code: code });
         var pending = {};
-        try { pending = JSON.parse(sessionStorage.getItem('rn-pending-signup') || '{}'); } catch (_) { }
+        try { pending = JSON.parse(sessionStorage.getItem('rn-pending-signup') || '{}'); } catch (_) {}
         sessionStorage.removeItem('rn-pending-signup');
         return { data: { email: email, profile: pending }, error: null };
       } catch (err) {
@@ -339,17 +324,7 @@
     async getSession() {
       var session = getStoredSession();
       if (!session) return { data: { session: null }, error: null };
-      if (session.expires_at && session.expires_at * 1000 < Date.now()) {
-        // Token is already expired — must refresh before any API call can succeed.
-        return refreshSession();
-      }
-      if (session.expires_at && session.expires_at * 1000 < Date.now() + 120000) {
-        // Token expires within 2 min — kick off background refresh so the next
-        // call finds a fresh token, but return the still-valid session immediately
-        // so the current call isn't blocked (and the user isn't logged out on a
-        // transient network hiccup during the background refresh).
-        refreshSession().catch(function () { });
-      }
+      if (session.expires_at && session.expires_at * 1000 < Date.now() + 60000) return refreshSession();
       scheduleRefresh(session);
       return { data: { session: session }, error: null };
     },
@@ -379,15 +354,9 @@
 
     onAuthStateChange(callback) {
       listeners.push(callback);
-      return {
-        data: {
-          subscription: {
-            unsubscribe: function () {
-              listeners = listeners.filter(function (cb) { return cb !== callback; });
-            }
-          }
-        }
-      };
+      return { data: { subscription: { unsubscribe: function () {
+        listeners = listeners.filter(function (cb) { return cb !== callback; });
+      } } } };
     }
   };
 
@@ -396,6 +365,9 @@
     auth: auth,
     from: function (table) { return new Query(table); },
     rpc: function (name, params) { return apiRequest({ op: 'rpc', name: name, params: params || {} }); },
+    // Realtime channels are not supported on this backend — stubs prevent TypeErrors
+    channel: function () { return { on: function () { return this; }, subscribe: function () { return this; } }; },
+    removeChannel: function () {},
     storage: {
       from: function (bucket) {
         async function storageRequest(payload) {
