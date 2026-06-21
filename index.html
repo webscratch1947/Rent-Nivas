@@ -10827,6 +10827,16 @@
 
     // ══ PAGE ROUTING ══
     function showPage(id) {
+      // If user is temp-banned, block all navigation except logout/landing
+      if (id !== 'landing-page' && id !== 'login-page') {
+        const storedBan = _getStoredBan ? _getStoredBan() : null;
+        if (storedBan && !(storedBan.type !== 'perm' && storedBan.until && new Date(storedBan.until) < new Date())) {
+          // Ensure ban overlay is visible
+          const overlay = document.getElementById('ban-overlay');
+          if (overlay) overlay.classList.remove('hidden');
+          return; // block navigation
+        }
+      }
       document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
       const el = document.getElementById(id);
       if (el) el.classList.add('active');
@@ -10993,11 +11003,25 @@
       if (await checkUserBan()) return;
       setLoader(true, 'Checking partner status...');
       try {
-        const { data, error } = await withTimeout(
-          sb.from('partner_requests').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(1).maybeSingle(),
+        // First check: does ANY accepted row exist? (Prevents a newer pending/rejected row
+        // from hiding a real accepted row just because it has a later created_at timestamp.)
+        const { data: acceptedRow, error: accErr } = await withTimeout(
+          sb.from('partner_requests').select('*').eq('user_id', user.id).eq('status', 'accepted').limit(1).maybeSingle(),
           6000, 'Could not check partner status. Please try again.'
         );
-        if (error) throw error;
+        if (accErr) throw accErr;
+
+        let data = acceptedRow;
+        if (!data) {
+          // No accepted row — fall back to most recent row for pending/rejected display
+          const { data: latestRow, error: latestErr } = await withTimeout(
+            sb.from('partner_requests').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(1).maybeSingle(),
+            6000, 'Could not check partner status. Please try again.'
+          );
+          if (latestErr) throw latestErr;
+          data = latestRow;
+        }
+
         _partnerRequestCache = data || null;
         applyPartnerStatusToBadges(data);
         setLoader(false);
@@ -11023,11 +11047,23 @@
       const content = document.getElementById('partner-page-content');
       content.innerHTML = '<div style="text-align:center;padding:64px;color:var(--muted);">Loading...</div>';
       try {
-        const { data, error } = await withTimeout(
-          sb.from('partner_requests').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(1).maybeSingle(),
+        // Check for accepted row first (prevents a newer pending row hiding an accepted one)
+        const { data: acceptedRow, error: accErr } = await withTimeout(
+          sb.from('partner_requests').select('*').eq('user_id', user.id).eq('status', 'accepted').limit(1).maybeSingle(),
           6000, 'Could not load partner status. Please try again.'
         );
-        if (error) throw error;
+        if (accErr) throw accErr;
+
+        let data = acceptedRow;
+        if (!data) {
+          const { data: latestRow, error: latestErr } = await withTimeout(
+            sb.from('partner_requests').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(1).maybeSingle(),
+            6000, 'Could not load partner status. Please try again.'
+          );
+          if (latestErr) throw latestErr;
+          data = latestRow;
+        }
+
         _partnerRequestCache = data || null;
         if (data && data.status === 'accepted') {
           localStorage.setItem('nestly-role', 'partner');
@@ -11246,6 +11282,7 @@
       document.getElementById('role-host-btn')?.classList.remove('active');
       document.getElementById('role-rent-btn')?.classList.remove('active');
       updateProfileBtnRing();
+      // Always load referral stats on open (not just on refresh button click)
       loadPartnerTasks();
       loadPartnerReferralStats(false);
     }
@@ -11965,6 +12002,20 @@
       document.getElementById('ban-reason-text').textContent =
         'Reason: ' + (ban.reason || 'Violation of platform rules');
       _startBanCountdown(ban.until);
+      // Check if appeal was rejected and show message
+      if (ban.appeal_rejected) {
+        const appealArea = document.querySelector('.ban-appeal-area');
+        if (appealArea) {
+          appealArea.innerHTML = `
+          <div style="background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);border-radius:12px;padding:20px;text-align:center;margin-bottom:14px;">
+            <div style="font-size:32px;margin-bottom:8px;">❌</div>
+            <div style="color:#f87171;font-weight:700;font-size:16px;margin-bottom:6px;">Appeal Rejected</div>
+            <p style="color:rgba(255,255,255,.5);font-size:13px;line-height:1.6;">Your appeal was reviewed and rejected. Your ban remains in effect.</p>
+          </div>
+          <button onclick="doLogout()" style="margin-top:4px;background:none;border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.6);font-size:13px;cursor:pointer;display:block;width:100%;text-align:center;padding:10px;border-radius:8px;">Sign out</button>
+        `;
+        }
+      }
     }
 
     // Live countdown timer — updates every second
@@ -12063,7 +12114,7 @@
         return true;
       }
 
-      _storeBan({ id: ban.id, reason: ban.reason, type: ban.type, until: ban.until });
+      _storeBan({ id: ban.id, reason: ban.reason, type: ban.type, until: ban.until, appeal_rejected: ban.appeal_rejected || false });
       _showBanOverlayFromData(ban);
       return true;
     }
@@ -13503,15 +13554,32 @@
     }
 
     function renderXpBlock(prefix, xp) {
-      const level = Math.floor(xp / XP_PER_LEVEL) + 1;
-      const xpInLvl = xp % XP_PER_LEVEL;
-      const pct = Math.min(100, (xpInLvl / XP_PER_LEVEL) * 100);
-      const lvlEl = document.getElementById(prefix + '-xp-level');
-      const fracEl = document.getElementById(prefix + '-xp-fraction');
-      const fillEl = document.getElementById(prefix + '-xp-fill');
-      if (lvlEl) lvlEl.textContent = 'Level ' + level;
-      if (fracEl) fracEl.textContent = xpInLvl + ' / ' + XP_PER_LEVEL;
-      if (fillEl) setTimeout(() => { fillEl.style.width = pct + '%'; }, 60);
+      // Use the badge system if available (partner-badges.js), else fallback to level-based
+      let levelText, fraction, pct;
+      if (window.RN_getBadgeInfo) {
+        const info = window.RN_getBadgeInfo(xp);
+        levelText = info.current ? `${info.current.emoji} ${info.current.name}` : 'Unranked';
+        const nextXp = info.next ? info.next.minXp : (info.current ? info.current.minXp + 500 : 100);
+        const currentMinXp = info.lower;
+        fraction = info.into + ' / ' + info.span;
+        pct = Math.min(100, info.pct);
+        const lvlEl = document.getElementById(prefix + '-xp-level');
+        const fracEl = document.getElementById(prefix + '-xp-fraction');
+        const fillEl = document.getElementById(prefix + '-xp-fill');
+        if (lvlEl) lvlEl.textContent = levelText;
+        if (fracEl) fracEl.textContent = fraction + ' XP to ' + (info.next ? info.next.name : 'Max');
+        if (fillEl) setTimeout(() => { fillEl.style.width = pct + '%'; }, 60);
+      } else {
+        const level = Math.floor(xp / XP_PER_LEVEL) + 1;
+        const xpInLvl = xp % XP_PER_LEVEL;
+        pct = Math.min(100, (xpInLvl / XP_PER_LEVEL) * 100);
+        const lvlEl = document.getElementById(prefix + '-xp-level');
+        const fracEl = document.getElementById(prefix + '-xp-fraction');
+        const fillEl = document.getElementById(prefix + '-xp-fill');
+        if (lvlEl) lvlEl.textContent = 'Level ' + level;
+        if (fracEl) fracEl.textContent = xpInLvl + ' / ' + XP_PER_LEVEL;
+        if (fillEl) setTimeout(() => { fillEl.style.width = pct + '%'; }, 60);
+      }
     }
 
     const AVATAR_UPLOAD_MS = 60000;
@@ -13542,7 +13610,7 @@
         if (ue) throw new Error(ue.message || 'Upload failed');
         const { data: ud } = sb.storage.from('images').getPublicUrl(storagePath);
         const avatarUrl = ud.publicUrl;
-        await sb.from('profiles').upsert({ id: user.id, email: user.email, avatar_url: avatarUrl });
+        await sb.from('profiles').update({ avatar_url: avatarUrl }).eq('id', user.id);
         const name = user.user_metadata?.name || user.email.split('@')[0] || 'User';
         applyAvatarEverywhere(name, avatarUrl, role);
         toast('Profile photo updated! ✅', 'success');
@@ -13635,7 +13703,7 @@
       setLoader(true, 'Saving...');
       try {
         const { error } = await sb.auth.updateUser({ data: { name } });
-        await sb.from('profiles').upsert({ id: user.id, name, email: user.email }).catch(() => { });
+        await sb.from('profiles').update({ name, email: user.email }).eq('id', user.id).catch(() => {});
         if (error) return toast('Update failed: ' + error.message, 'error');
         user.user_metadata = user.user_metadata || {};
         user.user_metadata.name = name;
@@ -13729,7 +13797,7 @@
       setLoader(true, 'Saving...');
       try {
         const { error } = await sb.auth.updateUser({ data: { name } });
-        await sb.from('profiles').upsert({ id: user.id, name, email: user.email }).catch(() => {});
+        await sb.from('profiles').update({ name, email: user.email }).eq('id', user.id).catch(() => {});
         if (error) return toast('Update failed: ' + error.message, 'error');
         user.user_metadata = user.user_metadata || {};
         user.user_metadata.name = name;
@@ -13757,7 +13825,7 @@
       setLoader(true, 'Saving...');
       try {
         await sb.auth.updateUser({ data: { name, phone } });
-        await sb.from('profiles').upsert({ id: user.id, name, email: user.email, phone }).catch(() => { });
+        await sb.from('profiles').update({ name, email: user.email, phone }).eq('id', user.id).catch(() => {});
         user.user_metadata = user.user_metadata || {};
         user.user_metadata.name = name;
         user.user_metadata.phone = phone;
@@ -14070,7 +14138,10 @@
       return parts.length > 2 ? parts.slice(-3, -1).join(',').trim() : addr.trim();
     }
     function fmtDate(d) {
-      return new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+      if (!d) return '—';
+      const dt = new Date(d);
+      if (isNaN(dt.getTime())) return '—';
+      return dt.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
     }
     function fmtRelTime(ts) {
       const diff = Date.now() - ts;
@@ -14837,16 +14908,16 @@
           const val = Number(v.credits);
           if (isNaN(val) || val < 0) throw new Error('Enter a valid number.');
           console.log('[Admin] Setting credits for user_id=', userId, 'to', val);
-          const { data: updated, error } = await sb.from('profiles').update({ credits: val }).eq('id', userId);
+          // Use upsert so it merges into the existing row (update alone fails silently if
+          // the row key doesn't match exactly; upsert guarantees the value lands).
+          const { error } = await sb.from('profiles').upsert({ id: userId, credits: val }, { onConflict: 'id' });
           if (error) throw error;
-          const newVal = Array.isArray(updated) ? updated[0]?.credits : updated?.credits;
-          if (newVal !== val) {
-            console.warn('[Admin] Credits write returned unexpected value:', newVal, 'expected', val);
+          // Immediately verify the write landed
+          const { data: verify, error: verifyErr } = await sb.from('profiles').select('credits').eq('id', userId).maybeSingle();
+          if (!verifyErr && verify && Number(verify.credits) !== val) {
+            console.warn('[Admin] Credits verify mismatch — wrote', val, 'read back', verify.credits);
           }
-          // Note: the user's own browser caches credits in localStorage and
-          // refreshes from the DB every 30s (poll) or immediately when they
-          // next focus their tab — not instantly on this write.
-          toast('💰 Credits updated for ' + userName + ' (their screen updates within ~30s, or instantly if they switch back to the tab)', 'success');
+          toast('💰 Credits updated to ' + val + ' for ' + userName, 'success');
           loadAdminUsers();
         }
       });
@@ -15211,9 +15282,24 @@
 
       async function resolveAppeal(appealId, status) {
         try {
-          const { error } = await sb.from('admin_appeals').update({ status }).eq('id', appealId);
+          // Fetch the appeal to get the user_id
+          const { data: appeal, error: fetchErr } = await sb.from('admin_appeals').select('id,user_id,message').eq('id', appealId).maybeSingle();
+          if (fetchErr) throw fetchErr;
+
+          const { error } = await sb.from('admin_appeals').update({ status, resolved_at: new Date().toISOString() }).eq('id', appealId);
           if (error) throw error;
-          toast(status === 'accepted' ? '✅ Appeal accepted' : '❌ Appeal rejected', 'success');
+
+          if (status === 'accepted' && appeal?.user_id) {
+            // Lift all active bans for this user
+            await sb.from('admin_bans').update({ active: false }).eq('user_id', appeal.user_id).catch(() => {});
+            toast('✅ Appeal accepted — ban lifted for user', 'success');
+          } else if (status === 'rejected') {
+            // Store rejection so user sees it next time they check ban status
+            if (appeal?.user_id) {
+              await sb.from('admin_bans').update({ appeal_rejected: true, appeal_rejected_at: new Date().toISOString() }).eq('user_id', appeal.user_id).eq('active', true).catch(() => {});
+            }
+            toast('❌ Appeal rejected', 'success');
+          }
           setTimeout(loadAdminAppeals, 400);
         } catch(e) {
           toast('Failed: ' + e.message, 'error');
@@ -15277,7 +15363,14 @@
           let code = data?.referral_code;
           if (!code) {
             code = generateReferralCode();
-            await sb.from('profiles').upsert({ id: user.id, referral_code: code, email: user.email });
+            // Use update (not upsert) so we only touch referral_code — never wipe other profile fields
+            // Also add a guard: re-read after write so a concurrent call that already set the code wins
+            const { error: writeErr } = await sb.from('profiles').update({ referral_code: code }).eq('id', user.id).is('referral_code', null);
+            if (writeErr) {
+              // Concurrent write may have set it already — re-read
+              const { data: reread } = await sb.from('profiles').select('referral_code').eq('id', user.id).maybeSingle();
+              code = reread?.referral_code || code;
+            }
           }
           showReferralCodeInSidebar(code);
         } catch(e) {
@@ -16190,7 +16283,7 @@
         <div style="position:absolute;top:-40px;right:-40px;width:160px;height:160px;border-radius:50%;background:rgba(255,255,255,.06);"></div>
         <div style="position:absolute;bottom:-30px;left:-20px;width:100px;height:100px;border-radius:50%;background:rgba(255,255,255,.04);"></div>
         <!-- Close btn -->
-        <button onclick="closePdProfile()" style="position:absolute;top:16px;right:16px;background:rgba(255,255,255,.15);border:none;width:32px;height:32px;border-radius:50%;cursor:pointer;color:#fff;font-size:16px;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);">✕</button>
+        <button onclick="closePdProfile()" style="position:absolute;top:16px;right:16px;background:rgba(255,255,255,.15);border:none;width:40px;height:40px;border-radius:50%;cursor:pointer;color:#fff;font-size:18px;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);padding:0;line-height:1;-webkit-tap-highlight-color:transparent;" title="Close">✕</button>
         <!-- Badge + name -->
         <div style="display:flex;flex-direction:column;align-items:center;gap:0;position:relative;z-index:1;">
           <div id="pds-badge-wrap" style="width:96px;height:96px;border-radius:24px;overflow:hidden;border:3px solid rgba(255,255,255,.25);box-shadow:0 8px 32px rgba(0,0,0,.4),0 0 0 6px rgba(255,255,255,.07);margin-bottom:14px;background:#7c2d12;display:flex;align-items:center;justify-content:center;transition:transform .4s cubic-bezier(.22,1,.36,1), box-shadow .4s;">
