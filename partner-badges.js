@@ -108,7 +108,14 @@
     sheet.style.display = 'block';
     setTimeout(() => { panel.style.transform = 'translateX(0)'; }, 20);
 
+    // Render immediately with cached XP, then re-fetch from DB and re-render
     renderBadgeProfile();
+    if (typeof loadPartnerXPFromDB === 'function') {
+      loadPartnerXPFromDB().then(() => {
+        updateProfileBtnRing();
+        renderBadgeProfile();
+      }).catch(() => {});
+    }
   };
 
   window.closePdProfile = function () {
@@ -316,6 +323,8 @@
     await loadPartnerXPFromDB();
     updateProfileBtnRing();
     await loadPartnerTasks();
+    // Always load referral stats immediately on dashboard open (Bug #9 fix)
+    if (typeof loadPartnerReferralStats === 'function') loadPartnerReferralStats(false);
   };
 
   window.loadPartnerTasks = async function () {
@@ -513,7 +522,7 @@
             style="padding:5px 10px;border:1.5px solid var(--border2);border-radius:8px;font-size:12px;font-family:var(--font);background:var(--bg);color:var(--ink);cursor:pointer;flex:1;min-width:110px;">
             ${langOpts}
           </select>
-          <span style="font-size:11px;color:var(--muted);">${fmtDate(t.created_at)}</span>
+          <span style="font-size:11px;color:var(--muted);">${t.created_at && !isNaN(new Date(t.created_at)) ? fmtDate(t.created_at) : ''}</span>
         </div>
         <div class="task-translating-${t.id}" style="display:none;font-size:12px;color:var(--muted);margin-top:6px;font-style:italic;">Translating...</div>
       </div>
