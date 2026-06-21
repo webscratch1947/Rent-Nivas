@@ -14744,7 +14744,7 @@
           const { data: { session } } = await sb.auth.getSession();
           const res = await fetch(RN_API_BASE + '/admin-list-users', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token }
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (session.id_token || session.access_token) }
           });
           if (res.ok) {
             const json = await res.json();
@@ -14839,7 +14839,7 @@
           const { data: { session } } = await sb.auth.getSession();
           const res = await fetch(RN_API_BASE + '/admin-login-as', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token },
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (session.id_token || session.access_token) },
             body: JSON.stringify({ targetEmail: email })
           });
           const json = await res.json();
@@ -15017,6 +15017,13 @@
           const val = Number(v.credits);
           if (isNaN(val) || val < 0) throw new Error('Enter a valid number.');
           console.log('[Admin] Setting credits for user_id=', userId, 'to', val);
+          // Guard: this action should only ever touch an EXISTING user's
+          // profile. Using a bare upsert here used to silently create a
+          // brand-new stub row (just id+credits, no name/email) whenever
+          // userId didn't already have a profile row — exactly the source
+          // of the blank "—" accounts showing up in this list. Check first.
+          const { data: existsCheck } = await sb.from('profiles').select('id').eq('id', userId).maybeSingle();
+          if (!existsCheck) throw new Error('This user has no profile row yet (likely never logged into the dashboard) — cannot set credits without creating a blank stub account. Refresh the user list and try again once they have a real profile.');
           // Use upsert so it merges into the existing row (update alone fails silently if
           // the row key doesn't match exactly; upsert guarantees the value lands).
           const { error } = await sb.from('profiles').upsert({ id: userId, credits: val }, { onConflict: 'id' });
@@ -15044,7 +15051,7 @@
             const { data: { session } } = await sb.auth.getSession();
             const res = await fetch(RN_API_BASE + '/admin-delete-user', {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token },
+              headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (session.id_token || session.access_token) },
               body: JSON.stringify({ targetUserId: userId })
             });
             if (res.ok) { const j = await res.json(); if (j.error) throw new Error(j.error); }
