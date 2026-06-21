@@ -602,6 +602,7 @@ async function handleRpc(spec, claims) {
 }
 
 module.exports = async function handler(req, res) {
+  if (req.method === 'OPTIONS') return send(res, 204, {});
   if (req.method !== 'POST') return send(res, 405, { error: 'Method not allowed' });
   try {
     const claims = await verifyToken(req);
