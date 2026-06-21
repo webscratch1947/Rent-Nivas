@@ -1,3 +1,6 @@
 {
-  "version": 2
+  "version": 2,
+  "routes": [
+    { "src": "/env-inject\\.js", "dest": "/api/env-inject.js" }
+  ]
 }
