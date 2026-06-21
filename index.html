@@ -2359,57 +2359,142 @@
       box-shadow: var(--sh0);
     }
 
-    /* PROFILE */
+    /* PROFILE — modern rebuild */
     .prof-layout {
       display: grid;
-      grid-template-columns: 340px 1fr;
+      grid-template-columns: 380px 1fr;
       gap: 28px;
-      max-width: 1100px;
+      max-width: 1180px;
+      align-items: start;
+    }
+
+    .prof-hero {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: var(--rl);
+      overflow: hidden;
+      box-shadow: var(--sh0);
+    }
+
+    .prof-hero-band {
+      height: 92px;
+      background: linear-gradient(120deg, var(--terra), var(--terra2) 60%, #e8a47c);
+      position: relative;
     }
 
     .prof-ava-wrap {
-      padding: 40px 24px 24px;
+      padding: 0 28px 28px;
       text-align: center;
-      border-bottom: 1px solid var(--border);
+      margin-top: -52px;
+    }
+
+    .prof-ava-shell {
+      position: relative;
+      width: 104px;
+      height: 104px;
+      margin: 0 auto 16px;
     }
 
     .prof-ava {
-      width: 96px;
-      height: 96px;
+      width: 104px;
+      height: 104px;
       border-radius: 50%;
       background: linear-gradient(135deg, var(--terra), var(--terra2));
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 34px;
+      font-size: 36px;
       font-weight: 800;
       color: #fff;
-      margin: 0 auto 16px;
-      box-shadow: 0 8px 20px -6px rgba(0,0,0,.25);
+      box-shadow: 0 0 0 4px var(--white), 0 10px 24px -8px rgba(0,0,0,.3);
+      overflow: hidden;
+      background-size: cover;
+      background-position: center;
+    }
+
+    .prof-ava img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      border-radius: 50%;
+      display: block;
+    }
+
+    .prof-ava-edit-btn {
+      position: absolute;
+      bottom: 0;
+      right: 0;
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      background: var(--ink);
+      color: #fff;
+      border: 3px solid var(--white);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      cursor: pointer;
+      transition: transform .15s ease, background .15s ease;
+      padding: 0;
+    }
+
+    .prof-ava-edit-btn:hover {
+      background: var(--terra);
+      transform: scale(1.08);
+    }
+
+    .prof-ava-edit-btn:disabled {
+      opacity: .6;
+      cursor: wait;
+      transform: none;
+    }
+
+    .prof-name-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
     }
 
     .prof-name {
-      font-size: 20px;
+      font-size: 21px;
       font-weight: 700;
       color: var(--ink);
+      font-family: var(--font-display);
     }
 
     .prof-email {
-      font-size: 14.5px;
+      font-size: 14px;
       color: var(--muted);
-      margin-top: 4px;
+      margin-top: 5px;
+      word-break: break-all;
+    }
+
+    .prof-since-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12.5px;
+      color: var(--muted2);
+      margin-top: 12px;
+      padding: 5px 12px;
+      background: var(--bg2);
+      border-radius: 999px;
+      border: 1px solid var(--border);
     }
 
     .prof-stats {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
       gap: 10px;
-      margin-top: 20px;
+      margin-top: 22px;
+      padding: 0 20px 22px;
     }
 
     .pst-item {
       text-align: center;
-      padding: 16px 10px;
+      padding: 16px 8px;
       background: var(--bg);
       border-radius: 12px;
       border: 1px solid var(--border);
@@ -2422,24 +2507,156 @@
     }
 
     .pst-val {
-      font-size: 22px;
+      font-size: 21px;
       font-weight: 800;
       color: var(--terra);
       font-family: var(--font-display);
+      line-height: 1.15;
     }
 
     .pst-lbl {
-      font-size: 11.5px;
+      font-size: 11px;
       color: var(--muted);
       margin-top: 4px;
+    }
+
+    /* XP / level strip inside profile hero */
+    .prof-xp-block {
+      margin: 0 20px 22px;
+      padding: 16px 16px 14px;
+      background: linear-gradient(135deg, var(--bg2), var(--bg));
+      border: 1px solid var(--border);
+      border-radius: 14px;
+    }
+
+    .prof-xp-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      margin-bottom: 9px;
+    }
+
+    .prof-xp-level {
+      font-size: 13.5px;
+      font-weight: 800;
+      color: var(--ink);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .prof-xp-amount {
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 600;
+    }
+
+    .prof-xp-track {
+      height: 8px;
+      background: var(--border);
+      border-radius: 99px;
+      overflow: hidden;
+    }
+
+    .prof-xp-fill {
+      height: 100%;
+      border-radius: 99px;
+      background: linear-gradient(90deg, var(--terra), var(--terra2));
+      width: 0%;
+      transition: width 1s cubic-bezier(.22,1,.36,1);
     }
 
     .prof-card {
       background: var(--white);
       border: 1px solid var(--border);
       border-radius: var(--rl);
-      padding: 32px;
+      padding: 36px;
       box-shadow: var(--sh0);
+    }
+
+    .prof-card-title {
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--ink);
+      margin-bottom: 22px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .prof-card-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px 18px;
+    }
+
+    .prof-card-grid .fg:last-of-type {
+      grid-column: 1 / -1;
+    }
+
+    .prof-card-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 6px;
+    }
+
+    /* Referral card */
+    .prof-ref-card {
+      margin-top: 22px;
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: var(--rl);
+      padding: 28px;
+      box-shadow: var(--sh0);
+    }
+
+    .prof-ref-code-box {
+      background: var(--bg2);
+      border-radius: var(--r);
+      padding: 18px 20px;
+      border: 1px solid var(--border);
+      margin-bottom: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .prof-ref-code-val {
+      font-size: 26px;
+      font-weight: 800;
+      letter-spacing: 5px;
+      color: var(--terra);
+      font-family: monospace;
+    }
+
+    .prof-ref-stats {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 14px;
+    }
+
+    .prof-ref-stat {
+      background: var(--bg2);
+      border-radius: var(--r);
+      padding: 16px;
+      border: 1px solid var(--border);
+      text-align: center;
+    }
+
+    .prof-ref-stat-val {
+      font-size: 28px;
+      font-weight: 800;
+      color: var(--terra);
+      font-family: var(--font-display);
+    }
+
+    .prof-ref-stat-lbl {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 4px;
     }
 
     /* EMPTY STATE (e.g. Unlocked Homes) — perfectly centered, both axes */
@@ -5959,13 +6176,29 @@
       }
 
       .prof-ava-wrap {
-        padding: 24px 16px 16px;
+        padding: 0 16px 20px;
+        margin-top: -44px;
+      }
+
+      .prof-ava-shell {
+        width: 84px;
+        height: 84px;
       }
 
       .prof-ava {
-        width: 64px;
-        height: 64px;
-        font-size: 22px;
+        width: 84px;
+        height: 84px;
+        font-size: 26px;
+      }
+
+      .prof-ava-edit-btn {
+        width: 28px;
+        height: 28px;
+        font-size: 12px;
+      }
+
+      .prof-hero-band {
+        height: 76px;
       }
 
       .prof-name {
@@ -5979,14 +6212,33 @@
       .prof-stats {
         grid-template-columns: repeat(3, 1fr);
         gap: 6px;
+        padding: 0 16px 18px;
       }
 
       .pst-val {
-        font-size: 18px;
+        font-size: 17px;
       }
 
       .pst-lbl {
-        font-size: 10px;
+        font-size: 9.5px;
+      }
+
+      .prof-xp-block {
+        margin: 0 16px 18px;
+        padding: 14px;
+      }
+
+      .prof-card-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .prof-ref-stats {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .prof-ref-code-val {
+        font-size: 21px;
+        letter-spacing: 3px;
       }
 
       /* ══ PROPERTY DETAIL PAGE ══ */
@@ -7712,7 +7964,23 @@
       }
 
       .prof-ava-wrap {
-        padding: 24px 16px 16px !important;
+        padding: 0 16px 18px !important;
+        margin-top: -40px !important;
+      }
+
+      .prof-ava-shell {
+        width: 76px !important;
+        height: 76px !important;
+      }
+
+      .prof-ava {
+        width: 76px !important;
+        height: 76px !important;
+        font-size: 24px !important;
+      }
+
+      .prof-card-grid {
+        grid-template-columns: 1fr !important;
       }
 
       .prof-stats {
@@ -8701,35 +8969,47 @@
             <p style="font-size:15px;color:var(--muted);margin-top:4px;" data-i18n="prof_sub">Your account details and statistics</p>
           </div>
           <div class="prof-layout">
-            <div class="dash-panel">
+            <div class="prof-hero">
+              <div class="prof-hero-band"></div>
               <div class="prof-ava-wrap">
-                <div class="prof-ava" id="rent-prof-ava">U</div>
+                <div class="prof-ava-shell">
+                  <div class="prof-ava" id="rent-prof-ava">U</div>
+                  <input type="file" id="rent-prof-ava-input" accept="image/*" style="display:none;" onchange="handleAvatarFileChange(event,'rent')">
+                  <button type="button" class="prof-ava-edit-btn" id="rent-prof-ava-btn" onclick="document.getElementById('rent-prof-ava-input').click()" title="Change profile photo">✎</button>
+                </div>
                 <div class="prof-name" id="rent-prof-name">Loading...</div>
                 <div class="prof-email" id="rent-prof-email-txt">—</div>
-                <div style="font-size:13px;color:var(--muted2);margin-top:5px;"><span data-i18n="prof_member_since">Member since</span> <span id="rent-pst-since">—</span></div>
+                <div class="prof-since-pill">📅 <span data-i18n="prof_member_since">Member since</span>&nbsp;<span id="rent-pst-since">—</span></div>
               </div>
-              <div style="padding:0 20px 20px;">
-                <div class="prof-stats">
-                  <div class="pst-item">
-                    <div class="pst-val" id="rent-pst-credits">0</div>
-                    <div class="pst-lbl">Credits</div>
-                  </div>
-                  <div class="pst-item">
-                    <div class="pst-val" id="rent-pst-unlocks">0</div>
-                    <div class="pst-lbl">Active Unlocks</div>
-                  </div>
-                  <div class="pst-item">
-                    <div class="pst-val" id="rent-pst-days">0</div>
-                    <div class="pst-lbl">Days Active</div>
-                  </div>
+              <div class="prof-stats">
+                <div class="pst-item">
+                  <div class="pst-val" id="rent-pst-credits">0</div>
+                  <div class="pst-lbl">Credits</div>
                 </div>
+                <div class="pst-item">
+                  <div class="pst-val" id="rent-pst-unlocks">0</div>
+                  <div class="pst-lbl">Active Unlocks</div>
+                </div>
+                <div class="pst-item">
+                  <div class="pst-val" id="rent-pst-days">0</div>
+                  <div class="pst-lbl">Days Active</div>
+                </div>
+              </div>
+              <div class="prof-xp-block">
+                <div class="prof-xp-head">
+                  <div class="prof-xp-level">🏆 <span id="rent-prof-xp-level">Level 1</span></div>
+                  <div class="prof-xp-amount"><span id="rent-prof-xp-fraction">0 / 100</span> XP</div>
+                </div>
+                <div class="prof-xp-track"><div class="prof-xp-fill" id="rent-prof-xp-fill"></div></div>
               </div>
             </div>
             <div class="prof-card">
-              <div style="font-size:17px;font-weight:700;color:var(--ink);margin-bottom:20px;" data-i18n="prof_edit">Edit Profile</div>
-              <div class="fg"><label data-i18n="sett_full_name">Full Name</label><input type="text" id="rent-pf-name" placeholder="Your name"></div>
-              <div class="fg"><label data-i18n="sett_email">Email Address</label><input type="email" id="rent-pf-email" readonly style="background:var(--bg2);opacity:.75;"></div>
-              <div style="display:flex;gap:10px;flex-wrap:wrap;">
+              <div class="prof-card-title">✏️ <span data-i18n="prof_edit">Edit Profile</span></div>
+              <div class="prof-card-grid">
+                <div class="fg"><label data-i18n="sett_full_name">Full Name</label><input type="text" id="rent-pf-name" placeholder="Your name"></div>
+                <div class="fg"><label data-i18n="sett_email">Email Address</label><input type="email" id="rent-pf-email" readonly style="background:var(--bg2);opacity:.75;"></div>
+              </div>
+              <div class="prof-card-actions">
                 <button class="btn btn-terra btn-sm" onclick="updateRentProfile()" data-i18n="sett_save">Save Changes</button>
                 <button class="btn btn-outline btn-sm" onclick="openForgotPasswordModal(true)" data-i18n="sett_change_pw">🔑 Change Password</button>
               </div>
@@ -8740,26 +9020,24 @@
           </div>
 
           <!-- REFERRAL STATS CARD -->
-          <div class="dash-panel" id="rent-prof-referral-card" style="margin-top:20px;display:none;">
-            <div style="padding:20px;">
-              <div style="font-size:17px;font-weight:700;color:var(--ink);margin-bottom:16px;">🎟️ Your Referral</div>
-              <div style="background:var(--bg2);border-radius:var(--r);padding:16px;border:1px solid var(--border);margin-bottom:16px;">
-                <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">Your Referral Code</div>
-                <div style="display:flex;align-items:center;gap:10px;">
-                  <div id="rent-prof-ref-code" style="font-size:28px;font-weight:800;letter-spacing:6px;color:var(--terra);font-family:monospace;">——————</div>
-                  <button class="btn btn-soft btn-sm" onclick="copyRentProfRefCode()" style="flex-shrink:0;">📋 Copy</button>
-                </div>
-                <div style="font-size:12px;color:var(--muted);margin-top:6px;">Share this code — when a friend signs up or someone adds a listing using your code, you get a reward.</div>
+          <div class="prof-ref-card" id="rent-prof-referral-card" style="display:none;">
+            <div class="prof-card-title">🎟️ Your Referral</div>
+            <div class="prof-ref-code-box">
+              <div>
+                <div style="font-size:11.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">Your Referral Code</div>
+                <div class="prof-ref-code-val" id="rent-prof-ref-code">——————</div>
               </div>
-              <div style="display:flex;gap:12px;">
-                <div style="flex:1;background:var(--bg2);border-radius:var(--r);padding:14px;border:1px solid var(--border);text-align:center;">
-                  <div id="rent-prof-ref-count" style="font-size:32px;font-weight:800;color:var(--terra);">0</div>
-                  <div style="font-size:12px;color:var(--muted);margin-top:4px;">Listings Referred</div>
-                </div>
-                <div style="flex:1;background:var(--bg2);border-radius:var(--r);padding:14px;border:1px solid var(--border);text-align:center;">
-                  <div id="rent-prof-ref-friends" style="font-size:32px;font-weight:800;color:var(--terra);">0</div>
-                  <div style="font-size:12px;color:var(--muted);margin-top:4px;">Friends Referred</div>
-                </div>
+              <button class="btn btn-soft btn-sm" onclick="copyRentProfRefCode()" style="flex-shrink:0;">📋 Copy</button>
+            </div>
+            <div style="font-size:12.5px;color:var(--muted);margin:-8px 0 18px;">Share this code — when a friend signs up or someone adds a listing using your code, you get a reward.</div>
+            <div class="prof-ref-stats">
+              <div class="prof-ref-stat">
+                <div class="prof-ref-stat-val" id="rent-prof-ref-count">0</div>
+                <div class="prof-ref-stat-lbl">Listings Referred</div>
+              </div>
+              <div class="prof-ref-stat">
+                <div class="prof-ref-stat-val" id="rent-prof-ref-friends">0</div>
+                <div class="prof-ref-stat-lbl">Friends Referred</div>
               </div>
             </div>
           </div>
@@ -9442,66 +9720,75 @@
             <p style="font-size:15px;color:var(--muted);margin-top:4px;" data-i18n="prof_sub">Your account details and statistics</p>
           </div>
           <div class="prof-layout">
-            <div class="dash-panel">
+            <div class="prof-hero">
+              <div class="prof-hero-band"></div>
               <div class="prof-ava-wrap">
-                <div class="prof-ava" id="prof-ava">H</div>
+                <div class="prof-ava-shell">
+                  <div class="prof-ava" id="prof-ava">H</div>
+                  <input type="file" id="prof-ava-input" accept="image/*" style="display:none;" onchange="handleAvatarFileChange(event,'host')">
+                  <button type="button" class="prof-ava-edit-btn" id="prof-ava-btn" onclick="document.getElementById('prof-ava-input').click()" title="Change profile photo">✎</button>
+                </div>
                 <div class="prof-name" id="prof-name">Loading...</div>
                 <div class="prof-email" id="prof-email-txt">—</div>
-                <div style="font-size:13px;color:var(--muted2);margin-top:5px;"><span data-i18n="prof_member_since">Member since</span> <span id="pst-since">—</span></div>
+                <div class="prof-since-pill">📅 <span data-i18n="prof_member_since">Member since</span>&nbsp;<span id="pst-since">—</span></div>
               </div>
-              <div style="padding:0 20px 20px;">
-                <div class="prof-stats">
-                  <div class="pst-item">
-                    <div class="pst-val" id="pst-total">0</div>
-                    <div class="pst-lbl" data-i18n="kpi_total">Total</div>
-                  </div>
-                  <div class="pst-item">
-                    <div class="pst-val" id="pst-pub">0</div>
-                    <div class="pst-lbl" data-i18n="kpi_pub">Published</div>
-                  </div>
-                  <div class="pst-item">
-                    <div class="pst-val" id="pst-draft">0</div>
-                    <div class="pst-lbl" data-i18n="kpi_drafts">Drafts</div>
-                  </div>
+              <div class="prof-stats">
+                <div class="pst-item">
+                  <div class="pst-val" id="pst-total">0</div>
+                  <div class="pst-lbl" data-i18n="kpi_total">Total</div>
                 </div>
-                <div style="margin-top:14px;text-align:center;font-size:14px;color:var(--muted);"><span data-i18n="prof_avg_price">Avg. price:</span> <strong
-                    id="pst-avg">—</strong></div>
+                <div class="pst-item">
+                  <div class="pst-val" id="pst-pub">0</div>
+                  <div class="pst-lbl" data-i18n="kpi_pub">Published</div>
+                </div>
+                <div class="pst-item">
+                  <div class="pst-val" id="pst-days">0</div>
+                  <div class="pst-lbl">Days Active</div>
+                </div>
+              </div>
+              <div style="margin:-10px 20px 18px;text-align:center;font-size:13px;color:var(--muted);"><span data-i18n="prof_avg_price">Avg. price:</span> <strong id="pst-avg">—</strong> &nbsp;·&nbsp; <span id="pst-draft">0</span> drafts</div>
+              <div class="prof-xp-block">
+                <div class="prof-xp-head">
+                  <div class="prof-xp-level">🏆 <span id="prof-xp-level">Level 1</span></div>
+                  <div class="prof-xp-amount"><span id="prof-xp-fraction">0 / 100</span> XP</div>
+                </div>
+                <div class="prof-xp-track"><div class="prof-xp-fill" id="prof-xp-fill"></div></div>
               </div>
             </div>
             <div class="prof-card">
-              <div style="font-size:17px;font-weight:700;color:var(--ink);margin-bottom:20px;" data-i18n="prof_edit">Edit Profile</div>
-              <div class="fg"><label data-i18n="sett_full_name">Full Name</label><input type="text" id="profile-pf-name" placeholder="Your name"></div>
-              <div class="fg"><label data-i18n="sett_email">Email Address</label><input type="email" id="profile-pf-email" readonly
-                  style="background:var(--bg2);opacity:.75;"></div>
-              <div style="display:flex;gap:10px;flex-wrap:wrap;">
+              <div class="prof-card-title">✏️ <span data-i18n="prof_edit">Edit Profile</span></div>
+              <div class="prof-card-grid">
+                <div class="fg"><label data-i18n="sett_full_name">Full Name</label><input type="text" id="profile-pf-name" placeholder="Your name"></div>
+                <div class="fg"><label data-i18n="sett_email">Email Address</label><input type="email" id="profile-pf-email" readonly
+                    style="background:var(--bg2);opacity:.75;"></div>
+              </div>
+              <div class="prof-card-actions">
                 <button class="btn btn-terra btn-sm" onclick="updateProfile()" data-i18n="sett_save">Save Changes</button>
                 <button class="btn btn-outline btn-sm" onclick="openForgotPasswordModal(true)" data-i18n="sett_change_pw">🔑 Change
                   Password</button>
               </div>
             </div>
           </div>
-        </div>
 
-        <!-- REFERRAL STATS CARD -->
-        <div class="dash-panel" id="prof-referral-card" style="margin-top:20px;display:none;">
-          <div style="padding:20px;">
-            <div style="font-size:17px;font-weight:700;color:var(--ink);margin-bottom:16px;">🎟️ Your Referral</div>
-            <div style="background:var(--bg2);border-radius:var(--r);padding:16px;border:1px solid var(--border);margin-bottom:16px;">
-              <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">Your Referral Code</div>
-              <div style="display:flex;align-items:center;gap:10px;">
-                <div id="prof-ref-code" style="font-size:28px;font-weight:800;letter-spacing:6px;color:var(--terra);font-family:monospace;">——————</div>
-                <button class="btn btn-soft btn-sm" onclick="copyProfRefCode()" style="flex-shrink:0;">📋 Copy</button>
+          <!-- REFERRAL STATS CARD -->
+          <div class="prof-ref-card" id="prof-referral-card" style="display:none;">
+            <div class="prof-card-title">🎟️ Your Referral</div>
+            <div class="prof-ref-code-box">
+              <div>
+                <div style="font-size:11.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">Your Referral Code</div>
+                <div class="prof-ref-code-val" id="prof-ref-code">——————</div>
               </div>
-              <div style="font-size:12px;color:var(--muted);margin-top:6px;">Share this code — when someone adds a listing using your code, you get credit as their referrer.</div>
+              <button class="btn btn-soft btn-sm" onclick="copyProfRefCode()" style="flex-shrink:0;">📋 Copy</button>
             </div>
-            <div style="display:flex;gap:12px;">
-              <div style="flex:1;background:var(--bg2);border-radius:var(--r);padding:14px;border:1px solid var(--border);text-align:center;">
-                <div id="prof-ref-count" style="font-size:32px;font-weight:800;color:var(--terra);">0</div>
-                <div style="font-size:12px;color:var(--muted);margin-top:4px;">Listings Referred</div>
+            <div style="font-size:12.5px;color:var(--muted);margin:-8px 0 18px;">Share this code — when someone adds a listing using your code, you get credit as their referrer.</div>
+            <div class="prof-ref-stats">
+              <div class="prof-ref-stat">
+                <div class="prof-ref-stat-val" id="prof-ref-count">0</div>
+                <div class="prof-ref-stat-lbl">Listings Referred</div>
               </div>
-              <div style="flex:1;background:var(--bg2);border-radius:var(--r);padding:14px;border:1px solid var(--border);text-align:center;">
-                <div id="prof-ref-friends" style="font-size:32px;font-weight:800;color:var(--terra);">0</div>
-                <div style="font-size:12px;color:var(--muted);margin-top:4px;">Friends Referred</div>
+              <div class="prof-ref-stat">
+                <div class="prof-ref-stat-val" id="prof-ref-friends">0</div>
+                <div class="prof-ref-stat-lbl">Friends Referred</div>
               </div>
             </div>
           </div>
@@ -12025,9 +12312,11 @@
     function initDashUI() {
       if (!user) return;
       const name = user.user_metadata?.name || user.email.split('@')[0] || 'there';
-      document.getElementById('sb-av').textContent = name[0].toUpperCase();
+      applyAvatarVisual(document.getElementById('sb-av'), name, null);
       document.getElementById('sb-nm').textContent = name;
       document.getElementById('sb-em').textContent = user.email;
+      // Pull saved avatar (if any) without blocking the rest of the UI
+      fetchProfileRow().then(prof => { if (prof?.avatar_url) applyAvatarEverywhere(name, prof.avatar_url, 'host'); }).catch(() => {});
       const hr = new Date().getHours();
       (function() {
         const lang = localStorage.getItem('rn-lang') || 'en';
@@ -13108,6 +13397,110 @@
     }
 
     // ══ PROFILE ══
+
+    // Returns { label, days } from a raw date value — never "Invalid Date" / NaN.
+    function rnMemberSinceInfo(rawDate) {
+      let ts = rawDate ? new Date(rawDate).getTime() : NaN;
+      if (!isFinite(ts) || ts <= 0) ts = Date.now(); // fallback: treat as joined today
+      const label = new Date(ts).toLocaleDateString('en-IN', { year: 'numeric', month: 'long' });
+      const days = Math.max(0, Math.floor((Date.now() - ts) / (24 * 60 * 60 * 1000)));
+      return { label, days };
+    }
+
+    // Single source of truth for the current user's profile row (DynamoDB-backed
+    // `profiles` table). `user.created_at` is NOT reliable here — the Cognito auth
+    // shim never populates it — so the real signup date lives on this row instead,
+    // stamped server-side on first upsert. This is what fixed "Invalid Date" /
+    // "Days Active" always showing 0.
+    async function fetchProfileRow() {
+      if (!user) return null;
+      try {
+        const { data, error } = await sb.from('profiles')
+          .select('id,name,email,avatar_url,credits,xp,partner_xp,created_at,referral_code,referred_by_code,total_referrals,registration_referrals,listing_referrals')
+          .eq('id', user.id).maybeSingle();
+        if (error) throw error;
+        return data || null;
+      } catch (e) {
+        console.warn('[Profile] fetchProfileRow failed:', e.message);
+        return null;
+      }
+    }
+
+    // Renders either an uploaded avatar image or initials into every avatar
+    // element that shares the given id across the page (profile card, sidebar,
+    // topbar greeting, mobile header). Falls back to initials if the image URL
+    // is broken/expired so the avatar never shows broken alt-text overflow.
+    function applyAvatarVisual(el, name, avatarUrl) {
+      if (!el) return;
+      const init = (name || 'U').trim().split(/\s+/).map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'U';
+      if (avatarUrl) {
+        el.innerHTML = `<img src="${esc(avatarUrl)}" alt="${esc(name || 'Profile photo')}" onerror="this.parentElement.textContent='${esc(init)}';">`;
+      } else {
+        el.textContent = init;
+      }
+    }
+
+    function applyAvatarEverywhere(name, avatarUrl, role) {
+      // Profile page avatar (host + renter share ids prefixed differently)
+      applyAvatarVisual(document.getElementById(role === 'rent' ? 'rent-prof-ava' : 'prof-ava'), name, avatarUrl);
+      // Sidebar avatars
+      applyAvatarVisual(document.getElementById('sb-av'), name, avatarUrl);
+      applyAvatarVisual(document.getElementById('rent-user-av'), name, avatarUrl);
+      applyAvatarVisual(document.getElementById('mob-sb-av'), name, avatarUrl);
+    }
+
+    function renderXpBlock(prefix, xp) {
+      const level = Math.floor(xp / XP_PER_LEVEL) + 1;
+      const xpInLvl = xp % XP_PER_LEVEL;
+      const pct = Math.min(100, (xpInLvl / XP_PER_LEVEL) * 100);
+      const lvlEl = document.getElementById(prefix + '-xp-level');
+      const fracEl = document.getElementById(prefix + '-xp-fraction');
+      const fillEl = document.getElementById(prefix + '-xp-fill');
+      if (lvlEl) lvlEl.textContent = 'Level ' + level;
+      if (fracEl) fracEl.textContent = xpInLvl + ' / ' + XP_PER_LEVEL;
+      if (fillEl) setTimeout(() => { fillEl.style.width = pct + '%'; }, 60);
+    }
+
+    const AVATAR_UPLOAD_MS = 60000;
+    async function handleAvatarFileChange(evt, role) {
+      const input = evt.target;
+      const file = input.files && input.files[0];
+      if (!file) return;
+      if (!file.type || !file.type.startsWith('image/')) {
+        toast('Please choose an image file', 'error');
+        input.value = '';
+        return;
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        toast('Image must be under 5MB', 'error');
+        input.value = '';
+        return;
+      }
+      const btn = document.getElementById(role === 'rent' ? 'rent-prof-ava-btn' : 'prof-ava-btn');
+      if (btn) { btn.disabled = true; btn.textContent = '⏳'; }
+      try {
+        const ext = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
+        const storagePath = `avatars/${user.id}/${Date.now()}.${ext}`;
+        const { error: ue } = await withTimeout(
+          sb.storage.from('images').upload(storagePath, file, { cacheControl: '3600', upsert: false }),
+          AVATAR_UPLOAD_MS,
+          'Photo upload timed out. Try a smaller image or check your connection.'
+        );
+        if (ue) throw new Error(ue.message || 'Upload failed');
+        const { data: ud } = sb.storage.from('images').getPublicUrl(storagePath);
+        const avatarUrl = ud.publicUrl;
+        await sb.from('profiles').upsert({ id: user.id, email: user.email, avatar_url: avatarUrl });
+        const name = user.user_metadata?.name || user.email.split('@')[0] || 'User';
+        applyAvatarEverywhere(name, avatarUrl, role);
+        toast('Profile photo updated! ✅', 'success');
+      } catch (e) {
+        toast('Photo upload failed: ' + (e.message || 'Unknown error'), 'error');
+      } finally {
+        if (btn) { btn.disabled = false; btn.textContent = '✎'; }
+        input.value = '';
+      }
+    }
+
     async function loadProfile() {
       // Wait up to 3s for user to be set (fixes 'blank profile on first nav' bug)
       if (!user) {
@@ -13118,13 +13511,12 @@
       }
       if (!user) return;
       const name = user.user_metadata?.name || user.email.split('@')[0] || 'Host';
-      const init = name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
-      document.getElementById('prof-ava').textContent = init;
       document.getElementById('prof-name').textContent = name;
       document.getElementById('prof-email-txt').textContent = user.email;
       document.getElementById('profile-pf-name').value = name;
       document.getElementById('profile-pf-email').value = user.email;
-      document.getElementById('pst-since').textContent = new Date(user.created_at).toLocaleDateString('en-IN', { year: 'numeric', month: 'long' });
+      applyAvatarVisual(document.getElementById('prof-ava'), name, null); // instant initials while DB row loads
+
       const h = await fetchHouses();
       const pub = h.filter(x => x.status === 'published');
       const dr = h.filter(x => x.status === 'draft');
@@ -13134,26 +13526,51 @@
       document.getElementById('pst-pub').textContent = pub.length;
       document.getElementById('pst-draft').textContent = dr.length;
       document.getElementById('pst-avg').textContent = avg ? '₹' + Math.round(avg).toLocaleString('en-IN') + '/mo' : '—';
-      // Load referral stats
+
+      // Pull the authoritative profile row (created_at, avatar, xp, referral stats)
+      const prof = await fetchProfileRow();
+      const memberInfo = rnMemberSinceInfo(prof?.created_at);
+      document.getElementById('pst-since').textContent = memberInfo.label;
+      const daysEl = document.getElementById('pst-days');
+      if (daysEl) daysEl.textContent = memberInfo.days;
+
+      const xp = parseInt(prof?.xp ?? prof?.partner_xp ?? 0, 10) || 0;
+      renderXpBlock('prof', xp);
+
+      if (prof?.avatar_url) applyAvatarEverywhere(name, prof.avatar_url, 'host');
+
+      // Referral stats — self-heal a missing referral code (mirrors ensureReferralCode)
       try {
-        const { data: prof } = await sb.from('profiles').select('referral_code').eq('id', user.id).maybeSingle();
-        if (prof && prof.referral_code) {
-          const card = document.getElementById('prof-referral-card');
+        let refCode = prof?.referral_code;
+        if (!refCode && typeof generateReferralCode === 'function') {
+          refCode = generateReferralCode();
+          await sb.from('profiles').upsert({ id: user.id, referral_code: refCode, email: user.email }).catch(() => {});
+        }
+        const card = document.getElementById('prof-referral-card');
+        if (refCode) {
           const codeEl = document.getElementById('prof-ref-code');
+          if (card) card.style.display = '';
+          if (codeEl) codeEl.textContent = refCode;
           const countEl = document.getElementById('prof-ref-count');
           const friendsEl = document.getElementById('prof-ref-friends');
-          if (card) card.style.display = '';
-          if (codeEl) codeEl.textContent = prof.referral_code;
           if (countEl) {
-            const { count } = await sb.from('houses').select('*', { count: 'exact', head: true }).eq('referral_code', prof.referral_code);
-            countEl.textContent = count ?? 0;
+            if (prof?.listing_referrals !== undefined && prof?.listing_referrals !== null) {
+              countEl.textContent = prof.listing_referrals;
+            } else {
+              const { count } = await sb.from('houses').select('*', { count: 'exact', head: true }).eq('referral_code', refCode);
+              countEl.textContent = count ?? 0;
+            }
           }
           if (friendsEl) {
-            const { count: fcount } = await sb.from('profiles').select('*', { count: 'exact', head: true }).eq('referred_by_code', prof.referral_code);
-            friendsEl.textContent = fcount ?? 0;
+            if (prof?.registration_referrals !== undefined && prof?.registration_referrals !== null) {
+              friendsEl.textContent = prof.registration_referrals;
+            } else {
+              const { count: fcount } = await sb.from('profiles').select('*', { count: 'exact', head: true }).eq('referred_by_code', refCode);
+              friendsEl.textContent = fcount ?? 0;
+            }
           }
         }
-      } catch(e) { /* referral_code column may not exist yet — safe to ignore */ }
+      } catch(e) { /* referral fields may not exist yet — safe to ignore */ }
     }
 
     async function updateProfile() {
@@ -13167,8 +13584,10 @@
         user.user_metadata = user.user_metadata || {};
         user.user_metadata.name = name;
         document.getElementById('sb-nm').textContent = name;
-        document.getElementById('sb-av').textContent = name[0].toUpperCase();
         document.getElementById('g-name').textContent = name.split(' ')[0];
+        document.getElementById('prof-name').textContent = name;
+        const prof = await fetchProfileRow();
+        applyAvatarEverywhere(name, prof?.avatar_url, 'host');
         toast('Profile updated! ✅', 'success');
       } catch (e) {
         toast('Update failed: ' + (e.message || 'Unknown error'), 'error');
@@ -13177,24 +13596,13 @@
       }
     }
 
-    function rnMemberSinceInfo(rawDate) {
-      // Returns { label, days } safely — never "Invalid Date" / NaN.
-      let ts = rawDate ? new Date(rawDate).getTime() : NaN;
-      if (!isFinite(ts) || ts <= 0) ts = Date.now(); // fallback: treat as joined today
-      const label = new Date(ts).toLocaleDateString('en-IN', { year: 'numeric', month: 'long' });
-      const days = Math.max(0, Math.floor((Date.now() - ts) / (24 * 60 * 60 * 1000)));
-      return { label, days };
-    }
-
     async function loadRentProfile() {
       if (!user) return;
       const name = user.user_metadata?.name || user.email.split('@')[0] || 'User';
-      const init = name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
       const credits = getCredits();
       const unlocks = getUnlocks();
       const validUnlocks = unlocks.filter(u => (u.unlockedAt + 7 * 24 * 60 * 60 * 1000) > Date.now());
-      const ava = document.getElementById('rent-prof-ava');
-      if (ava) ava.textContent = init;
+      applyAvatarVisual(document.getElementById('rent-prof-ava'), name, null); // instant initials
       const nm = document.getElementById('rent-prof-name');
       if (nm) nm.textContent = name;
       const em = document.getElementById('rent-prof-email-txt');
@@ -13203,35 +13611,56 @@
       if (nameInput) nameInput.value = name;
       const emailInput = document.getElementById('rent-pf-email');
       if (emailInput) emailInput.value = user.email;
-      const since = document.getElementById('rent-pst-since');
-      const totalUnlockEl = document.getElementById('rent-pst-days');
-      const memberInfo = rnMemberSinceInfo(user.created_at);
-      if (since) since.textContent = memberInfo.label;
       const credEl = document.getElementById('rent-pst-credits');
       if (credEl) credEl.textContent = fmtCredits(credits);
       const unlockEl = document.getElementById('rent-pst-unlocks');
       if (unlockEl) unlockEl.textContent = validUnlocks.length;
-      if (totalUnlockEl) totalUnlockEl.textContent = memberInfo.days;
-      // Load referral stats
+
+      // Pull the authoritative profile row (created_at, avatar, xp, referral stats)
+      const prof = await fetchProfileRow();
+      const memberInfo = rnMemberSinceInfo(prof?.created_at);
+      const since = document.getElementById('rent-pst-since');
+      if (since) since.textContent = memberInfo.label;
+      const daysEl = document.getElementById('rent-pst-days');
+      if (daysEl) daysEl.textContent = memberInfo.days;
+
+      const xp = parseInt(prof?.xp ?? prof?.partner_xp ?? 0, 10) || 0;
+      renderXpBlock('rent-prof', xp);
+
+      if (prof?.avatar_url) applyAvatarEverywhere(name, prof.avatar_url, 'rent');
+
+      // Referral stats — self-heal a missing referral code (mirrors ensureReferralCode)
       try {
-        const { data: prof } = await sb.from('profiles').select('referral_code').eq('id', user.id).maybeSingle();
-        if (prof && prof.referral_code) {
-          const card = document.getElementById('rent-prof-referral-card');
+        let refCode = prof?.referral_code;
+        if (!refCode && typeof generateReferralCode === 'function') {
+          refCode = generateReferralCode();
+          await sb.from('profiles').upsert({ id: user.id, referral_code: refCode, email: user.email }).catch(() => {});
+        }
+        const card = document.getElementById('rent-prof-referral-card');
+        if (refCode) {
           const codeEl = document.getElementById('rent-prof-ref-code');
+          if (card) card.style.display = '';
+          if (codeEl) codeEl.textContent = refCode;
           const countEl = document.getElementById('rent-prof-ref-count');
           const friendsEl = document.getElementById('rent-prof-ref-friends');
-          if (card) card.style.display = '';
-          if (codeEl) codeEl.textContent = prof.referral_code;
           if (countEl) {
-            const { count } = await sb.from('houses').select('*', { count: 'exact', head: true }).eq('referral_code', prof.referral_code);
-            countEl.textContent = count ?? 0;
+            if (prof?.listing_referrals !== undefined && prof?.listing_referrals !== null) {
+              countEl.textContent = prof.listing_referrals;
+            } else {
+              const { count } = await sb.from('houses').select('*', { count: 'exact', head: true }).eq('referral_code', refCode);
+              countEl.textContent = count ?? 0;
+            }
           }
           if (friendsEl) {
-            const { count: fcount } = await sb.from('profiles').select('*', { count: 'exact', head: true }).eq('referred_by_code', prof.referral_code);
-            friendsEl.textContent = fcount ?? 0;
+            if (prof?.registration_referrals !== undefined && prof?.registration_referrals !== null) {
+              friendsEl.textContent = prof.registration_referrals;
+            } else {
+              const { count: fcount } = await sb.from('profiles').select('*', { count: 'exact', head: true }).eq('referred_by_code', refCode);
+              friendsEl.textContent = fcount ?? 0;
+            }
           }
         }
-      } catch(e) { /* referral_code column may not exist yet — safe to ignore */ }
+      } catch(e) { /* referral fields may not exist yet — safe to ignore */ }
     }
 
     async function updateRentProfile() {
@@ -13274,7 +13703,7 @@
         user.user_metadata.name = name;
         user.user_metadata.phone = phone;
         document.getElementById('sb-nm').textContent = name;
-        document.getElementById('sb-av').textContent = name[0].toUpperCase();
+        applyAvatarVisual(document.getElementById('sb-av'), name, (await fetchProfileRow())?.avatar_url);
         document.getElementById('g-name').textContent = name.split(' ')[0];
         toast('Settings saved! ✅', 'success');
       } catch (e) {
@@ -13468,9 +13897,10 @@
           const avEl = document.getElementById('rent-user-av');
           const nmEl = document.getElementById('rent-user-nm');
           const emEl = document.getElementById('rent-sb-em');
-          if (avEl) avEl.textContent = name[0].toUpperCase();
+          if (avEl) applyAvatarVisual(avEl, name, null);
           if (nmEl) nmEl.textContent = name.split(' ')[0];
           if (emEl) emEl.textContent = user.email || '—';
+          fetchProfileRow().then(prof => { if (prof?.avatar_url) applyAvatarEverywhere(name, prof.avatar_url, 'rent'); }).catch(() => {});
           ensureReferralCode();
           processPendingSignupReferral();
         }
@@ -15418,7 +15848,10 @@
           const email = user.email || '';
           userInfo.style.display = 'flex';
           userInfo.style.cssText = 'display:flex;align-items:center;gap:12px;padding:14px 18px 10px;border-bottom:1px solid rgba(255,255,255,.08);';
-          userInfo.innerHTML = `<div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,var(--terra),var(--terra2));display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;color:#fff;flex-shrink:0;" id="mob-sb-av">${name[0].toUpperCase()}</div><div style="overflow:hidden;"><div style="font-size:15px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" id="mob-sb-nm">${name}</div><div style="font-size:12px;color:rgba(255,255,255,.5);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" id="mob-sb-em">${email}</div></div>`;
+          userInfo.innerHTML = `<div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,var(--terra),var(--terra2));display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;color:#fff;flex-shrink:0;overflow:hidden;" id="mob-sb-av">${name[0].toUpperCase()}</div><div style="overflow:hidden;"><div style="font-size:15px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" id="mob-sb-nm">${name}</div><div style="font-size:12px;color:rgba(255,255,255,.5);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" id="mob-sb-em">${email}</div></div>`;
+          if (typeof fetchProfileRow === 'function') {
+            fetchProfileRow().then(prof => { if (prof?.avatar_url) applyAvatarVisual(document.getElementById('mob-sb-av'), name, prof.avatar_url); }).catch(() => {});
+          }
         } else {
           userInfo.style.display = 'none';
           userInfo.innerHTML = '';
