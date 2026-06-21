@@ -6,10 +6,10 @@
 //        immediately sets the user's real chosen password as permanent
 //        (so they are never stuck in FORCE_CHANGE_PASSWORD), marks
 //        email_verified=false, then generates+stores+sends our own code
-//        via SES.
+//        via Brevo.
 //
 //   POST /api/signup-verify { action: 'resend', email }
-//     -> Regenerates and re-sends the code via SES.
+//     -> Regenerates and re-sends the code via Brevo.
 //
 //   POST /api/signup-verify { action: 'confirm', email, code }
 //     -> Verifies the code against DynamoDB, then calls Cognito
@@ -22,7 +22,7 @@ const {
   AdminUpdateUserAttributesCommand
 } = require('@aws-sdk/client-cognito-identity-provider');
 const { REGION, USER_POOL_ID, send, parseBody } = require('./_auth');
-const { generateCode, storeCode, getCode, deleteCode, bumpAttempts, sendCodeEmail, hashCode, MAX_ATTEMPTS } = require('./_ses');
+const { generateCode, storeCode, getCode, markCodeUsed, deleteCode, bumpAttempts, sendCodeEmail, hashCode, MAX_ATTEMPTS } = require('./_brevo');
 
 const cognito = new CognitoIdentityProviderClient({ region: REGION });
 
@@ -83,11 +83,12 @@ module.exports = async function handler(req, res) {
       console.log(`[SignupVerify] permanent password set for ${email}`);
 
       const code = generateCode();
+      console.log(`[SignupVerify] code generated for ${email}, storing in DynamoDB`);
       await storeCode('signup_verify', email, code);
 
-      console.log(`[SignupVerify] about to call sendCodeEmail() for ${email}`);
+      console.log(`[SignupVerify] about to call sendCodeEmail() (Brevo) for ${email}`);
       await sendCodeEmail('signup_verify', email, code);
-      console.log(`[SignupVerify] ✅ SES send completed successfully for ${email}`);
+      console.log(`[SignupVerify] ✅ Brevo send completed successfully for ${email}`);
 
       return send(res, 200, { data: {} });
     } catch (err) {
@@ -100,9 +101,10 @@ module.exports = async function handler(req, res) {
     console.log(`[SignupVerify] ── resend received for email=${email}`);
     try {
       const code = generateCode();
+      console.log(`[SignupVerify] resend code generated for ${email}, storing in DynamoDB`);
       await storeCode('signup_verify', email, code);
       await sendCodeEmail('signup_verify', email, code);
-      console.log(`[SignupVerify] ✅ resend completed for ${email}`);
+      console.log(`[SignupVerify] ✅ resend completed (Brevo) for ${email}`);
       return send(res, 200, { data: {} });
     } catch (err) {
       console.error(`[SignupVerify] ❌ resend FAILED for ${email}:`, err);
@@ -118,22 +120,22 @@ module.exports = async function handler(req, res) {
     try {
       const record = await getCode('signup_verify', email);
       if (!record) {
-        console.warn(`[SignupVerify] confirm: no code record found for ${email}`);
+        console.warn(`[SignupVerify] ❌ verification failed: no code record (or already used) for ${email}`);
         return send(res, 400, { error: { message: 'Invalid or expired code. Please request a new one.' } });
       }
       if (Date.now() > record.expiresAt) {
-        console.warn(`[SignupVerify] confirm: code expired for ${email}`);
+        console.warn(`[SignupVerify] ❌ verification failed: code expired for ${email}`);
         await deleteCode('signup_verify', email);
         return send(res, 400, { error: { message: 'This code has expired. Please request a new one.' } });
       }
       if ((record.attempts || 0) >= MAX_ATTEMPTS) {
-        console.warn(`[SignupVerify] confirm: too many attempts for ${email}`);
+        console.warn(`[SignupVerify] ❌ verification failed: too many attempts for ${email}`);
         await deleteCode('signup_verify', email);
         return send(res, 400, { error: { message: 'Too many incorrect attempts. Please request a new code.' } });
       }
       if (record.codeHash !== hashCode(code, email)) {
         await bumpAttempts('signup_verify', email);
-        console.warn(`[SignupVerify] confirm: code mismatch for ${email}`);
+        console.warn(`[SignupVerify] ❌ verification failed: code mismatch for ${email}`);
         return send(res, 400, { error: { message: 'Incorrect code. Please try again.' } });
       }
 
@@ -142,8 +144,9 @@ module.exports = async function handler(req, res) {
         Username: email,
         UserAttributes: [{ Name: 'email_verified', Value: 'true' }]
       }));
-      console.log(`[SignupVerify] ✅ email_verified=true set for ${email}`);
+      console.log(`[SignupVerify] ✅ verification success: email_verified=true set for ${email}`);
 
+      await markCodeUsed('signup_verify', email);
       await deleteCode('signup_verify', email);
       return send(res, 200, { data: {} });
     } catch (err) {
