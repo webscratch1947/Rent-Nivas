@@ -24,7 +24,14 @@ module.exports = async function handler(req, res) {
 
     await cognito.send(new AdminDeleteUserCommand({ UserPoolId: USER_POOL_ID, Username: targetUsername }));
     if (targetUserId) {
-      await ddb.send(new DeleteItemCommand({ TableName: 'Users', Key: marshall({ id: targetUserId }) })).catch(err => {
+      // FIX: the Users table's actual DynamoDB partition key is "userId",
+      // not "id" — this was always deleting the wrong (non-existent) key,
+      // so the DynamoDB profile row never actually got removed. The Cognito
+      // account was deleted, but the orphaned profile row stayed behind
+      // forever. If that same email signed up again later, a fresh Cognito
+      // user (new sub) was created with no link to the old leftover row —
+      // which then showed up looking like a duplicate/ghost account.
+      await ddb.send(new DeleteItemCommand({ TableName: process.env.TABLE_USERS || 'Users', Key: marshall({ userId: targetUserId }) })).catch(err => {
         console.warn('[RentNivas] Users delete skipped:', err.message || err);
       });
     }
