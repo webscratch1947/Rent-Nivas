@@ -14949,6 +14949,19 @@
         confirmText: 'Grant Partner', confirmClass: 'btn-terra',
         onConfirm: async () => {
           console.log('[Admin] Granting partner access to user_id=', userId, 'name=', userName);
+          // SAFETY CHECK: if this email has more than one profile row (a
+          // leftover duplicate Cognito account from before the signup
+          // dedupe fix), refuse to grant blindly — granting on the wrong
+          // half of the pair silently does nothing for the person actually
+          // logged in. Force the admin to merge first via Find Duplicate
+          // Accounts so there is only ever one account to grant onto.
+          if (userEmail) {
+            const { data: dupeCheck } = await sb.from('profiles').select('id,email').eq('email', userEmail);
+            const distinctIds = new Set((dupeCheck || []).map(r => r.id));
+            if (distinctIds.size > 1) {
+              throw new Error('This email (' + userEmail + ') has ' + distinctIds.size + ' separate accounts. Merge them first using "🔍 Find Duplicate Accounts" above, then grant partner access — otherwise this may apply to the wrong account.');
+            }
+          }
           const { data: existingRows, error: fetchErr } = await sb.from('partner_requests').select('id,phone,partner_type,city,created_at').eq('user_id', userId);
           // IMPORTANT: previously this ignored fetchErr and treated any failed
           // lookup the same as "no existing application" — which meant a
