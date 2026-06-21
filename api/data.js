@@ -1,6 +1,9 @@
 const crypto = require('crypto');
 const { DynamoDBClient, GetItemCommand, PutItemCommand, UpdateItemCommand, DeleteItemCommand, ScanCommand } = require('@aws-sdk/client-dynamodb');
 const { marshall, unmarshall } = require('@aws-sdk/util-dynamodb');
+// Used only by admin_merge_duplicate_accounts, to remove the loser
+// account's Cognito login once its data has been moved to the keeper.
+const { CognitoIdentityProviderClient, ListUsersCommand, AdminDeleteUserCommand } = require('@aws-sdk/client-cognito-identity-provider');
 
 const REGION = process.env.AWS_REGION || process.env.RENT_NIVAS_AWS_REGION || 'eu-north-1';
 const USER_POOL_ID = process.env.COGNITO_USER_POOL_ID || 'eu-north-1_GM7Zi2xvq';
@@ -9,6 +12,7 @@ const ISSUER = `https://cognito-idp.${REGION}.amazonaws.com/${USER_POOL_ID}`;
 const JWKS_URL = `${ISSUER}/.well-known/jwks.json`;
 
 const ddb = new DynamoDBClient({ region: REGION });
+const cognitoAdmin = new CognitoIdentityProviderClient({ region: REGION });
 let jwksCache = null;
 let jwksFetchedAt = 0;
 
@@ -839,6 +843,175 @@ async function handleRpc(spec, claims) {
 
     console.log(`[Admin] Backfilled defaults for ${fixed}/${rows.length} profiles; deduped ${dedupedUsers} users' partner applications (${deletedRows} duplicate rows removed)`);
     return { scanned: rows.length, fixed, dedupedUsers, deletedRows };
+  }
+
+  // ── admin_find_duplicate_accounts ──────────────────────────────────────
+  // Read-only report: scans every profile row and groups them by email,
+  // surfacing any email with more than one row (i.e. more than one Cognito
+  // user signed up with that email before the signup-verify.js dedupe fix
+  // existed). Does NOT delete or merge anything automatically — picking
+  // which of two accounts is "the real one" (which has the listings,
+  // credits, partner status worth keeping) needs a human to look at the
+  // numbers and decide, not a script guessing. Returns the groups so the
+  // admin can review them in the admin panel and decide per-pair what to
+  // do (e.g. manually move data over, then delete the loser with the
+  // existing Delete button).
+  if (spec.name === 'admin_find_duplicate_accounts') {
+    const adminEmails = (process.env.ADMIN_EMAILS || '').split(',').map(v => v.trim().toLowerCase()).filter(Boolean);
+    const isAdminCaller = (claims['cognito:groups'] || []).includes('admin') || adminEmails.includes(String(claims.email || '').toLowerCase());
+    if (!isAdminCaller) throw new Error('Admin access required');
+
+    const TableName = tableName('profiles');
+    const scanned = await runDdb('read', 'profiles', () => ddb.send(new ScanCommand({ TableName })));
+    const rows = (scanned.Items || []).map(item => fromDbItem('profiles', unmarshall(item)));
+
+    const byEmail = {};
+    rows.forEach(r => {
+      const email = String(r.email || '').trim().toLowerCase();
+      if (!email) return;
+      (byEmail[email] = byEmail[email] || []).push({
+        id: r.id, name: r.name, email: r.email, credits: r.credits,
+        xp: r.xp, partner_xp: r.partner_xp, referral_code: r.referral_code,
+        created_at: r.created_at,
+      });
+    });
+
+    const duplicates = Object.entries(byEmail)
+      .filter(([, group]) => group.length > 1)
+      .map(([email, group]) => ({ email, accounts: group.sort((a, b) => new Date(a.created_at) - new Date(b.created_at)) }));
+
+    console.log(`[Admin] Duplicate account scan: ${duplicates.length} email(s) with multiple accounts found.`);
+    return { duplicateEmailCount: duplicates.length, duplicates };
+  }
+
+  // ── admin_merge_duplicate_accounts ─────────────────────────────────────
+  // Takes a keeperUserId and a loserUserId (both from the same email — the
+  // admin decides which is "real" after reviewing admin_find_duplicate_accounts).
+  // Moves everything of value from the loser onto the keeper:
+  //   - houses.owner_id, purchases.user_id, favorites.user_id,
+  //     user_house_unlocks.user_id, partner_requests.user_id,
+  //     notifications.user_id, admin_bans.user_id, admin_warnings.user_id
+  //     are all re-pointed from loser -> keeper, so nothing the loser
+  //     created/owns gets orphaned or silently lost.
+  //   - credits and xp/partner_xp are SUMMED onto the keeper (not
+  //     overwritten), so no value is lost either direction.
+  //   - keeper's referral_code is preserved if it has one; otherwise the
+  //     loser's is adopted (so a working code is never thrown away).
+  //   - Cognito login for the loser is deleted, then its profile row.
+  // This does NOT touch the keeper's password or login — only the loser's
+  // login is removed. The keeper becomes the one and only account for
+  // that email going forward.
+  if (spec.name === 'admin_merge_duplicate_accounts') {
+    const adminEmails = (process.env.ADMIN_EMAILS || '').split(',').map(v => v.trim().toLowerCase()).filter(Boolean);
+    const isAdminCaller = (claims['cognito:groups'] || []).includes('admin') || adminEmails.includes(String(claims.email || '').toLowerCase());
+    if (!isAdminCaller) throw new Error('Admin access required');
+
+    const keeperUserId = String((spec.params && spec.params.p_keeper_id) || '').trim();
+    const loserUserId = String((spec.params && spec.params.p_loser_id) || '').trim();
+    if (!keeperUserId || !loserUserId) throw new Error('admin_merge_duplicate_accounts requires p_keeper_id and p_loser_id');
+    if (keeperUserId === loserUserId) throw new Error('Keeper and loser cannot be the same account');
+
+    const [keeper, loser] = await Promise.all([
+      readItems({ table: 'profiles', op: 'select', select: '*', filters: [{ op: 'eq', column: 'id', value: keeperUserId }], maybeSingle: true }),
+      readItems({ table: 'profiles', op: 'select', select: '*', filters: [{ op: 'eq', column: 'id', value: loserUserId }], maybeSingle: true }),
+    ]);
+    if (!keeper || !keeper.id) throw new Error(`Keeper account ${keeperUserId} not found`);
+    if (!loser || !loser.id) throw new Error(`Loser account ${loserUserId} not found`);
+    if (String(keeper.email || '').toLowerCase() !== String(loser.email || '').toLowerCase()) {
+      throw new Error('Refusing to merge — keeper and loser do not share the same email. This safety check exists so a bad id never merges two unrelated accounts.');
+    }
+
+    // Re-point every table that references a user, loser -> keeper.
+    // NOTE: some of these tables use a composite key (user_id + a second
+    // field) instead of a single "id" — e.g. favorites is keyed by
+    // (user_id, property_id), not id. For those, deleteRows+putRows (with
+    // the new user_id) is used instead of updateRows-by-id, since there is
+    // no single "id" field to filter by for a plain update.
+    const COMPOSITE_USER_TABLES = {
+      user_house_unlocks: 'property_id',
+      favorites: 'property_id',
+      notifications: 'notification_id',
+    };
+    const repointTables = [
+      { table: 'houses', column: 'owner_id' },
+      { table: 'purchases', column: 'user_id' },
+      { table: 'favorites', column: 'user_id' },
+      { table: 'user_house_unlocks', column: 'user_id' },
+      { table: 'partner_requests', column: 'user_id' },
+      { table: 'notifications', column: 'user_id' },
+      { table: 'admin_bans', column: 'user_id' },
+      { table: 'admin_warnings', column: 'user_id' },
+    ];
+    const repointed = {};
+    for (const { table, column } of repointTables) {
+      try {
+        const TableNameX = tableName(table);
+        const scannedX = await runDdb('read', table, () => ddb.send(new ScanCommand({ TableName: TableNameX })));
+        const rowsX = (scannedX.Items || []).map(item => fromDbItem(table, unmarshall(item)));
+        const toMove = rowsX.filter(r => String(r[column]) === String(loserUserId));
+        const secondKeyField = COMPOSITE_USER_TABLES[table];
+        for (const row of toMove) {
+          if (secondKeyField) {
+            // Composite-key table: re-create the row under the keeper's
+            // user_id (re-using the rest of the row's fields), then delete
+            // the original loser-keyed row. A straight "update by id"
+            // can't work here since there is no single "id" key.
+            try {
+              const newRow = Object.assign({}, row, { user_id: keeperUserId });
+              delete newRow.id; // composite tables don't use a top-level id
+              await putRows({ table, values: newRow }, false);
+              await deleteRows({ table, op: 'delete', filters: [{ op: 'eq', column: 'user_id', value: loserUserId }, { op: 'eq', column: secondKeyField, value: row[secondKeyField] }] });
+            } catch (err) {
+              console.warn(`[Admin] Merge: could not repoint composite-key ${table} row:`, err.message);
+            }
+          } else {
+            await updateRows({ table, op: 'update', values: { [column]: keeperUserId }, filters: [{ op: 'eq', column: 'id', value: row.id }] }).catch(err => {
+              console.warn(`[Admin] Merge: could not repoint ${table} row ${row.id}:`, err.message);
+            });
+          }
+        }
+        repointed[table] = toMove.length;
+      } catch (err) {
+        console.warn(`[Admin] Merge: skipping table "${table}" (not present or scan failed):`, err.message);
+        repointed[table] = 0;
+      }
+    }
+
+    // Sum numeric value fields onto the keeper instead of overwriting.
+    const mergedCredits = (parseFloat(keeper.credits) || 0) + (parseFloat(loser.credits) || 0);
+    const mergedXp = (parseInt(keeper.xp) || 0) + (parseInt(loser.xp) || 0);
+    const mergedPartnerXp = (parseInt(keeper.partner_xp) || 0) + (parseInt(loser.partner_xp) || 0);
+    const mergedTotalReferrals = (parseInt(keeper.total_referrals) || 0) + (parseInt(loser.total_referrals) || 0);
+    const keeperPatch = {
+      credits: Math.round(mergedCredits * 100) / 100,
+      xp: mergedXp,
+      partner_xp: mergedPartnerXp,
+      total_referrals: mergedTotalReferrals,
+    };
+    // Keep keeper's referral_code if it has one; otherwise adopt loser's
+    // (so a working code already shared with others isn't thrown away).
+    if (!keeper.referral_code && loser.referral_code) keeperPatch.referral_code = loser.referral_code;
+
+    await updateRows({ table: 'profiles', op: 'update', values: keeperPatch, filters: [{ op: 'eq', column: 'id', value: keeperUserId }] });
+
+    // Delete the loser's Cognito login, then its profile row.
+    let cognitoDeleted = false;
+    try {
+      const page = await cognitoAdmin.send(new ListUsersCommand({ UserPoolId: USER_POOL_ID, Filter: `sub = "${loserUserId}"`, Limit: 1 }));
+      const cognitoUser = page.Users && page.Users[0];
+      if (cognitoUser) {
+        await cognitoAdmin.send(new AdminDeleteUserCommand({ UserPoolId: USER_POOL_ID, Username: cognitoUser.Username }));
+        cognitoDeleted = true;
+      }
+    } catch (err) {
+      console.warn(`[Admin] Merge: could not delete loser's Cognito login (${loserUserId}):`, err.message);
+    }
+    await deleteRows({ table: 'profiles', op: 'delete', filters: [{ op: 'eq', column: 'id', value: loserUserId }] }).catch(err => {
+      console.warn(`[Admin] Merge: could not delete loser profile row (${loserUserId}):`, err.message);
+    });
+
+    console.log(`[Admin] Merged account ${loserUserId} into ${keeperUserId} for email ${keeper.email}. Repointed:`, repointed, 'Cognito login deleted:', cognitoDeleted);
+    return { merged: true, keeperUserId, loserUserId, keeperPatch, repointed, cognitoLoginDeleted: cognitoDeleted };
   }
 
   throw new Error(`Unsupported RPC "${spec.name}"`);
