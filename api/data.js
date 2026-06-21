@@ -146,7 +146,9 @@ async function runDdb(action, table, fn) {
 // the real AWS attribute name so GetItem/PutItem/UpdateItem/DeleteItem use the correct key.
 const PARTITION_KEY_OVERRIDES = {
   houses: 'propertyId',
-  Houses: 'propertyId'
+  Houses: 'propertyId',
+  admin_warnings: 'warningId',
+  Warnings: 'warningId'
 };
 
 function partitionKeyName(table) {
