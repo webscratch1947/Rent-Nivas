@@ -8304,6 +8304,43 @@
     #custom-room-count {
       -moz-appearance: textfield;
     }
+
+    /* ══ DAILY STREAK POPUP ══ */
+    #streak-popup-bg {
+      display:none;position:fixed;inset:0;z-index:100000;
+      background:rgba(0,0,0,.6);backdrop-filter:blur(6px);
+      align-items:center;justify-content:center;
+      opacity:0;pointer-events:none;transition:opacity .3s;
+    }
+    #streak-popup-bg.open { display:flex;opacity:1;pointer-events:all; }
+    .streak-popup-box {
+      background:var(--white);border-radius:var(--rxl);max-width:440px;width:92%;
+      box-shadow:var(--sh3);overflow:hidden;animation:fadeUp .35s var(--ease);
+    }
+    .streak-popup-header {
+      background:linear-gradient(135deg,#1a1a2e 0%,#16213e 60%,#0f3460 100%);
+      padding:28px 28px 20px;text-align:center;
+    }
+    .streak-popup-title { font-size:22px;font-weight:800;color:#fff;font-family:var(--font-display);margin-bottom:4px; }
+    .streak-popup-sub { font-size:13px;color:rgba(255,255,255,.65);margin:0; }
+    .streak-days-grid {
+      display:grid;grid-template-columns:repeat(7,1fr);gap:6px;
+      padding:18px 18px 0;
+    }
+    .streak-day {
+      text-align:center;border-radius:10px;padding:8px 4px;
+      border:2px solid var(--border2);background:var(--bg);
+      transition:all .2s;position:relative;
+    }
+    .streak-day.claimed { background:var(--green-bg);border-color:var(--green);opacity:.7; }
+    .streak-day.active { background:var(--amber-bg);border-color:var(--amber);box-shadow:0 0 0 2px rgba(245,158,11,.3); }
+    .streak-day.locked { opacity:.45; }
+    .streak-day-label { font-size:10px;color:var(--muted);font-weight:600;margin-bottom:3px; }
+    .streak-day-credits { font-size:16px;font-weight:800;color:var(--amber);line-height:1; }
+    .streak-day-icon { font-size:16px;margin-bottom:2px; }
+    .streak-day.claimed .streak-day-credits { color:var(--green); }
+    .streak-claim-area { padding:16px 18px 22px;text-align:center; }
+    .streak-timer { font-size:12px;color:var(--muted);margin-top:8px; }
   </style>
 </head>
 
@@ -9924,6 +9961,9 @@
 
           <!-- BANS TAB -->
           <div class="admin-sub" id="adm-bans">
+            <div style="display:flex;justify-content:flex-end;margin-bottom:10px;">
+              <button class="btn btn-sm" style="background:#fee2e2;color:#dc2626;font-size:12px;" onclick="adminClearAllBans()">🗑️ Clear All Bans</button>
+            </div>
             <div id="adm-ban-list">
               <div style="text-align:center;padding:32px;color:var(--muted);">Loading bans...</div>
             </div>
@@ -9931,6 +9971,9 @@
 
           <!-- APPEALS TAB -->
           <div class="admin-sub" id="adm-appeals">
+            <div style="display:flex;justify-content:flex-end;margin-bottom:10px;">
+              <button class="btn btn-sm" style="background:#fee2e2;color:#dc2626;font-size:12px;" onclick="adminClearAllAppeals()">🗑️ Clear All Appeals</button>
+            </div>
             <div id="adm-appeal-list">
               <div style="text-align:center;padding:32px;color:var(--muted);">Loading appeals...</div>
             </div>
@@ -9938,6 +9981,9 @@
 
           <!-- PARTNER REQUESTS TAB -->
           <div class="admin-sub" id="adm-partners">
+            <div style="display:flex;justify-content:flex-end;margin-bottom:10px;">
+              <button class="btn btn-sm" style="background:#fee2e2;color:#dc2626;font-size:12px;" onclick="adminClearAllPartnerRequests()">🗑️ Clear All Partner Requests</button>
+            </div>
             <div id="adm-partner-list">
               <div style="text-align:center;padding:32px;color:var(--muted);">Loading partner requests...</div>
             </div>
@@ -10781,6 +10827,10 @@
     function saveNotifs(arr) { localStorage.setItem('nestly-notifs', JSON.stringify(arr)); }
     function pushNotif(icon, text) {
       const arr = getNotifs();
+      // Dedup: skip if the exact same notification text was added in the last 2 minutes
+      const TWO_MIN = 2 * 60 * 1000;
+      const isDup = arr.some(n => n.text === text && (Date.now() - n.time) < TWO_MIN);
+      if (isDup) return;
       arr.unshift({ icon, text, time: Date.now(), read: false });
       saveNotifs(arr.slice(0, 30)); // max 30 notifs
       renderNotifBadge();
@@ -11842,12 +11892,17 @@
         const { data: inserted, error } = await sb.from('admin_warnings').insert({ user_id: null, message: msg, global: true, created_by: user.id }).select().single();
         if (error) { toast('Warning failed: ' + error.message, 'error'); return; }
         console.log('[Nestly Admin] Global warning sent:', msg, 'id=', inserted?.id);
+        // Also insert into admin_announcements so it appears in Recent Announcements list
+        try {
+          await sb.from('admin_announcements').insert({ message: '⚠️ [Warning] ' + msg, created_by: user.id, warning_id: inserted?.id || null });
+        } catch(e2) { console.warn('[Admin] Could not mirror warning to announcements:', e2.message); }
         // Show for admin too with proper id so dedup works
         if (inserted?.id) showWarningBanner(inserted.id, msg);
         // Always push to notification bell regardless of seen status
         pushNotif('⚠️', msg);
         document.getElementById('warn-text').value = '';
         toast('⚠️ Warning banner shown to all users.', 'success');
+        await loadAdminAnnouncements();
       } catch (e) {
         toast('Warning failed: ' + (e.message || 'Network error'), 'error');
       }
@@ -12507,6 +12562,9 @@
       selectRole(savedRole);          // ← page renders HERE, instantly
       checkPartnerCongrats();
       updatePartnerNavBadges();
+      // Show daily streak popup for logged-in users (after a short delay so
+      // the page settles first). Only shown once per session.
+      setTimeout(function() { if (window.maybeShowStreakPopup) window.maybeShowStreakPopup(); }, 1200);
 
       // Non-security background work — fine to run after render
       Promise.all([
@@ -15016,10 +15074,9 @@
           <div style="padding:12px 14px;">
             <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
               <div style="font-size:14px;font-weight:700;color:var(--ink);flex:1;min-width:0;">${esc(u.name || '—')}${u.hasPartner ? ' <span style="font-size:11px;background:var(--green-bg);color:var(--green);padding:2px 7px;border-radius:8px;font-weight:600;">🤝 Partner</span>' : ''}</div>
-              <div style="font-size:11px;color:var(--muted2);white-space:nowrap;flex-shrink:0;">📅 ${u.created_at ? new Date(u.created_at).toLocaleDateString('en-IN') : '—'}</div>
+              <div style="font-size:11px;color:var(--amber);white-space:nowrap;flex-shrink:0;font-weight:600;">🪙 ${u.credits ?? 0} credits</div>
             </div>
             <div class="admin-user-email" style="font-size:12px;color:var(--muted);margin-top:2px;">${esc(u.email || '—')}</div>
-            <div style="font-size:11px;color:var(--muted2);margin-top:4px;">Registered: <strong style="color:var(--soft);">${u.created_at ? new Date(u.created_at).toLocaleDateString('en-IN', {year:'numeric',month:'short',day:'numeric'}) : '—'}</strong></div>
           </div>
           <div class="admin-actions" style="padding:0 14px 12px;gap:6px;flex-wrap:wrap;">
             <button class="btn btn-sm" style="background:var(--red-bg);color:var(--red);font-size:12px;" onclick="adminDeleteUser('${esc(u.id)}','${esc(u.name||u.email)}')">🗑️ Delete</button>
@@ -15159,7 +15216,15 @@
         fields: [],
         confirmText: 'Revoke Partner', confirmClass: 'btn-outline',
         onConfirm: async () => {
-          const { error } = await sb.from('partner_requests').update({ status: 'revoked' }).eq('user_id', userId).eq('status', 'accepted');
+          // First fetch the accepted partner_requests row to get its id,
+          // then update by id — avoids the "partner_requests requires id" error
+          // from the DynamoDB backend which can only update by primary key.
+          const { data: rows, error: fetchErr } = await sb.from('partner_requests')
+            .select('id').eq('user_id', userId).eq('status', 'accepted').limit(1);
+          if (fetchErr) throw fetchErr;
+          const row = rows && rows[0];
+          if (!row || !row.id) throw new Error('No active partner record found for this user.');
+          const { error } = await sb.from('partner_requests').update({ status: 'revoked' }).eq('id', row.id);
           if (error) throw error;
           toast('❌ Partner access revoked from ' + userName, 'success');
           setTimeout(loadAdminUsers, 500);
@@ -15788,6 +15853,65 @@
       }
 
 
+      // ══ ADMIN CLEAR DATA FUNCTIONS ══
+
+      async function adminClearAllPartnerRequests() {
+        openAdminModal({
+          title: '🗑️ Clear All Partner Requests',
+          subtitle: 'This will permanently delete ALL partner requests, including accepted, pending, and rejected. This cannot be undone.',
+          fields: [{ id: 'confirm', label: 'Type DELETE to confirm', type: 'text', required: true, placeholder: 'DELETE' }],
+          confirmText: 'Delete All Partner Requests', confirmClass: 'btn-danger-soft',
+          onConfirm: async (v) => {
+            if (v.confirm !== 'DELETE') throw new Error('You must type DELETE exactly to confirm.');
+            const { data: rows } = await sb.from('partner_requests').select('id').limit(500);
+            if (!rows || !rows.length) { toast('No partner requests to delete.', 'info'); return; }
+            for (const r of rows) {
+              await sb.from('partner_requests').delete().eq('id', r.id).catch(() => {});
+            }
+            toast('✅ All partner requests deleted (' + rows.length + ' records).', 'success');
+            setTimeout(() => { loadAdminPartners(); loadAdmin(); }, 500);
+          }
+        });
+      }
+
+      async function adminClearAllBans() {
+        openAdminModal({
+          title: '🗑️ Clear All Bans',
+          subtitle: 'This will permanently delete ALL ban records from the database. This cannot be undone.',
+          fields: [{ id: 'confirm', label: 'Type DELETE to confirm', type: 'text', required: true, placeholder: 'DELETE' }],
+          confirmText: 'Delete All Bans', confirmClass: 'btn-danger-soft',
+          onConfirm: async (v) => {
+            if (v.confirm !== 'DELETE') throw new Error('You must type DELETE exactly to confirm.');
+            const { data: rows } = await sb.from('admin_bans').select('id').limit(500);
+            if (!rows || !rows.length) { toast('No bans to delete.', 'info'); return; }
+            for (const r of rows) {
+              await sb.from('admin_bans').delete().eq('id', r.id).catch(() => {});
+            }
+            toast('✅ All bans deleted (' + rows.length + ' records).', 'success');
+            setTimeout(() => { loadAdminBans(); loadAdmin(); }, 500);
+          }
+        });
+      }
+
+      async function adminClearAllAppeals() {
+        openAdminModal({
+          title: '🗑️ Clear All Appeals',
+          subtitle: 'This will permanently delete ALL appeal records from the database. This cannot be undone.',
+          fields: [{ id: 'confirm', label: 'Type DELETE to confirm', type: 'text', required: true, placeholder: 'DELETE' }],
+          confirmText: 'Delete All Appeals', confirmClass: 'btn-danger-soft',
+          onConfirm: async (v) => {
+            if (v.confirm !== 'DELETE') throw new Error('You must type DELETE exactly to confirm.');
+            const { data: rows } = await sb.from('admin_appeals').select('id').limit(500);
+            if (!rows || !rows.length) { toast('No appeals to delete.', 'info'); return; }
+            for (const r of rows) {
+              await sb.from('admin_appeals').delete().eq('id', r.id).catch(() => {});
+            }
+            toast('✅ All appeals deleted (' + rows.length + ' records).', 'success');
+            setTimeout(() => { loadAdminAppeals(); loadAdmin(); }, 500);
+          }
+        });
+      }
+
       // ══ REFERRAL CODE SYSTEM ══
 
       function generateReferralCode() {
@@ -16046,8 +16170,15 @@
         if (isOwner) return null;
         const rec = purchasedListingMap.get(house.id);
         if (!rec || !rec.purchaseId || String(rec.purchaseId).startsWith('local-')) return null;
-        // Stop asking once this house's 7-day unlock window has ended.
-        if (unlockTimeLeft(house.id) <= 0) return null;
+        // Allow old users (unlocked before this feature was deployed on 2026-06-22)
+        // a 7-day grace window from the feature date. For new unlocks, the normal
+        // 7-day countdown from unlock time applies.
+        const FEATURE_DEPLOY_DATE = new Date('2026-06-22T00:00:00Z').getTime();
+        const unlockedAt = rec.createdAt ? new Date(rec.createdAt).getTime() : 0;
+        const sevenDaysFromUnlock = unlockedAt + 7 * 24 * 60 * 60 * 1000;
+        const sevenDaysFromFeature = FEATURE_DEPLOY_DATE + 7 * 24 * 60 * 60 * 1000;
+        const questionDeadline = Math.max(sevenDaysFromUnlock, sevenDaysFromFeature);
+        if (Date.now() > questionDeadline) return null;
 
         const questions = await loadListingQuestions(house.id);
         if (!questions || !questions.length) return null;
@@ -17122,6 +17253,23 @@
     <div id="notif-list"></div>
   </div>
 
+
+  <!-- ══ DAILY STREAK POPUP ══ -->
+  <div id="streak-popup-bg">
+    <div class="streak-popup-box">
+      <div class="streak-popup-header">
+        <div class="streak-popup-title">🔥 Daily Streak Reward</div>
+        <p class="streak-popup-sub">Open the app every day to earn credits!</p>
+      </div>
+      <div class="streak-days-grid" id="streak-days-grid"><!-- filled by JS --></div>
+      <div class="streak-claim-area">
+        <button class="btn btn-terra btn-full" id="streak-claim-btn" onclick="claimStreakDay()">🎁 Claim Reward</button>
+        <div class="streak-timer" id="streak-timer-text"></div>
+        <button class="btn btn-soft btn-sm btn-full" style="margin-top:10px;" onclick="closeStreakPopup()">Close</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ══ WELCOME POPUP (once per browser session) ══ -->
   <div id="welcome-popup-bg"
     style="display:none;position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.55);backdrop-filter:blur(6px);align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .3s;">
@@ -17189,8 +17337,157 @@
       bg.style.opacity = '0';
       bg.style.pointerEvents = 'none';
       _unlockScroll();
-      setTimeout(function () { bg.style.display = 'none'; }, 300);
+      setTimeout(function () {
+        bg.style.display = 'none';
+        // After welcome popup closes, check if logged-in user should see streak
+        if (window.maybeShowStreakPopup) window.maybeShowStreakPopup();
+      }, 300);
     }
+  </script>
+
+  <!-- ══ DAILY STREAK SYSTEM ══ -->
+  <script>
+    (function () {
+      'use strict';
+      var STREAK_KEY = 'rn-streak-v1';
+      var CREDITS_PER_DAY = [1, 2, 3, 4, 5, 6, 7];
+      var DAY_MS = 24 * 60 * 60 * 1000;
+
+      function getStreak() {
+        try { return JSON.parse(localStorage.getItem(STREAK_KEY) || 'null') || { day: 0, lastClaimed: 0, cycleStart: 0 }; }
+        catch (e) { return { day: 0, lastClaimed: 0, cycleStart: 0 }; }
+      }
+      function saveStreak(s) {
+        try { localStorage.setItem(STREAK_KEY, JSON.stringify(s)); } catch (e) {}
+      }
+
+      // Returns which day (1-7) is claimable now, or 0 if not ready yet.
+      function getClaimableDay() {
+        var s = getStreak();
+        var now = Date.now();
+        var nextDay = s.lastClaimed + DAY_MS;
+        // Day 0 means never claimed — day 1 is always available
+        if (s.day === 0 || s.lastClaimed === 0) return 1;
+        // If 7 days have passed since cycle start and all days claimed, reset
+        if (s.day >= 7 && now > s.lastClaimed + DAY_MS) return 1; // next cycle
+        // If 24h have passed since last claim and not yet day 7 complete
+        if (s.day < 7 && now >= nextDay) return s.day + 1;
+        return 0; // not ready
+      }
+
+      function msUntilNext() {
+        var s = getStreak();
+        if (!s.lastClaimed) return 0;
+        var diff = (s.lastClaimed + DAY_MS) - Date.now();
+        return Math.max(0, diff);
+      }
+
+      function fmtCountdown(ms) {
+        if (ms <= 0) return '';
+        var h = Math.floor(ms / 3600000);
+        var m = Math.floor((ms % 3600000) / 60000);
+        var sec = Math.floor((ms % 60000) / 1000);
+        return 'Next reward in ' + h + 'h ' + m + 'm ' + sec + 's';
+      }
+
+      function renderStreakGrid() {
+        var grid = document.getElementById('streak-days-grid');
+        if (!grid) return;
+        var s = getStreak();
+        var claimableDay = getClaimableDay();
+        var html = '';
+        for (var d = 1; d <= 7; d++) {
+          var claimed = d < (s.day === 7 && claimableDay === 1 ? 0 : s.day + (claimableDay === 0 ? 1 : 0)) || (d <= s.day && claimableDay !== d);
+          // Figure out state: claimed (done), active (today's claimable), locked (future)
+          var isClaimed = d < s.day || (d === s.day && claimableDay !== s.day);
+          var isActive = d === claimableDay;
+          var cls = isClaimed ? 'claimed' : isActive ? 'active' : 'locked';
+          var icon = isClaimed ? '✅' : isActive ? '🎁' : '🔒';
+          html += '<div class="streak-day ' + cls + '">' +
+            '<div class="streak-day-label">Day ' + d + '</div>' +
+            '<div class="streak-day-icon">' + icon + '</div>' +
+            '<div class="streak-day-credits">+' + CREDITS_PER_DAY[d - 1] + '</div>' +
+            '</div>';
+        }
+        grid.innerHTML = html;
+      }
+
+      function updateStreakUI() {
+        renderStreakGrid();
+        var btn = document.getElementById('streak-claim-btn');
+        var timerEl = document.getElementById('streak-timer-text');
+        var claimableDay = getClaimableDay();
+        if (claimableDay > 0) {
+          if (btn) { btn.disabled = false; btn.textContent = '🎁 Claim Day ' + claimableDay + ' (+' + CREDITS_PER_DAY[claimableDay - 1] + ' credit' + (CREDITS_PER_DAY[claimableDay - 1] > 1 ? 's' : '') + ')'; }
+          if (timerEl) timerEl.textContent = '';
+        } else {
+          if (btn) { btn.disabled = true; btn.textContent = '✅ Come back tomorrow!'; }
+          var remaining = msUntilNext();
+          if (timerEl) timerEl.textContent = fmtCountdown(remaining);
+          // Update timer every second
+          if (remaining > 0) setTimeout(updateStreakUI, 1000);
+        }
+      }
+
+      window.claimStreakDay = async function () {
+        var claimableDay = getClaimableDay();
+        if (claimableDay === 0) return;
+        var credits = CREDITS_PER_DAY[claimableDay - 1];
+        var s = getStreak();
+        var now = Date.now();
+        s.day = claimableDay;
+        s.lastClaimed = now;
+        if (claimableDay === 1) s.cycleStart = now;
+        saveStreak(s);
+        // Award credits
+        if (window.setCredits && window.getCredits) {
+          var current = window.getCredits();
+          await window.setCredits(current + credits);
+        } else if (window.sb && window.user) {
+          try {
+            var sessionRes = await window.sb.auth.getSession();
+            var session = sessionRes && sessionRes.data && sessionRes.data.session;
+            if (session) {
+              var profRes = await window.sb.from('profiles').select('credits').eq('id', window.user.id).maybeSingle();
+              var cur = (profRes && profRes.data && profRes.data.credits) || 0;
+              await window.sb.from('profiles').update({ credits: Number(cur) + credits }).eq('id', window.user.id);
+              localStorage.setItem('nestly-credits', Number(cur) + credits);
+              if (window.updateCreditsBadges) window.updateCreditsBadges();
+            }
+          } catch (e) { console.warn('[Streak] credits award failed:', e); }
+        }
+        if (window.toast) window.toast('🔥 Day ' + claimableDay + ' claimed! +' + credits + ' credit' + (credits > 1 ? 's' : '') + ' added!', 'success');
+        if (window.pushNotif) window.pushNotif('🔥', 'Day ' + claimableDay + ' streak! You earned +' + credits + ' credit' + (credits > 1 ? 's' : '') + '.');
+        updateStreakUI();
+      };
+
+      window.closeStreakPopup = function () {
+        var bg = document.getElementById('streak-popup-bg');
+        if (!bg) return;
+        bg.classList.remove('open');
+        if (window._unlockScroll) window._unlockScroll();
+      };
+
+      window.openStreakPopup = function () {
+        var bg = document.getElementById('streak-popup-bg');
+        if (!bg) return;
+        updateStreakUI();
+        bg.classList.add('open');
+        if (window._lockScroll) window._lockScroll();
+      };
+
+      // Show streak popup for logged-in users — called after welcome popup closes
+      // or directly on page load if no welcome popup was shown.
+      window.maybeShowStreakPopup = function () {
+        // Only show for logged-in users (user object exists)
+        if (!window.user) return;
+        // Only show once per session
+        if (sessionStorage.getItem('rn-streak-shown')) return;
+        sessionStorage.setItem('rn-streak-shown', '1');
+        // Small delay so it doesn't stack with other popups
+        setTimeout(window.openStreakPopup, 600);
+      };
+    })();
   </script>
 
   <!-- ══ LANGUAGE BADGE UPDATER ══ -->
