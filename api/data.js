@@ -428,6 +428,9 @@ async function putRows(spec, merge) {
       // so defaults only fill gaps and never clobber a real existing value
       // or something the caller explicitly asked to set.
       const merged = Object.assign({}, defaults, existingAppRow, next, { id: next.id || existingAppRow.id });
+      // Never let an upsert overwrite the original creation timestamp — it is
+      // set once on first insert and must stay fixed for "member since" to work.
+      if (existingAppRow.created_at) merged.created_at = existingAppRow.created_at;
       await runDdb('upsert', spec.table, () => ddb.send(new PutItemCommand({ TableName, Item: marshall(toDbItem(spec.table, merged), { removeUndefinedValues: true }) })));
       if (isFirstCreation && Object.keys(defaults).length) {
         console.log(`[RentNivas API] First-creation defaults applied for ${spec.table}:`, Object.keys(defaults).join(', '));
