@@ -13784,32 +13784,15 @@
 
     // Returns { label, days } from a raw date value — never "Invalid Date" / NaN.
     function rnMemberSinceInfo(rawDate) {
-      // Try the profile's created_at first; fall back to the Cognito user
-      // metadata (user.created_at is set by some auth flows), then the JWT
-      // iat (issued-at) claim as a last resort. If nothing is available,
-      // show "—" rather than "0 days" which looks broken.
+      // Use the profile row's created_at (set once on first account creation
+      // in DynamoDB and never overwritten by subsequent upserts).
+      // If it's missing (e.g. very old account), fall back to the Cognito
+      // user-creation date if exposed on the user object.
+      // Never use auth_time (that's the last sign-in, not registration).
       let ts = rawDate ? new Date(rawDate).getTime() : NaN;
       if (!isFinite(ts) || ts <= 0) {
-        // Try Cognito user created_at from the user object
-        const userTs = window.user && (window.user.created_at || window.user.UserCreateDate);
+        const userTs = window.user && window.user.created_at;
         ts = userTs ? new Date(userTs).getTime() : NaN;
-      }
-      if (!isFinite(ts) || ts <= 0) {
-        // Try decoding the JWT iat claim from the stored id_token
-        try {
-          const raw = localStorage.getItem('rentnivas-auth');
-          if (raw) {
-            const sess = JSON.parse(raw);
-            const token = sess.id_token || sess.access_token;
-            if (token) {
-              const parts = token.split('.');
-              if (parts.length === 3) {
-                const payload = JSON.parse(atob(parts[1].replace(/-/g,'+').replace(/_/g,'/')));
-                if (payload.auth_time) ts = payload.auth_time * 1000;
-              }
-            }
-          }
-        } catch (_) {}
       }
       if (!isFinite(ts) || ts <= 0) {
         return { label: 'Member', days: '—' };
@@ -17412,8 +17395,13 @@
             </div>
           </div>
         </div>
-        <button class="btn btn-terra btn-full btn-lg" id="wp-get-started" onclick="closeWelcomePopup();showPage('signup-page')">🚀 Get Started Free</button>
-        <button class="btn btn-soft btn-sm btn-full" style="margin-top:10px;" id="wp-browse" onclick="closeWelcomePopup()">Browse first</button>
+        <div id="wp-guest-btns">
+          <button class="btn btn-terra btn-full btn-lg" id="wp-get-started" onclick="closeWelcomePopup();showPage('signup-page')">🚀 Get Started Free</button>
+          <button class="btn btn-soft btn-sm btn-full" style="margin-top:10px;" id="wp-browse" onclick="closeWelcomePopup()">Browse first</button>
+        </div>
+        <div id="wp-user-btn" style="display:none;">
+          <button class="btn btn-terra btn-full btn-lg" onclick="closeWelcomePopup()">✅ Continue to Dashboard</button>
+        </div>
       </div>
     </div>
   </div>
@@ -17425,6 +17413,14 @@
         setTimeout(function () {
           var bg = document.getElementById('welcome-popup-bg');
           if (!bg) return;
+          // If the user is already logged in, show a simpler version with
+          // just a "Continue" button instead of signup/browse options.
+          if (window.user) {
+            var guestBtns = document.getElementById('wp-guest-btns');
+            var userBtn   = document.getElementById('wp-user-btn');
+            if (guestBtns) guestBtns.style.display = 'none';
+            if (userBtn)   userBtn.style.display   = '';
+          }
           bg.style.display = 'flex';
           bg.style.pointerEvents = 'all';
           _lockScroll();
@@ -17565,19 +17561,29 @@
         updateStreakUI();
       };
 
-      window.closeStreakPopup = function () {
-        var bg = document.getElementById('streak-popup-bg');
-        if (!bg) return;
-        bg.classList.remove('open');
-        if (window._unlockScroll) window._unlockScroll();
-      };
+
 
       window.openStreakPopup = function () {
         var bg = document.getElementById('streak-popup-bg');
         if (!bg) return;
         updateStreakUI();
-        bg.classList.add('open');
+        // Use the same style-based show pattern as the welcome popup so the
+        // CSS opacity transition actually fires (classList.add in a single
+        // frame skips the transition when display was 'none').
+        bg.style.display = 'flex';
+        bg.style.opacity = '0';
+        bg.style.pointerEvents = 'all';
         if (window._lockScroll) window._lockScroll();
+        requestAnimationFrame(function () { bg.style.opacity = '1'; });
+      };
+
+      window.closeStreakPopup = function () {
+        var bg = document.getElementById('streak-popup-bg');
+        if (!bg) return;
+        bg.style.opacity = '0';
+        bg.style.pointerEvents = 'none';
+        if (window._unlockScroll) window._unlockScroll();
+        setTimeout(function () { bg.style.display = 'none'; }, 320);
       };
 
       // Show streak popup for logged-in users — called after welcome popup closes
