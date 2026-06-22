@@ -248,10 +248,7 @@
     refreshTimer = setTimeout(refreshSession, ms);
   }
 
-  async function apiRequest(spec) {
-    var sessionRes = await auth.getSession();
-    var session = sessionRes.data.session;
-    if (!session) return { data: null, error: { message: 'Not authenticated' } };
+  async function doFetch(token, spec) {
     var resp = await fetch('/api/data', {
       method: 'POST',
       headers: {
@@ -262,13 +259,55 @@
         // the Access Token here meant claims.email was always undefined,
         // so admin checks could only ever pass via Cognito group membership,
         // never via ADMIN_EMAILS.
-        'Authorization': 'Bearer ' + (session.id_token || session.access_token)
+        'Authorization': 'Bearer ' + token
       },
       body: JSON.stringify(spec)
     });
     var json = await resp.json().catch(function () { return { error: { message: 'Invalid API response' } }; });
-    if (!resp.ok || json.error) return { data: null, error: json.error || { message: 'API request failed' }, count: json.count };
-    return { data: json.data, error: null, count: json.count };
+    return { ok: resp.ok, json: json };
+  }
+
+  async function apiRequest(spec) {
+    var sessionRes = await auth.getSession();
+    var session = sessionRes.data.session;
+    if (!session) return { data: null, error: { message: 'Not authenticated' } };
+
+    // Pre-flight: if the stored token is already past its expiry time, force
+    // a refresh now before even trying — avoids a guaranteed 401 round-trip.
+    if (session.expires_at && session.expires_at * 1000 <= Date.now()) {
+      var forced = await refreshSession();
+      if (forced.data && forced.data.session) session = forced.data.session;
+    }
+
+    var token = session.id_token || session.access_token;
+    var result = await doFetch(token, spec);
+
+    // If the backend rejected with "Authorization token expired", force a
+    // fresh token refresh and retry exactly once.  This handles the edge case
+    // where the browser tab was backgrounded, the timer fired late, and an
+    // expired token slipped through getSession's 5-minute guard.
+    if (
+      (!result.ok || result.json.error) &&
+      result.json.error &&
+      typeof result.json.error.message === 'string' &&
+      result.json.error.message.toLowerCase().includes('token expired')
+    ) {
+      log('received token-expired error — forcing refresh and retrying once');
+      var retry = await refreshSession();
+      var retrySession = retry.data && retry.data.session;
+      if (!retrySession) {
+        // Refresh truly failed (e.g. refresh token revoked) — sign the user
+        // out cleanly so they see the login screen instead of a broken app.
+        clearSession();
+        notify('SIGNED_OUT', null);
+        return { data: null, error: { message: 'Your session has expired. Please sign in again.' } };
+      }
+      var retryToken = retrySession.id_token || retrySession.access_token;
+      result = await doFetch(retryToken, spec);
+    }
+
+    if (!result.ok || result.json.error) return { data: null, error: result.json.error || { message: 'API request failed' }, count: result.json.count };
+    return { data: result.json.data, error: null, count: result.json.count };
   }
 
   function Query(table) {
