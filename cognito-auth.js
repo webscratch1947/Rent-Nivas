@@ -167,7 +167,7 @@
   //       (next user action, next visibility change) try again. The user
   //       is only ever actually signed out by an explicit, confirmed
   //       "this refresh token is no longer valid" response from Cognito.
-  var REFRESH_RETRY_DELAYS_MS = [2000, 5000, 15000];
+  var REFRESH_RETRY_DELAYS_MS = [500, 1500];
 
   function isDefinitelyInvalidRefreshToken(err) {
     // NotAuthorizedException is Cognito's generic error code — it fires for
