@@ -394,9 +394,12 @@ const NEW_ROW_DEFAULTS = {
     total_referrals: 0,
     registration_referrals: 0,
     listing_referrals: 0,
+    daily_streak_day: 0,
+    daily_streak_claimed_at: null,
+    pending_referral_code: null,
   },
-  users: { credits: 10, xp: 0, partner_xp: 0, referral_code: freshReferralCode, referred_by_code: null, total_referrals: 0, registration_referrals: 0, listing_referrals: 0 },
-  Users: { credits: 10, xp: 0, partner_xp: 0, referral_code: freshReferralCode, referred_by_code: null, total_referrals: 0, registration_referrals: 0, listing_referrals: 0 },
+  users: { credits: 10, xp: 0, partner_xp: 0, referral_code: freshReferralCode, referred_by_code: null, total_referrals: 0, registration_referrals: 0, listing_referrals: 0, daily_streak_day: 0, daily_streak_claimed_at: null, pending_referral_code: null },
+  Users: { credits: 10, xp: 0, partner_xp: 0, referral_code: freshReferralCode, referred_by_code: null, total_referrals: 0, registration_referrals: 0, listing_referrals: 0, daily_streak_day: 0, daily_streak_claimed_at: null, pending_referral_code: null },
 };
 
 // Resolves any function-valued defaults (e.g. freshReferralCode) into a concrete value.
@@ -683,7 +686,28 @@ async function handleRpc(spec, claims) {
   // Idempotent: stamps profiles.referred_by_code on the new user so a second
   // call (same session refresh) is a no-op.
   if (spec.name === 'process_registration_referral') {
-    const code = String((spec.params && spec.params.p_referral_code) || '').trim();
+    let code = String((spec.params && spec.params.p_referral_code) || '').trim();
+
+    // Fallback: referral code written to DynamoDB profile by signup-verify.js
+    // during email confirm (used when Cognito User Pool lacks custom:referral_code).
+    if (!code) {
+      try {
+        const selfProfile = await readItems({
+          table: 'profiles',
+          op: 'select',
+          select: 'id,pending_referral_code',
+          filters: [{ op: 'eq', column: 'id', value: claims.sub }],
+          maybeSingle: true,
+        });
+        if (selfProfile && selfProfile.pending_referral_code) {
+          code = String(selfProfile.pending_referral_code).trim();
+          console.log('[Referral] Using pending_referral_code from profile for user ' + claims.sub + ': ' + code);
+        }
+      } catch (e) {
+        console.warn('[Referral] Could not read pending_referral_code:', e.message);
+      }
+    }
+
     if (!code) return { processed: false, reason: 'no_code' };
 
     // Backfill referral fields on the new user if needed
@@ -731,6 +755,14 @@ async function handleRpc(spec, claims) {
 
     // Award the referrer their reward
     const reward = await applyReferralReward(referrer.id, 'registration');
+
+    // Clear pending_referral_code so repeated calls stay idempotent
+    await updateRows({
+      table: 'profiles',
+      op: 'update',
+      values: { pending_referral_code: null },
+      filters: [{ op: 'eq', column: 'id', value: claims.sub }],
+    }).catch(e => console.warn('[Referral] Could not clear pending_referral_code:', e.message));
 
     console.log(`[Referral] Registration referral processed: new_user=${claims.sub} referrer=${referrer.id}`);
     return { processed: true, referrer_id: referrer.id, reward };
@@ -795,6 +827,43 @@ async function handleRpc(spec, claims) {
 
     console.log(`[Referral] Listing referral reward given: house=${houseId} referrer=${referrer.id}`);
     return { awarded: true, referrer_id: referrer.id, reward };
+  }
+
+  // ── claim_daily_reward ────────────────────────────────────────────────────
+  // Awards 1 credit per day × 7 days = 7 credits per cycle. 24-hour cooldown.
+  // After day 7 the cycle resets to day 1. Idempotent within the 24h window.
+  if (spec.name === 'claim_daily_reward') {
+    const userId = claims.sub;
+    const profile = await readItems({
+      table: 'profiles', op: 'select',
+      select: 'id,credits,daily_streak_day,daily_streak_claimed_at',
+      filters: [{ op: 'eq', column: 'id', value: userId }],
+      maybeSingle: true,
+    });
+    if (!profile || !profile.id) throw new Error('Profile not found');
+
+    const now = Date.now();
+    const streakDay = parseInt(profile.daily_streak_day || '0', 10);
+    const lastClaimedAt = profile.daily_streak_claimed_at ? new Date(profile.daily_streak_claimed_at).getTime() : 0;
+    const DAY_MS = 24 * 60 * 60 * 1000;
+
+    if (lastClaimedAt > 0 && (now - lastClaimedAt) < DAY_MS) {
+      return { claimed: false, reason: 'too_soon', ms_until_next: DAY_MS - (now - lastClaimedAt), current_day: streakDay };
+    }
+
+    const nextDay = streakDay >= 7 ? 1 : streakDay + 1;
+    const creditsToAdd = 1;
+    const currentCredits = parseFloat(profile.credits || '0');
+    const newCredits = Math.round((currentCredits + creditsToAdd) * 100) / 100;
+
+    await updateRows({
+      table: 'profiles', op: 'update',
+      values: { daily_streak_day: nextDay, daily_streak_claimed_at: new Date(now).toISOString(), credits: newCredits },
+      filters: [{ op: 'eq', column: 'id', value: userId }],
+    });
+
+    console.log('[DailyReward] User ' + userId + ' claimed day ' + nextDay + ' — +1 credit, new balance: ' + newCredits);
+    return { claimed: true, day: nextDay, credits_awarded: creditsToAdd, new_credits: newCredits };
   }
 
   // ── admin_backfill_profile_defaults ────────────────────────────────────────
