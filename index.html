@@ -15990,8 +15990,20 @@
         if (okEl) okEl.style.display = 'none';
         if (errEl) errEl.style.display = 'none';
         try {
-          const { data, error } = await sb.from('profiles').select('name,email').eq('referral_code', code).maybeSingle();
-          if (error || !data) { if (errEl) errEl.style.display = 'block'; return; }
+          // FIX: this used to go through sb.from('profiles')... which requires
+          // an authenticated session (/api/data always rejects with "Not
+          // authenticated" otherwise). On the signup form the person isn't
+          // logged in yet, so every code — even a real one — came back as
+          // "doesn't match any account". /api/check-referral is a public,
+          // unauthenticated endpoint built specifically for this lookup.
+          const resp = await fetch('/api/check-referral', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ code: code })
+          });
+          const json = await resp.json().catch(() => ({}));
+          const data = json && json.data;
+          if (!resp.ok || !data) { if (errEl) errEl.style.display = 'block'; return; }
           if (nameEl) nameEl.textContent = data.name || data.email || 'a Rent Nivas user';
           if (okEl) okEl.style.display = 'block';
         } catch (e) { if (errEl) errEl.style.display = 'block'; }
@@ -16462,9 +16474,8 @@
             if (savedRole) await selectRole(savedRole);
             else showPage('role-page');
           }
-          // Show streak popup after a fresh sign-in (clear the per-session
-          // "already shown" flag so it always fires on login).
-          sessionStorage.removeItem('rn-streak-shown');
+          // Show streak popup right after a fresh sign-in if a reward is
+          // currently claimable (maybeShowStreakPopup checks that itself).
           setTimeout(function() { if (window.maybeShowStreakPopup) window.maybeShowStreakPopup(); }, 1400);
         }
       });
@@ -17436,10 +17447,8 @@
       _unlockScroll();
       setTimeout(function () {
         bg.style.display = 'none';
-        // After welcome popup closes, show the streak popup for logged-in users.
-        // Clear the per-session flag first so the startup timer (which skips
-        // when welcome popup is open) doesn't block it.
-        sessionStorage.removeItem('rn-streak-shown');
+        // After welcome popup closes, show the streak popup for logged-in
+        // users if a reward is currently claimable (see maybeShowStreakPopup).
         if (window.maybeShowStreakPopup) window.maybeShowStreakPopup();
       }, 300);
     }
@@ -17588,12 +17597,28 @@
 
       // Show streak popup for logged-in users — called after welcome popup closes
       // or directly on page load if no welcome popup was shown.
+      //
+      // FIX: this used to gate on sessionStorage('rn-streak-shown'), which
+      // persists across reloads within the same tab — so once shown, it
+      // never came back even if the person closed it without claiming.
+      // Requested behavior: if there's an unclaimed reward ready right now,
+      // show the popup on EVERY reload until they claim it. Once claimed,
+      // stay hidden for the full 24h cooldown (don't nag again until the
+      // next day's reward is actually ready). getClaimableDay() already
+      // encodes exactly that "ready now?" check, so it's the single source
+      // of truth here instead of a session flag.
       window.maybeShowStreakPopup = function () {
         // Only show for logged-in users (user object exists)
         if (!window.user) return;
-        // Only show once per session
-        if (sessionStorage.getItem('rn-streak-shown')) return;
-        sessionStorage.setItem('rn-streak-shown', '1');
+        // Nothing ready to claim right now (already claimed today's, or
+        // mid-cooldown) — don't show at all.
+        if (getClaimableDay() <= 0) return;
+        // Guard against firing twice on the SAME page load (e.g. both the
+        // welcome-popup-close path and the startup timer calling this in
+        // quick succession) — but this is an in-memory flag, not
+        // sessionStorage, so it resets on every reload/navigation.
+        if (window._streakShownThisLoad) return;
+        window._streakShownThisLoad = true;
         // Small delay so it doesn't stack with other popups
         setTimeout(window.openStreakPopup, 600);
       };
