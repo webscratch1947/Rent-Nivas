@@ -12473,7 +12473,9 @@
 
     // ══ DASHBOARD INIT ══
     async function initDash(existingSession) {
-      // Use a pre-fetched session when available — avoids a redundant getSession() call.
+      // existingSession is always a VERIFIED fresh session from AUTO-INIT.
+      // Only fall back to getSession() when initDash is called directly (e.g. from
+      // onAuthStateChange) without a pre-fetched session.
       let session = existingSession ?? null;
       if (!session) {
         try {
@@ -12488,11 +12490,7 @@
       user = session.user;
       console.log('[Nestly] initDash user:', user.email);
 
-      // ── INSTANT UI PATH (0ms, no network) ─────────────────────────────────
-      // Show the right page immediately using only localStorage state.
-      // All DB / network work runs in background and updates UI as results arrive.
-
-      // Instant localStorage ban check
+      // Instant localStorage ban check (0ms, no network)
       const _storedBan = _getStoredBan();
       if (_storedBan) {
         const _banExpired = _storedBan.type !== 'perm' && _storedBan.until && new Date(_storedBan.until) < new Date();
@@ -12502,12 +12500,29 @@
 
       const savedRole = localStorage.getItem('nestly-role');
       syncMobNavAuth();
+
       if (!savedRole) {
         showPage('role-page');
-        // Still kick off background work so profile is ready when role is picked
-      } else {
-        selectRole(savedRole); // ← page renders HERE, instantly from localStorage
+        return;
       }
+
+      // ── PARALLEL DB FETCHES ───────────────────────────────────────────────
+      // Start profile + ban fetches in parallel NOW, before selectRole() renders.
+      // Session is fresh (from AUTO-INIT), so these calls use a valid token.
+      // Both complete in ~300-600ms while the page shell is rendering.
+      const profilePromise = withTimeout(
+        sb.from('profiles').select('id,credits,xp,referral_code,referred_by_code').eq('id', user.id).maybeSingle(),
+        10000, 'Profile load timed out'
+      ).catch(e => { console.warn('[Nestly] Profile fetch:', e.message); return { data: null, error: e }; });
+
+      const banPromise = checkUserBan().catch(e => {
+        console.warn('[Nestly] Ban check failed — proceeding (fail-open):', e.message);
+        return false;
+      });
+
+      // Render the page. selectRole() shows the correct dashboard/rent screen.
+      // Credits displayed come from localStorage cache — updated below when DB responds.
+      selectRole(savedRole);
       checkPartnerCongrats();
       updatePartnerNavBadges();
       setTimeout(function() {
@@ -12517,54 +12532,36 @@
         if (window.maybeShowStreakPopup) window.maybeShowStreakPopup();
       }, 1400);
 
-      // ── BACKGROUND NETWORK WORK ────────────────────────────────────────────
-      // Page is already visible. Fetch live data and silently update the UI.
-      (async () => {
-        // 1. Profile: get live credits, auto-create if missing
-        try {
-          const pr = await withTimeout(
-            sb.from('profiles').select('id,credits,xp,referral_code,referred_by_code').eq('id', user.id).maybeSingle(),
-            10000, 'Profile load timed out'
-          );
-          if (!pr.error && pr.data === null) {
-            console.warn('[Nestly] Profile missing — auto-creating for:', user.email);
-            await withTimeout(
-              sb.from('profiles').upsert({
-                id: user.id,
-                name: user.user_metadata?.name || user.email?.split('@')[0] || 'User',
-                email: user.email,
-                credits: 10, xp: 0,
-                referral_code: user.user_metadata?.referral_code || null,
-                referred_by_code: null,
-                created_at: new Date().toISOString()
-              }),
-              10000, 'Could not create profile'
-            ).catch(e => console.warn('[Nestly] Profile upsert:', e.message || e));
-          } else if (!pr.error && pr.data) {
-            // Refresh credits display with live DB value
-            localStorage.setItem('nestly-credits', Math.max(0, pr.data.credits || 0));
-            updateCreditsBadges();
-          }
-        } catch (e) {
-          console.warn('[Nestly] Background profile fetch failed:', e.message || e);
-        }
+      // Await the already-in-flight parallel fetches (expected ~300-600ms).
+      const [pr, isBanned] = await Promise.all([profilePromise, banPromise]);
+      if (isBanned) return; // checkUserBan() already showed the overlay
 
-        // 2. Authoritative DB ban check — runs after page is shown (fail-open)
-        try {
-          const isBanned = await checkUserBan();
-          if (isBanned) return;
-        } catch (e) {
-          console.warn('[Nestly] Background ban check failed — proceeding (fail-open):', e.message || e);
+      if (pr && !pr.error) {
+        if (pr.data === null) {
+          // Auto-create missing profile
+          console.warn('[Nestly] Profile missing — auto-creating for:', user.email);
+          sb.from('profiles').upsert({
+            id: user.id,
+            name: user.user_metadata?.name || user.email?.split('@')[0] || 'User',
+            email: user.email,
+            credits: 10, xp: 0,
+            referral_code: user.user_metadata?.referral_code || null,
+            referred_by_code: null,
+            created_at: new Date().toISOString()
+          }).catch(e => console.warn('[Nestly] Profile upsert:', e.message || e));
+        } else if (pr.data) {
+          // Refresh credits display with authoritative live value
+          localStorage.setItem('nestly-credits', Math.max(0, pr.data.credits || 0));
+          updateCreditsBadges();
         }
+      }
 
-        // 3. Purchases, warnings, announcements, realtime in parallel
-        await Promise.all([
-          loadUserPurchases().then(() => updateCreditsBadges()).catch(() => {}),
-          fetchAndShowWarnings(),
-          fetchAndShowAnnouncements(),
-        ]).catch(() => {});
-        setupRealtimeSubscriptions();
-      })();
+      // Background: purchases, warnings, announcements, realtime (non-blocking)
+      Promise.all([
+        loadUserPurchases().then(() => updateCreditsBadges()).catch(() => {}),
+        fetchAndShowWarnings(),
+        fetchAndShowAnnouncements(),
+      ]).catch(() => {}).then(() => setupRealtimeSubscriptions());
     }
 
     let _realtimeChannels = [];
@@ -16312,79 +16309,68 @@
       const _isReset = false;
       const _isErr = false;
 
-      // ── INSTANT SESSION DECODE (0ms, no network) ──────────────────────────
-      // Decode the stored JWT from localStorage synchronously so we know
-      // immediately whether the user is logged in, without waiting for any
-      // network call to Cognito.  getSession() fires in the background to
-      // refresh the token — it does NOT block the UI render.
-      function _decodeStoredSession() {
+      // ── FAST SESSION DETECT (0ms, no network) ────────────────────────────
+      // Check localStorage synchronously to know immediately whether the user
+      // was logged in before this page load. This lets us skip showing the
+      // landing page for returning users (eliminates the "home page flash").
+      function _hasStoredSession() {
         try {
           const raw = localStorage.getItem('rentnivas-auth');
-          if (!raw) return null;
+          if (!raw) return false;
           const stored = JSON.parse(raw);
           const token = stored.id_token || stored.access_token;
-          if (!token || !stored.refresh_token) return null;
+          if (!token || !stored.refresh_token) return false;
           const parts = token.split('.');
-          if (parts.length !== 3) return null;
+          if (parts.length !== 3) return false;
           const payload = JSON.parse(atob(parts[1].replace(/-/g,'+').replace(/_/g,'/')));
-          // Accept token within a 10-minute grace window past expiry — the
-          // background refresh will replace it before any real API call uses it.
+          // Reject tokens expired more than 10 minutes ago (truly dead session)
           const exp = payload.exp ? payload.exp * 1000 : 0;
-          if (exp > 0 && exp < Date.now() - 10 * 60 * 1000) return null;
-          const meta = stored.user_metadata || {};
-          return {
-            ...stored,
-            user: {
-              id: payload.sub,
-              email: payload.email || payload['cognito:username'] || '',
-              role: 'authenticated',
-              user_metadata: {
-                name: meta.name || payload.name || payload['cognito:username'] || '',
-                ...meta,
-              },
-            },
-          };
-        } catch (_) { return null; }
+          return !(exp > 0 && exp < Date.now() - 10 * 60 * 1000);
+        } catch (_) { return false; }
       }
 
-      const instantSession = _decodeStoredSession();
+      const _userWasLoggedIn = _hasStoredSession();
 
-      if (instantSession) {
-        // ── FAST PATH (returning user) ────────────────────────────────────
-        // Stored token found — render the dashboard right away.
-        // Token refresh + DB fetches happen silently in the background.
-        user = instantSession.user;
+      if (!_userWasLoggedIn) {
+        // ── NOT LOGGED IN ─────────────────────────────────────────────────
+        // No stored session at all — show landing page instantly, no network needed.
         setLoader(false);
-        await initDash(instantSession); // shows page instantly, DB in background
+        showPage('landing-page');
         syncMobNavAuth();
         hideBootSplash();
-        // Background: refresh the Cognito session + keep access token alive
-        sb.auth.getSession().catch(() => {});
+        // onAuthStateChange will handle any SIGNED_IN events from OAuth redirects
       } else {
-        // ── SLOW PATH (first visit / signed out) ─────────────────────────
-        // No stored token — wait for getSession() before deciding what to show.
+        // ── RETURNING USER ────────────────────────────────────────────────
+        // Stored session found. Get a fresh verified token before loading data.
+        // 3s timeout covers: valid token (~50ms local) + token refresh (~500ms).
+        // NEVER falls back to showing landing-page — only the dashboard or role picker.
         setLoader(true, 'Loading Rent Nivas...');
+        let session = null;
         try {
-          let res = null;
+          const res = await withTimeout(sb.auth.getSession(), 3000, 'session-refresh-timeout');
+          session = res?.data?.session ?? null;
+        } catch (_) { /* timed out — use fallback below */ }
+
+        if (!session) {
+          // getSession() timed out or returned null (e.g. severe network issue).
+          // Try one more time with a longer window before giving up.
           try {
-            res = await withTimeout(sb.auth.getSession(), 6000, 'session-timeout');
-          } catch (_) { res = null; }
-          const session = res?.data?.session ?? null;
-          setLoader(false);
-          if (session) {
-            user = session.user;
-            await initDash(session);
-          } else {
-            showPage('landing-page');
-          }
-          syncMobNavAuth();
-          hideBootSplash();
-        } catch (e) {
-          setLoader(false);
-          showPage('landing-page');
-          syncMobNavAuth();
-          hideBootSplash();
+            const res = await withTimeout(sb.auth.getSession(), 5000, 'session-retry-timeout');
+            session = res?.data?.session ?? null;
+          } catch (_) { /* still nothing */ }
         }
+
+        setLoader(false);
+        if (session) {
+          user = session.user;
+          await initDash(session); // session is fresh — DB calls will succeed
+        } else {
+          // Couldn't get a fresh session after 8s total.
+          // Show landing page so user can log in again (token truly expired/revoked).
+          showPage('landing-page');
+        }
+        syncMobNavAuth();
+        hideBootSplash();
       }
       // ── Ignore legacy reset redirect errors after Cognito migration ──
       (function checkHashError() {
