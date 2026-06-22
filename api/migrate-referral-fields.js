@@ -59,14 +59,19 @@ async function patchUser(row) {
   const patch = {};
 
   for (const [field, defaultVal] of Object.entries(REFERRAL_FIELDS)) {
+    if (field === 'credits') {
+      // Floor everyone at 10 credits (admin-requested baseline bump) —
+      // this field deliberately bypasses the "skip if already set" check
+      // below, since the whole point is to raise existing low/zero values.
+      const current = parseFloat(row[field]);
+      if (isNaN(current) || current < 10) patch[field] = defaultVal;
+      continue;
+    }
     if (row[field] !== undefined && row[field] !== null && row[field] !== '') continue;
 
     if (field === 'referral_code') {
       // Generate a unique code for this user
       patch[field] = generateReferralCode();
-    } else if (field === 'credits') {
-      // Only set default if completely absent (don't zero-out existing credit balances)
-      if (row[field] === undefined) patch[field] = defaultVal;
     } else {
       patch[field] = defaultVal;
     }
