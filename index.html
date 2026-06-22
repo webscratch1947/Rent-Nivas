@@ -10650,7 +10650,7 @@
 
     // ══ STATE ══
     let user = null, allHouses = [], rentAllHouses = [], selectedFiles = [], currentEditId = null, editMode = false;
-    const RENT_BROWSE_COLS = 'id,title,description,price,phone,address,images,bedrooms,bathrooms,kitchen,living_room,balcony,parking,custom_rooms,conditions,property_type,extra_details,city,state,area,owner_id,status,created_at';
+    const RENT_BROWSE_COLS = 'id,title,description,price,phone,address,images,bedrooms,bathrooms,kitchen,living_room,balcony,parking,custom_rooms,conditions,property_type,extra_details,city,state,area,owner_id,status,created_at,furnish_status,tenant_type';
     let editExistingImages = [];
     let selectedPropType = '';   // currently selected property type in add form
     let rentPropFilter = 'all';  // currently active filter chip in rent page
@@ -11827,6 +11827,8 @@
         await loadAdminAnnouncements();
         // Show the banner for the admin too (using the real id so it dedupes correctly)
         if (inserted?.id) showAnnounceBanner(inserted.id, msg);
+        // Always push to notification bell regardless of seen status
+        pushNotif('📢', msg);
       } catch (e) {
         toast('Announcement failed: ' + (e.message || 'Network error'), 'error');
       }
@@ -11842,6 +11844,8 @@
         console.log('[Nestly Admin] Global warning sent:', msg, 'id=', inserted?.id);
         // Show for admin too with proper id so dedup works
         if (inserted?.id) showWarningBanner(inserted.id, msg);
+        // Always push to notification bell regardless of seen status
+        pushNotif('⚠️', msg);
         document.getElementById('warn-text').value = '';
         toast('⚠️ Warning banner shown to all users.', 'success');
       } catch (e) {
@@ -11961,8 +11965,9 @@
          .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
         if (!warns.length) return;
 
-        // Never show warnings created before user registration
-        const filtered = uCreated ? warns.filter(w => !w.created_at || new Date(w.created_at) >= new Date(uCreated)) : warns;
+        // Never show GLOBAL warnings created before user registration.
+        // Personal warnings (targeted to this user) always show regardless of timing.
+        const filtered = uCreated ? warns.filter(w => w.user_id === user.id || !w.created_at || new Date(w.created_at) >= new Date(uCreated)) : warns;
         if (!filtered.length) return;
 
         // DB-level seen tracking (durable across devices)
@@ -13265,6 +13270,31 @@
       const headEl = document.getElementById('add-rooms-h');
       if (iconEl) iconEl.textContent = m.icon;
       if (headEl) headEl.textContent = m.label;
+      // Show/hide condition tags based on property type
+      _updateConditionsForType(type);
+    }
+
+    // Which condition data-val values are relevant for each property type
+    const _COND_BY_TYPE = {
+      residential: ['Furnished','No smoking','Family only','Pets allowed','Vegetarian only','Bachelors allowed','No parties','Females only','24/7 water','Generator backup','Lift available'],
+      Office:  ['No smoking','Generator backup','Lift available','24/7 water'],
+      PG:      ['No smoking','Family only','Vegetarian only','Females only','No parties','24/7 water','Generator backup','Lift available','Bachelors allowed'],
+      Shop:    ['No smoking','24/7 water','Generator backup','Lift available'],
+    };
+    function _updateConditionsForType(type) {
+      const isResidential = ['House','Apartment','Villa'].includes(type);
+      const allowed = _COND_BY_TYPE[type] || _COND_BY_TYPE['residential'];
+      const condTags = document.querySelectorAll('#cond-tags .cond-tag');
+      condTags.forEach(tag => {
+        const val = tag.dataset.val;
+        if (!val) return;
+        const show = isResidential || allowed.includes(val);
+        tag.style.display = show ? '' : 'none';
+        // Deselect hidden tags so they don't get saved
+        if (!show && tag.classList.contains('selected')) {
+          tag.classList.remove('selected');
+        }
+      });
     }
 
     async function saveHouse(status) {
@@ -13788,14 +13818,16 @@
       try {
         const ext = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
         const storagePath = `avatars/${user.id}/${Date.now()}.${ext}`;
-        const { error: ue } = await withTimeout(
+        const { data: uploadData, error: ue } = await withTimeout(
           sb.storage.from('images').upload(storagePath, file, { cacheControl: '3600', upsert: false }),
           AVATAR_UPLOAD_MS,
           'Photo upload timed out. Try a smaller image or check your connection.'
         );
         if (ue) throw new Error(ue.message || 'Upload failed');
+        // Prefer the publicUrl returned directly by the API (always has the full
+        // S3 base URL). Fall back to getPublicUrl() only if not present.
         const { data: ud } = sb.storage.from('images').getPublicUrl(storagePath);
-        const avatarUrl = ud.publicUrl;
+        const avatarUrl = (uploadData && uploadData.publicUrl) ? uploadData.publicUrl : ud.publicUrl;
         await sb.from('profiles').update({ avatar_url: avatarUrl }).eq('id', user.id);
         const name = user.user_metadata?.name || user.email.split('@')[0] || 'User';
         applyAvatarEverywhere(name, avatarUrl, role);
@@ -14957,6 +14989,15 @@
             }
           }
         } catch(e) { /* profiles may not have referral_code yet */ }
+        // Batch-fetch partner statuses (accepted rows in partner_requests)
+        try {
+          const userIds = _adminUsersCache.map(u => u.id).filter(Boolean);
+          if (userIds.length) {
+            const { data: partnerRows } = await sb.from('partner_requests').select('user_id').eq('status', 'accepted').in('user_id', userIds);
+            const partnerSet = new Set((partnerRows || []).map(r => r.user_id));
+            _adminUsersCache = _adminUsersCache.map(u => ({ ...u, hasPartner: partnerSet.has(u.id) }));
+          }
+        } catch(e) { /* non-fatal — partner status display degrades gracefully */ }
         renderAdminUserList(_adminUsersCache);
       } catch (e) {
         el.innerHTML = `<div style="text-align:center;padding:32px;color:var(--muted);">${esc(e.message || 'Failed to load users')}</div>`;
@@ -14974,23 +15015,21 @@
         <div class="admin-user-row" style="border:1px solid var(--border2);border-radius:var(--r);margin-bottom:10px;background:var(--bg2);overflow:hidden;">
           <div style="padding:12px 14px;">
             <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
-              <div style="font-size:14px;font-weight:700;color:var(--ink);flex:1;min-width:0;">${esc(u.name || '—')}</div>
-              <div style="font-size:11px;color:var(--muted2);white-space:nowrap;flex-shrink:0;">${u.created_at ? new Date(u.created_at).toLocaleDateString('en-IN') : '—'}</div>
+              <div style="font-size:14px;font-weight:700;color:var(--ink);flex:1;min-width:0;">${esc(u.name || '—')}${u.hasPartner ? ' <span style="font-size:11px;background:var(--green-bg);color:var(--green);padding:2px 7px;border-radius:8px;font-weight:600;">🤝 Partner</span>' : ''}</div>
+              <div style="font-size:11px;color:var(--muted2);white-space:nowrap;flex-shrink:0;">📅 ${u.created_at ? new Date(u.created_at).toLocaleDateString('en-IN') : '—'}</div>
             </div>
             <div class="admin-user-email" style="font-size:12px;color:var(--muted);margin-top:2px;">${esc(u.email || '—')}</div>
-            <div style="display:flex;align-items:center;gap:10px;margin-top:4px;flex-wrap:wrap;">
-              <span style="font-size:12px;color:var(--blue);font-weight:600;">💰 ${u.credits ?? 0} credits</span>
-              ${u.referral_code ? `<span style="font-size:11px;color:var(--terra);font-family:monospace;font-weight:700;background:var(--amber-bg);padding:2px 6px;border-radius:4px;">RC: ${esc(u.referral_code)}</span><span style="font-size:11px;color:var(--green);font-weight:600;background:var(--green-bg);padding:2px 6px;border-radius:4px;">👤 ${u.referral_reg_count || 0} signups</span><span style="font-size:11px;color:var(--blue);font-weight:600;background:var(--blue-bg);padding:2px 6px;border-radius:4px;">🏠 ${u.referral_house_count || 0} listings</span>` : '<span style="font-size:11px;color:var(--muted2);">No referral code</span>'}
-            </div>
+            <div style="font-size:11px;color:var(--muted2);margin-top:4px;">Registered: <strong style="color:var(--soft);">${u.created_at ? new Date(u.created_at).toLocaleDateString('en-IN', {year:'numeric',month:'short',day:'numeric'}) : '—'}</strong></div>
           </div>
           <div class="admin-actions" style="padding:0 14px 12px;gap:6px;flex-wrap:wrap;">
-            <button class="btn btn-sm" style="background:var(--bg2);color:var(--muted);font-size:12px;cursor:not-allowed;" title="Cognito requires a custom audited impersonation service for this action" disabled>Login As unavailable</button>
+            <button class="btn btn-sm" style="background:var(--red-bg);color:var(--red);font-size:12px;" onclick="adminDeleteUser('${esc(u.id)}','${esc(u.name||u.email)}')">🗑️ Delete</button>
             <button class="btn btn-sm" style="background:var(--amber-bg);color:var(--amber);font-size:12px;" onclick="adminWarnUser('${esc(u.id)}','${esc(u.name||u.email)}')">⚠️ Warn</button>
             <button class="btn btn-sm" style="background:var(--red-bg);color:var(--red);font-size:12px;" onclick="adminBanUser('${esc(u.id)}','${esc(u.name||u.email)}',false)">🚫 Ban</button>
             <button class="btn btn-sm" style="background:var(--red-bg);color:var(--red);font-size:12px;" onclick="adminBanUser('${esc(u.id)}','${esc(u.name||u.email)}',true)">⏱️ Temp Ban</button>
-            <button class="btn btn-sm" style="background:var(--green-bg);color:var(--green);font-size:12px;" onclick="adminGivePartner('${esc(u.id)}','${esc(u.name||u.email)}','${esc(u.email)}')">🤝 Give Partner</button>
+            ${u.hasPartner
+              ? `<button class="btn btn-sm" style="background:#fee2e2;color:#dc2626;font-size:12px;" onclick="adminTakePartner('${esc(u.id)}','${esc(u.name||u.email)}')">❌ Take Partner</button>`
+              : `<button class="btn btn-sm" style="background:var(--green-bg);color:var(--green);font-size:12px;" onclick="adminGivePartner('${esc(u.id)}','${esc(u.name||u.email)}','${esc(u.email)}')">🤝 Give Partner</button>`}
             <button class="btn btn-sm" style="background:var(--blue-bg);color:var(--blue);font-size:12px;" onclick="adminEditCredits('${esc(u.id)}','${esc(u.name||u.email)}',${u.credits??0})">💰 Credits</button>
-            <button class="btn btn-sm" style="background:var(--red-bg);color:var(--red);font-size:12px;" onclick="adminDeleteUser('${esc(u.id)}','${esc(u.name||u.email)}')">🗑️ Delete</button>
           </div>
         </div>`).join('');
     }
@@ -15060,9 +15099,14 @@
         confirmText: 'Send Warning', confirmClass: 'btn-terra',
         onConfirm: async (v) => {
           console.log('[Admin] Warning user_id=', userId, 'name=', userName);
-          const { error } = await sb.from('admin_warnings').insert({ user_id: userId, message: v.msg, global: false, created_by: user.id, created_at: new Date().toISOString() });
+          const { data: warnInserted, error } = await sb.from('admin_warnings').insert({ user_id: userId, message: v.msg, global: false, created_by: user.id, created_at: new Date().toISOString() }).select().single();
           if (error) throw error;
           toast('⚠️ Warning sent to ' + userName, 'success');
+          // If the admin warned themselves (testing), show the banner immediately
+          if (warnInserted?.id && userId === user.id) {
+            showWarningBanner(warnInserted.id, v.msg);
+            pushNotif('⚠️', v.msg);
+          }
           setTimeout(loadAdminUsers, 500);
         }
       });
@@ -15102,6 +15146,22 @@
             }
           } catch (e) { /* non-fatal — verification is best-effort */ }
           toast((isTemp ? '⏱️ Temp banned' : '🚫 Banned') + ' ' + userName, 'success');
+          setTimeout(loadAdminUsers, 500);
+        }
+      });
+    }
+
+    async function adminTakePartner(userId, userName) {
+      if (!userId) { toast('Cannot revoke partner access: no user id.', 'error'); return; }
+      openAdminModal({
+        title: '❌ Revoke Partner Status',
+        subtitle: 'This will remove partner dashboard access from: ' + userName,
+        fields: [],
+        confirmText: 'Revoke Partner', confirmClass: 'btn-outline',
+        onConfirm: async () => {
+          const { error } = await sb.from('partner_requests').update({ status: 'revoked' }).eq('user_id', userId).eq('status', 'accepted');
+          if (error) throw error;
+          toast('❌ Partner access revoked from ' + userName, 'success');
           setTimeout(loadAdminUsers, 500);
         }
       });
@@ -15920,7 +15980,7 @@
             upsertPurchaseCache(house.id, purchase?.id || 'local-' + Date.now(), purchase?.created_at || new Date().toISOString());
             updateCreditsBadges();
             toast('🔓 Unlocked! Full contact details are now visible.', 'success');
-            if (typeof showHouseDetail === 'function') showHouseDetail(house.id || house);
+            renderDetailPage(house);
           } catch(e) {
             await setCredits(currentCredits).catch(()=>{});
             throw e;
@@ -16658,12 +16718,12 @@
     <div id="pd-profile-panel" style="position:absolute;right:0;top:0;bottom:0;width:min(420px,100vw);background:var(--bg);display:flex;flex-direction:column;overflow-y:auto;transform:translateX(100%);transition:transform .38s cubic-bezier(.32,1.2,.64,1);will-change:transform;">
 
       <!-- Dark gradient hero header -->
-      <div style="background:linear-gradient(135deg,#7c2d12 0%,#b45309 50%,#d97706 100%);padding:32px 24px 28px;position:relative;overflow:hidden;">
+      <div style="background:linear-gradient(135deg,#7c2d12 0%,#b45309 50%,#d97706 100%);padding:32px 24px 28px;position:sticky;top:0;z-index:5;overflow:hidden;">
         <!-- Decorative circles -->
         <div style="position:absolute;top:-40px;right:-40px;width:160px;height:160px;border-radius:50%;background:rgba(255,255,255,.06);"></div>
         <div style="position:absolute;bottom:-30px;left:-20px;width:100px;height:100px;border-radius:50%;background:rgba(255,255,255,.04);"></div>
         <!-- Close btn -->
-        <button onclick="closePdProfile()" style="position:absolute;top:16px;right:16px;background:rgba(255,255,255,.15);border:none;width:40px;height:40px;border-radius:50%;cursor:pointer;color:#fff;font-size:18px;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);padding:0;line-height:1;-webkit-tap-highlight-color:transparent;" title="Close">✕</button>
+        <button onclick="closePdProfile()" style="position:absolute;top:14px;right:14px;background:rgba(255,255,255,.2);border:none;width:48px;height:48px;border-radius:50%;cursor:pointer;color:#fff;font-size:20px;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);padding:0;line-height:1;-webkit-tap-highlight-color:transparent;z-index:10;touch-action:manipulation;" title="Close">✕</button>
         <!-- Badge + name -->
         <div style="display:flex;flex-direction:column;align-items:center;gap:0;position:relative;z-index:1;">
           <div id="pds-badge-wrap" style="width:96px;height:96px;border-radius:24px;overflow:hidden;border:3px solid rgba(255,255,255,.25);box-shadow:0 8px 32px rgba(0,0,0,.4),0 0 0 6px rgba(255,255,255,.07);margin-bottom:14px;background:#7c2d12;display:flex;align-items:center;justify-content:center;transition:transform .4s cubic-bezier(.22,1,.36,1), box-shadow .4s;">
