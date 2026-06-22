@@ -12473,12 +12473,11 @@
 
     // ══ DASHBOARD INIT ══
     async function initDash(existingSession) {
-      // Use a pre-fetched session when available — avoids a redundant getSession() call
-      // which was the main cause of slow startup on the previous auth backend.
+      // Use a pre-fetched session when available — avoids a redundant getSession() call.
       let session = existingSession ?? null;
       if (!session) {
         try {
-          const res = await withTimeout(sb.auth.getSession(), 20000, 'Session check timed out. Please refresh.');
+          const res = await withTimeout(sb.auth.getSession(), 8000, 'Session check timed out. Please refresh.');
           session = res?.data?.session ?? null;
         } catch (e) {
           toast('Could not verify your session. Please refresh.', 'error');
@@ -12489,53 +12488,11 @@
       user = session.user;
       console.log('[Nestly] initDash user:', user.email);
 
-      // Check if profile exists — if missing, auto-create it (don't log out!)
-      let profileCheck = null;
-      let profileErr = null;
-      try {
-        const pr = await withTimeout(
-          sb.from('profiles').select('id,credits,xp,referral_code,referred_by_code').eq('id', user.id).maybeSingle(),
-          12000,
-          'Profile load timed out. You can refresh to retry.'
-        );
-        profileCheck = pr.data;
-        profileErr = pr.error;
-      } catch (e) {
-        profileErr = { message: e.message || 'Profile request failed' };
-      }
+      // ── INSTANT UI PATH (0ms, no network) ─────────────────────────────────
+      // Show the right page immediately using only localStorage state.
+      // All DB / network work runs in background and updates UI as results arrive.
 
-      if (!profileErr && profileCheck === null) {
-        console.warn('[Nestly] Profile missing — auto-creating for:', user.email);
-        try {
-          await withTimeout(
-            sb.from('profiles').upsert({
-              id: user.id,
-              name: user.user_metadata?.name || user.email?.split('@')[0] || 'User',
-              email: user.email,
-              credits: 10,
-              xp: 0,
-              referral_code: user.user_metadata?.referral_code || null,
-              referred_by_code: null,
-              created_at: new Date().toISOString()
-            }),
-            12000,
-            'Could not create profile. Please refresh.'
-          );
-        } catch (e) {
-          console.warn('[Nestly] Profile upsert:', e.message || e);
-        }
-      } else if (!profileErr && profileCheck) {
-        localStorage.setItem('nestly-credits', Math.max(0, profileCheck.credits || 0));
-        updateCreditsBadges();
-      }
-
-      // Show role page if role not chosen yet
-      const savedRole = localStorage.getItem('nestly-role');
-      if (!savedRole) {
-        showPage('role-page');
-        return;
-      }
-      // Instant localStorage ban check — zero network, blocks nothing
+      // Instant localStorage ban check
       const _storedBan = _getStoredBan();
       if (_storedBan) {
         const _banExpired = _storedBan.type !== 'perm' && _storedBan.until && new Date(_storedBan.until) < new Date();
@@ -12543,40 +12500,71 @@
         _clearStoredBan();
       }
 
-      // Authoritative DB ban check — now BLOCKS dashboard render. Previously
-      // this ran inside a background Promise.all() after the page had already
-      // rendered, so a freshly-banned user (or one banned on another device)
-      // would see the full dashboard for a moment — and if anything in that
-      // background promise silently failed, they'd see it indefinitely.
-      // Awaiting it here means: no ban screen possible until we have a real,
-      // current answer from the database, every time.
-      try {
-        const isBanned = await checkUserBan();
-        if (isBanned) return;
-      } catch (e) {
-        console.warn('[Nestly] Blocking ban check failed — proceeding (fail-open):', e.message || e);
-      }
-
+      const savedRole = localStorage.getItem('nestly-role');
       syncMobNavAuth();
-      loadUserPurchases().then(() => updateCreditsBadges()).catch(() => {});
-      selectRole(savedRole);          // ← page renders HERE, instantly
+      if (!savedRole) {
+        showPage('role-page');
+        // Still kick off background work so profile is ready when role is picked
+      } else {
+        selectRole(savedRole); // ← page renders HERE, instantly from localStorage
+      }
       checkPartnerCongrats();
       updatePartnerNavBadges();
-      // Show daily streak popup for logged-in users. Skip if the welcome
-      // popup is currently open — closeWelcomePopup() will call it instead,
-      // so the two popups never stack.
       setTimeout(function() {
         var wp = document.getElementById('welcome-popup-bg');
         var wpOpen = wp && (wp.style.display === 'flex' || parseFloat(wp.style.opacity) > 0);
-        if (wpOpen) return; // welcome popup is showing — it will trigger streak after close
+        if (wpOpen) return;
         if (window.maybeShowStreakPopup) window.maybeShowStreakPopup();
       }, 1400);
 
-      // Non-security background work — fine to run after render
-      Promise.all([
-        fetchAndShowWarnings(),       // show any admin warnings
-        fetchAndShowAnnouncements(),  // show any admin announcements
-      ]).catch(() => {}).then(() => setupRealtimeSubscriptions());
+      // ── BACKGROUND NETWORK WORK ────────────────────────────────────────────
+      // Page is already visible. Fetch live data and silently update the UI.
+      (async () => {
+        // 1. Profile: get live credits, auto-create if missing
+        try {
+          const pr = await withTimeout(
+            sb.from('profiles').select('id,credits,xp,referral_code,referred_by_code').eq('id', user.id).maybeSingle(),
+            10000, 'Profile load timed out'
+          );
+          if (!pr.error && pr.data === null) {
+            console.warn('[Nestly] Profile missing — auto-creating for:', user.email);
+            await withTimeout(
+              sb.from('profiles').upsert({
+                id: user.id,
+                name: user.user_metadata?.name || user.email?.split('@')[0] || 'User',
+                email: user.email,
+                credits: 10, xp: 0,
+                referral_code: user.user_metadata?.referral_code || null,
+                referred_by_code: null,
+                created_at: new Date().toISOString()
+              }),
+              10000, 'Could not create profile'
+            ).catch(e => console.warn('[Nestly] Profile upsert:', e.message || e));
+          } else if (!pr.error && pr.data) {
+            // Refresh credits display with live DB value
+            localStorage.setItem('nestly-credits', Math.max(0, pr.data.credits || 0));
+            updateCreditsBadges();
+          }
+        } catch (e) {
+          console.warn('[Nestly] Background profile fetch failed:', e.message || e);
+        }
+
+        // 2. Authoritative DB ban check — runs after page is shown (fail-open)
+        try {
+          const isBanned = await checkUserBan();
+          if (isBanned) return;
+        } catch (e) {
+          console.warn('[Nestly] Background ban check failed — proceeding (fail-open):', e.message || e);
+        }
+
+        // 3. Purchases, warnings, announcements, realtime in parallel
+        await Promise.all([
+          loadUserPurchases().then(() => updateCreditsBadges()).catch(() => {}),
+          fetchAndShowWarnings(),
+          fetchAndShowAnnouncements(),
+        ]).catch(() => {});
+        setupRealtimeSubscriptions();
+      })();
     }
 
     let _realtimeChannels = [];
@@ -16309,120 +16297,94 @@
       localStorage.removeItem('paidUser');
       localStorage.removeItem('nestly-dark');
       document.body.classList.remove('dark');
-      // Init credits display
       updateCreditsBadges();
       purgeExpiredUnlocks();
 
       // ── INSTANT BAN CHECK (0ms, no network) ──
-      // If user was banned last session, show the overlay immediately before
-      // any getSession() call so the screen never flashes to app UI.
       const _earlyBan = _getStoredBan();
       if (_earlyBan) {
         if (_earlyBan.type !== 'perm' && _earlyBan.until && new Date(_earlyBan.until) < new Date()) {
-          // Expired — clear it and proceed normally
           _clearStoredBan();
         } else {
-          // Still active — show overlay immediately
           _showBanOverlayFromData(_earlyBan);
         }
       }
-      // Cognito password reset is handled by resetpassword.html with an email code.
       const _isReset = false;
       const _isErr = false;
 
-      setLoader(true, 'Loading Rent Nivas...');
-      try {
-        // Use a shorter startup timeout so an expired-token refresh (which
-        // now retries for max ~2s instead of 22s) never blocks the splash
-        // past 8 seconds.  If we still can't get a session within 8s, fall
-        // through to the stored-session rescue path below.
-        let res = null;
+      // ── INSTANT SESSION DECODE (0ms, no network) ──────────────────────────
+      // Decode the stored JWT from localStorage synchronously so we know
+      // immediately whether the user is logged in, without waiting for any
+      // network call to Cognito.  getSession() fires in the background to
+      // refresh the token — it does NOT block the UI render.
+      function _decodeStoredSession() {
         try {
-          res = await withTimeout(sb.auth.getSession(), 8000, 'session-timeout');
-        } catch (startupErr) {
-          res = null;
-        }
-        let session = res?.data?.session ?? null;
+          const raw = localStorage.getItem('rentnivas-auth');
+          if (!raw) return null;
+          const stored = JSON.parse(raw);
+          const token = stored.id_token || stored.access_token;
+          if (!token || !stored.refresh_token) return null;
+          const parts = token.split('.');
+          if (parts.length !== 3) return null;
+          const payload = JSON.parse(atob(parts[1].replace(/-/g,'+').replace(/_/g,'/')));
+          // Accept token within a 10-minute grace window past expiry — the
+          // background refresh will replace it before any real API call uses it.
+          const exp = payload.exp ? payload.exp * 1000 : 0;
+          if (exp > 0 && exp < Date.now() - 10 * 60 * 1000) return null;
+          const meta = stored.user_metadata || {};
+          return {
+            ...stored,
+            user: {
+              id: payload.sub,
+              email: payload.email || payload['cognito:username'] || '',
+              role: 'authenticated',
+              user_metadata: {
+                name: meta.name || payload.name || payload['cognito:username'] || '',
+                ...meta,
+              },
+            },
+          };
+        } catch (_) { return null; }
+      }
 
-        // If getSession timed out or returned null but there IS stored auth
-        // data (e.g. background tab throttled the refresh timer), try to
-        // read the stored session directly and proceed — the token will be
-        // refreshed on the first API call via the retry-on-expired logic in
-        // cognito-auth.js.
-        if (!session) {
-          let storedRaw = null;
-          try { storedRaw = localStorage.getItem('rentnivas-auth'); } catch (_) {}
-          if (storedRaw) {
-            try {
-              const stored = JSON.parse(storedRaw);
-              if (stored && (stored.access_token || stored.id_token) && stored.refresh_token) {
-                // Kick off a background refresh — don't await it so startup is instant.
-                sb.auth.getSession().catch(() => {});
-                session = stored;
-                // Attach the user object if missing (decoded from the token).
-                if (!session.user && (session.id_token || session.access_token)) {
-                  try {
-                    const parts = (session.id_token || session.access_token).split('.');
-                    if (parts.length === 3) {
-                      const payload = JSON.parse(atob(parts[1].replace(/-/g,'+').replace(/_/g,'/')));
-                      session.user = { id: payload.sub, email: payload.email || payload['cognito:username'] || '', role: 'authenticated' };
-                    }
-                  } catch (_) {}
-                }
-              }
-            } catch (_) {}
-          }
-        }
+      const instantSession = _decodeStoredSession();
 
-        // Second attempt if still no session and no stored data
-        if (!session) {
+      if (instantSession) {
+        // ── FAST PATH (returning user) ────────────────────────────────────
+        // Stored token found — render the dashboard right away.
+        // Token refresh + DB fetches happen silently in the background.
+        user = instantSession.user;
+        setLoader(false);
+        await initDash(instantSession); // shows page instantly, DB in background
+        syncMobNavAuth();
+        hideBootSplash();
+        // Background: refresh the Cognito session + keep access token alive
+        sb.auth.getSession().catch(() => {});
+      } else {
+        // ── SLOW PATH (first visit / signed out) ─────────────────────────
+        // No stored token — wait for getSession() before deciding what to show.
+        setLoader(true, 'Loading Rent Nivas...');
+        try {
+          let res = null;
           try {
-            res = await withTimeout(sb.auth.getSession(), 8000, 'Startup timed out. Please refresh the page.');
-            session = res?.data?.session ?? null;
-          } catch (_) {}
-        }
-
-        setLoader(false);
-        if (session) {
-          user = session.user;
-          await initDash(session);
-        } else {
-          // No session - show landing page (already default)
-          showPage('landing-page');
-        }
-        syncMobNavAuth();
-        hideBootSplash();
-      } catch (e) {
-        // Last-resort: if something unexpected throws, try stored session
-        // before giving up so users aren't logged out by a transient error.
-        let rescuedSession = null;
-        try {
-          const storedRaw = localStorage.getItem('rentnivas-auth');
-          if (storedRaw) {
-            const stored = JSON.parse(storedRaw);
-            if (stored && (stored.access_token || stored.id_token) && stored.refresh_token) {
-              rescuedSession = stored;
-              if (!rescuedSession.user && (rescuedSession.id_token || rescuedSession.access_token)) {
-                const parts = (rescuedSession.id_token || rescuedSession.access_token).split('.');
-                if (parts.length === 3) {
-                  const payload = JSON.parse(atob(parts[1].replace(/-/g,'+').replace(/_/g,'/')));
-                  rescuedSession.user = { id: payload.sub, email: payload.email || payload['cognito:username'] || '', role: 'authenticated' };
-                }
-              }
-            }
+            res = await withTimeout(sb.auth.getSession(), 6000, 'session-timeout');
+          } catch (_) { res = null; }
+          const session = res?.data?.session ?? null;
+          setLoader(false);
+          if (session) {
+            user = session.user;
+            await initDash(session);
+          } else {
+            showPage('landing-page');
           }
-        } catch (_) {}
-        setLoader(false);
-        if (rescuedSession) {
-          // Proceed with the stored session; tokens will be refreshed in background.
-          sb.auth.getSession().catch(() => {});
-          user = rescuedSession.user;
-          await initDash(rescuedSession).catch(() => { showPage('landing-page'); });
-        } else {
-          toast(e.message || 'Could not load the app. Please refresh.', 'error');
+          syncMobNavAuth();
+          hideBootSplash();
+        } catch (e) {
+          setLoader(false);
+          showPage('landing-page');
+          syncMobNavAuth();
+          hideBootSplash();
         }
-        syncMobNavAuth();
-        hideBootSplash();
       }
       // ── Ignore legacy reset redirect errors after Cognito migration ──
       (function checkHashError() {
