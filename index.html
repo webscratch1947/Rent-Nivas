@@ -12028,6 +12028,42 @@
       document.getElementById('ban-reason-text').textContent =
         'Reason: ' + (ban.reason || 'Violation of platform rules');
       _startBanCountdown(ban.until);
+      // Start a dedicated poll so the ban overlay clears automatically the
+      // moment an admin lifts the ban or an appeal is accepted — without
+      // requiring the user to manually refresh. The main dashboard poll
+      // (_nestlyPollTimer) never starts for banned users because the
+      // dashboard never initialises, so we need this separate one.
+      if (!window._rnBanLiftPollTimer) {
+        window._rnBanLiftPollTimer = setInterval(async () => {
+          // Only poll if the overlay is currently visible
+          const ov = document.getElementById('ban-overlay');
+          if (!ov || ov.classList.contains('hidden')) {
+            clearInterval(window._rnBanLiftPollTimer);
+            window._rnBanLiftPollTimer = null;
+            return;
+          }
+          if (!user) return; // no session, nothing to check
+          try {
+            const { data: bans } = await sb.from('admin_bans').select('id,active,until,type').eq('user_id', user.id).eq('active', true);
+            if (!bans || !bans.length) {
+              // Ban was lifted — clear everything and let the user back in
+              clearInterval(window._rnBanLiftPollTimer);
+              window._rnBanLiftPollTimer = null;
+              _clearStoredBan();
+              if (_banCountdownTimer) clearInterval(_banCountdownTimer);
+              ov.classList.add('hidden');
+              // Re-run the normal post-login flow so the dashboard loads
+              if (typeof initDash === 'function') {
+                const { data: { session } } = await sb.auth.getSession().catch(() => ({ data: { session: null } }));
+                if (session) await initDash(session);
+                else showPage('login-page');
+              } else {
+                window.location.reload();
+              }
+            }
+          } catch (e) { /* network hiccup — try again next tick */ }
+        }, 15000); // check every 15s so lift takes effect quickly
+      }
       // Check if appeal was rejected and show message
       if (ban.appeal_rejected) {
         const appealArea = document.querySelector('.ban-appeal-area');
@@ -12262,6 +12298,7 @@
     async function doLogout() {
       _clearStoredBan();
       if (_banCountdownTimer) clearInterval(_banCountdownTimer);
+      if (window._rnBanLiftPollTimer) { clearInterval(window._rnBanLiftPollTimer); window._rnBanLiftPollTimer = null; }
       await sb.auth.signOut();
       finishLoggedOutState();
       toast(t('t_signed_out','Signed out successfully'));
