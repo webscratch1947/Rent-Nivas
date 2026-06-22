@@ -13,7 +13,8 @@
 //
 //   POST /api/signup-verify { action: 'confirm', email, code }
 //     -> Verifies the code against DynamoDB, then calls Cognito
-//        AdminUpdateUserAttributes to set email_verified=true.
+//        AdminUpdateUserAttributes to set email_verified=true,
+//        and writes pending_referral_code to the user's DynamoDB profile.
 const crypto = require('crypto');
 const {
   CognitoIdentityProviderClient,
@@ -22,10 +23,15 @@ const {
   AdminUpdateUserAttributesCommand,
   ListUsersCommand
 } = require('@aws-sdk/client-cognito-identity-provider');
+const { DynamoDBClient, UpdateItemCommand, GetItemCommand, PutItemCommand } = require('@aws-sdk/client-dynamodb');
+const { marshall, unmarshall } = require('@aws-sdk/util-dynamodb');
 const { REGION, USER_POOL_ID, send, parseBody } = require('./_auth');
 const { generateCode, storeCode, getCode, markCodeUsed, deleteCode, bumpAttempts, sendCodeEmail, hashCode, MAX_ATTEMPTS } = require('./_brevo');
 
 const cognito = new CognitoIdentityProviderClient({ region: REGION });
+const ddb = new DynamoDBClient({ region: REGION });
+const TABLE_USERS = process.env.TABLE_USERS || 'Users';
+const TABLE_CODES = process.env.TABLE_VERIFICATION_CODES || 'VerificationCodes';
 
 // FIX (duplicate accounts): this used to rely entirely on AdminCreateUser
 // throwing UsernameExistsException to catch "this email already signed up".
@@ -49,6 +55,74 @@ async function findExistingUserByEmail(email) {
     Limit: 1
   }));
   return (page.Users && page.Users[0]) || null;
+}
+
+// Store a pending referral code in the VerificationCodes record so it can
+// be read back during the 'confirm' step. Uses the same pk key as storeCode.
+async function storePendingReferralCode(email, referralCode) {
+  if (!referralCode) return;
+  const pk = `signup_verify#${String(email).toLowerCase()}`;
+  try {
+    await ddb.send(new UpdateItemCommand({
+      TableName: TABLE_CODES,
+      Key: marshall({ pk }),
+      UpdateExpression: 'SET pendingReferralCode = :rc',
+      ExpressionAttributeValues: marshall({ ':rc': String(referralCode) })
+    }));
+  } catch (err) {
+    // Non-fatal — referral code will fall back to profile lookup
+    console.warn('[SignupVerify] Could not store pendingReferralCode:', err.message || err);
+  }
+}
+
+// Read back the pending referral code stored during 'request'.
+async function getPendingReferralCode(email) {
+  const pk = `signup_verify#${String(email).toLowerCase()}`;
+  try {
+    const result = await ddb.send(new GetItemCommand({
+      TableName: TABLE_CODES,
+      Key: marshall({ pk })
+    }));
+    if (!result.Item) return null;
+    const item = unmarshall(result.Item);
+    return item.pendingReferralCode || null;
+  } catch (err) {
+    console.warn('[SignupVerify] Could not read pendingReferralCode:', err.message || err);
+    return null;
+  }
+}
+
+// After email verification is confirmed, write pending_referral_code to the
+// user's DynamoDB profile row so process_registration_referral can read it
+// on their first login. This is the replacement for storing the code as a
+// Cognito custom attribute (custom:referral_code), which requires the
+// attribute to be pre-declared in the User Pool schema.
+async function writePendingReferralToProfile(email, referralCode) {
+  if (!referralCode) return;
+  try {
+    // Look up the user's Cognito sub by email so we can write to the
+    // correct DynamoDB row (keyed by userId = Cognito sub).
+    const cognitoUser = await findExistingUserByEmail(email);
+    if (!cognitoUser) {
+      console.warn(`[SignupVerify] writePendingReferralToProfile: no Cognito user for ${email}`);
+      return;
+    }
+    const userId = cognitoUser.Username; // Username === sub for most pool configs
+
+    // Use PutItem with a condition to only create the row if it doesn't
+    // exist yet, OR UpdateItem to just set pending_referral_code if it does.
+    // UpdateItem is safer — it only touches one attribute.
+    await ddb.send(new UpdateItemCommand({
+      TableName: TABLE_USERS,
+      Key: marshall({ userId }),
+      UpdateExpression: 'SET pending_referral_code = :rc',
+      ExpressionAttributeValues: marshall({ ':rc': String(referralCode) })
+    }));
+    console.log(`[SignupVerify] ✅ pending_referral_code written to profile for userId=${userId}`);
+  } catch (err) {
+    // Non-fatal — the frontend will fall back gracefully
+    console.warn('[SignupVerify] writePendingReferralToProfile failed:', err.message || err);
+  }
 }
 
 module.exports = async function handler(req, res) {
@@ -106,9 +180,13 @@ module.exports = async function handler(req, res) {
           Password: password,
           Permanent: true
         }));
+        // NOTE: Only update name — do NOT try to set custom:referral_code as a
+        // Cognito attribute. That attribute is not declared in the User Pool
+        // schema, so Cognito rejects it with a ValidationException. Instead,
+        // the referral code is stored in DynamoDB (see storePendingReferralCode
+        // and writePendingReferralToProfile below).
         const updateAttrs = [];
         if (name) updateAttrs.push({ Name: 'name', Value: name });
-        if (referralCode) updateAttrs.push({ Name: 'custom:referral_code', Value: referralCode });
         if (updateAttrs.length) {
           await cognito.send(new AdminUpdateUserAttributesCommand({
             UserPoolId: USER_POOL_ID,
@@ -119,17 +197,23 @@ module.exports = async function handler(req, res) {
 
         const code = generateCode();
         await storeCode('signup_verify', email, code);
+        // Store the referral code alongside the verification record so it
+        // can be retrieved in the 'confirm' step.
+        if (referralCode) await storePendingReferralCode(email, referralCode);
         await sendCodeEmail('signup_verify', email, code);
         console.log(`[SignupVerify] ✅ resent code to reused unverified account for ${email}`);
         return send(res, 200, { data: {} });
       }
 
+      // NOTE: Do NOT include custom:referral_code in the Cognito user
+      // attributes — the attribute does not exist in this User Pool's schema
+      // and Cognito throws a ValidationException when you try to set it.
+      // The referral code is stored separately in DynamoDB (see below).
       const attrs = [
         { Name: 'email', Value: email },
         { Name: 'email_verified', Value: 'false' }
       ];
       if (name) attrs.push({ Name: 'name', Value: name });
-      if (referralCode) attrs.push({ Name: 'custom:referral_code', Value: referralCode });
 
       try {
         await cognito.send(new AdminCreateUserCommand({
@@ -160,6 +244,10 @@ module.exports = async function handler(req, res) {
       const code = generateCode();
       console.log(`[SignupVerify] code generated for ${email}, storing in DynamoDB`);
       await storeCode('signup_verify', email, code);
+      // Store the referral code alongside the verification record so it
+      // can be retrieved in the 'confirm' step without needing a Cognito
+      // custom attribute.
+      if (referralCode) await storePendingReferralCode(email, referralCode);
 
       console.log(`[SignupVerify] about to call sendCodeEmail() (Brevo) for ${email}`);
       await sendCodeEmail('signup_verify', email, code);
@@ -220,6 +308,15 @@ module.exports = async function handler(req, res) {
         UserAttributes: [{ Name: 'email_verified', Value: 'true' }]
       }));
       console.log(`[SignupVerify] ✅ verification success: email_verified=true set for ${email}`);
+
+      // Retrieve the pending referral code (stored during 'request') and
+      // write it to the user's DynamoDB profile. This replaces the old
+      // Cognito custom:referral_code approach which failed because the
+      // attribute is not declared in the User Pool schema.
+      const pendingReferralCode = record.pendingReferralCode || await getPendingReferralCode(email);
+      if (pendingReferralCode) {
+        await writePendingReferralToProfile(email, pendingReferralCode);
+      }
 
       await markCodeUsed('signup_verify', email);
       await deleteCode('signup_verify', email);
