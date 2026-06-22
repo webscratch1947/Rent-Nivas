@@ -10850,14 +10850,17 @@
     // ══ PAGE ROUTING ══
     function showPage(id) {
       closeNotif();
-      // If user is temp-banned, block all navigation except logout/landing
-      if (id !== 'landing-page' && id !== 'login-page') {
+      // If user is temp-banned, block all navigation except logout/landing.
+      // Also block login-page — if the ban overlay is currently visible, showing
+      // the login page underneath it causes it to bleed through the semi-transparent
+      // background (the "Sign in" form visible behind the ban screen bug).
+      if (id !== 'landing-page') {
         const storedBan = _getStoredBan ? _getStoredBan() : null;
         if (storedBan && !(storedBan.type !== 'perm' && storedBan.until && new Date(storedBan.until) < new Date())) {
           // Ensure ban overlay is visible
           const overlay = document.getElementById('ban-overlay');
           if (overlay) overlay.classList.remove('hidden');
-          return; // block navigation
+          return; // block ALL navigation including login-page while banned
         }
       }
       document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
@@ -14920,7 +14923,7 @@
             until = new Date(Date.now() + d * 86400000).toISOString();
           }
           console.log('[Admin] Banning user_id=', userId, 'name=', userName);
-          const { error } = await sb.from('admin_bans').insert({ user_id: userId, reason: v.reason, active: true, type: isTemp ? 'temp' : 'perm', until });
+          const { error } = await sb.from('admin_bans').insert({ user_id: userId, user_name: userName, user_email: userEmail || null, reason: v.reason, active: true, type: isTemp ? 'temp' : 'perm', until });
           if (error) throw error;
           // Verify the ban can actually be found by the same query the banned
           // user's own browser will run (checkUserBan). If this comes back
@@ -15325,7 +15328,7 @@
         el.innerHTML = '<div style="text-align:center;padding:32px;color:var(--muted);">Loading bans...</div>';
         try {
           const { data, error } = await withTimeout(
-            sb.from('admin_bans').select('id,user_id,reason,type,until,active,created_at').order('created_at', { ascending: false }).limit(200),
+            sb.from('admin_bans').select('id,user_id,user_name,user_email,reason,type,until,active,created_at').order('created_at', { ascending: false }).limit(200),
             8000, 'Bans load timed out'
           );
           if (error) throw error;
@@ -15337,9 +15340,13 @@
               const { data: profs } = await sb.from('profiles').select('id,name,email').in('id', userIds);
               const profMap = {};
               (profs || []).forEach(p => { profMap[p.id] = p; });
-              data.forEach(b => { b.profile = profMap[b.user_id] || null; });
+              // Fall back to the name/email stored in the ban record itself
+              // for users who have no profile row yet (never logged in).
+              data.forEach(b => {
+                b.profile = profMap[b.user_id] || (b.user_name || b.user_email ? { id: b.user_id, name: b.user_name || null, email: b.user_email || null } : null);
+              });
             }
-          } catch (e) { /* non-fatal — falls back to showing the raw user_id */ }
+          } catch (e) { /* non-fatal */ }
           el.innerHTML = data.map(b => `
             <div style="border:1px solid var(--border2);border-radius:var(--r);margin-bottom:10px;background:var(--bg2);padding:12px 14px;display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
               <div style="min-width:0;">
@@ -15391,6 +15398,17 @@
               const { data: profs } = await sb.from('profiles').select('id,name,email').in('id', userIds);
               const profMap = {};
               (profs || []).forEach(p => { profMap[p.id] = p; });
+
+              // For users with no profile row (never logged in), fall back to
+              // the admin_bans table which now records their name+email at ban time.
+              const missingIds = userIds.filter(id => !profMap[id]);
+              if (missingIds.length) {
+                const { data: banRows } = await sb.from('admin_bans').select('user_id,user_email,user_name').in('user_id', missingIds).eq('active', true);
+                (banRows || []).forEach(b => {
+                  if (!profMap[b.user_id]) profMap[b.user_id] = { id: b.user_id, name: b.user_name || null, email: b.user_email || null };
+                });
+              }
+
               data.forEach(a => { a.profile = profMap[a.user_id] || null; });
             }
           } catch (e) { /* non-fatal — falls back to showing the raw user_id */ }
