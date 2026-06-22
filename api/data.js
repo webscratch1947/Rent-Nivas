@@ -644,7 +644,13 @@ async function migrateProfileReferralFields(userId) {
     }
     if (profile.referred_by_code === undefined) patch.referred_by_code = null;
     if (profile.partner_xp     === undefined)  patch.partner_xp = 0;
-    if (profile.credits        === undefined)  patch.credits = 10;
+    // Floor everyone at 10 credits — not just rows missing the field
+    // entirely. This is a deliberate one-time admin-requested baseline
+    // bump, not a "fill missing field" default: it raises anyone sitting
+    // below 10 (including a real, intentional 0) up to 10, but never
+    // lowers anyone who already has more.
+    const currentCredits = parseFloat(profile.credits);
+    if (isNaN(currentCredits) || currentCredits < 10) patch.credits = 10;
     if (profile.total_referrals          === undefined) patch.total_referrals = 0;
     if (profile.registration_referrals   === undefined) patch.registration_referrals = 0;
     if (profile.listing_referrals        === undefined) patch.listing_referrals = 0;
@@ -805,6 +811,7 @@ async function handleRpc(spec, claims) {
     const scanned = await runDdb('read', 'profiles', () => ddb.send(new ScanCommand({ TableName })));
     const rows = (scanned.Items || []).map(item => fromDbItem('profiles', unmarshall(item)));
     let fixed = 0;
+    let creditsTopped = 0;
     for (const row of rows) {
       if (!row.id) continue;
       const before = JSON.stringify({
@@ -812,6 +819,22 @@ async function handleRpc(spec, claims) {
         referral_code: row.referral_code, total_referrals: row.total_referrals,
       });
       await migrateProfileReferralFields(row.id);
+      // One-time admin top-up: give every account at least 10 credits.
+      // This is deliberately ONLY done here (manually triggered by an
+      // admin clicking the button), never inside migrateProfileReferralFields
+      // itself — that function also runs automatically on every referral
+      // event, and unconditionally bumping low balances back to 10 there
+      // would silently undo any credits a user had legitimately spent.
+      const currentCredits = parseFloat(row.credits) || 0;
+      if (currentCredits < 10) {
+        await updateRows({
+          table: 'profiles',
+          op: 'update',
+          values: { credits: 10 },
+          filters: [{ op: 'eq', column: 'id', value: row.id }],
+        });
+        creditsTopped++;
+      }
       // Re-read to log accurately (migrateProfileReferralFields only patches missing fields)
       const after = await readItems({ table: 'profiles', op: 'select', select: 'credits,xp,partner_xp,referral_code,total_referrals', filters: [{ op: 'eq', column: 'id', value: row.id }], maybeSingle: true });
       if (JSON.stringify({ credits: after?.credits, xp: after?.xp, partner_xp: after?.partner_xp, referral_code: after?.referral_code, total_referrals: after?.total_referrals }) !== before) fixed++;
