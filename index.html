@@ -15967,15 +15967,39 @@
       // than once across sessions is harmless.
       async function processPendingSignupReferral() {
         if (!user) return;
-        const code = (user.user_metadata && user.user_metadata.referral_code) ? String(user.user_metadata.referral_code).trim() : '';
-        if (!code || code.length < 8) return;
+
+        // Primary: referral code from Cognito user_metadata (requires custom:referral_code
+        // attribute to be declared in the User Pool — may be null if not configured).
+        let code = (user.user_metadata && user.user_metadata.referral_code) ? String(user.user_metadata.referral_code).trim() : '';
+
+        // Fallback: code written to DynamoDB profile by signup-verify.js during
+        // email confirmation. This path is used when the Cognito User Pool does
+        // NOT have the custom:referral_code attribute (which caused the error:
+        // "Attributes did not conform to the schema").
+        if (!code || code.length < 6) {
+          try {
+            const { data: profData } = await sb.from('profiles')
+              .select('pending_referral_code')
+              .eq('id', user.id)
+              .maybeSingle();
+            if (profData && profData.pending_referral_code) {
+              code = String(profData.pending_referral_code).trim();
+              console.log('[RN] Using pending_referral_code from profile:', code);
+            }
+          } catch (e) {
+            console.warn('[RN] Could not read pending_referral_code:', e.message || e);
+          }
+        }
+
+        if (!code || code.length < 6) return;
+
         try {
           const { data, error } = await sb.rpc('process_registration_referral', { p_referral_code: code });
           console.log('[RN] Registration referral result:', data, error);
         } catch (e) {
           console.warn('[RN] process_registration_referral error:', e.message || e);
         }
-        // Clear it from metadata either way so we stop re-checking every session
+        // Clear metadata flag so we stop re-checking every session
         try {
           await sb.auth.updateUser({ data: { referral_code: null } });
           if (user.user_metadata) user.user_metadata.referral_code = null;
@@ -17459,7 +17483,7 @@
     (function () {
       'use strict';
       var STREAK_KEY = 'rn-streak-v1';
-      var CREDITS_PER_DAY = [1, 2, 3, 4, 5, 6, 7];
+      var CREDITS_PER_DAY = [1, 1, 1, 1, 1, 1, 1]; // 1 credit per day × 7 days = 7 credits total
       var DAY_MS = 24 * 60 * 60 * 1000;
 
       function getStreak() {
@@ -17541,40 +17565,93 @@
       window.claimStreakDay = async function () {
         var claimableDay = getClaimableDay();
         if (claimableDay === 0) return;
+        var btn = document.getElementById('streak-claim-btn');
+        if (btn) { btn.disabled = true; btn.textContent = '⏳ Claiming...'; }
+
+        // Call server-side RPC first — authoritative, cross-device, anti-cheat
+        if (window.sb && window.user) {
+          try {
+            var result = await window.sb.rpc('claim_daily_reward', {});
+            var rd = result && result.data;
+            if (rd && rd.claimed === false && rd.reason === 'too_soon') {
+              if (btn) { btn.disabled = true; btn.textContent = '✅ Come back tomorrow!'; }
+              if (window.toast) window.toast('⏳ Come back tomorrow for your next reward!', 'info');
+              return;
+            }
+            if (rd && rd.claimed) {
+              // Sync localStorage to server state
+              var s = getStreak();
+              s.day = rd.day;
+              s.lastClaimed = Date.now();
+              if (rd.day === 1) s.cycleStart = Date.now();
+              saveStreak(s);
+              if (rd.new_credits !== undefined) {
+                localStorage.setItem('nestly-credits', rd.new_credits);
+                if (window.updateCreditsBadges) window.updateCreditsBadges();
+              }
+              if (window.toast) window.toast('🔥 Day ' + rd.day + ' claimed! +' + rd.credits_awarded + ' credit added!', 'success');
+              if (window.pushNotif) window.pushNotif('🔥', 'Day ' + rd.day + ' streak! +' + rd.credits_awarded + ' credit earned.');
+              updateStreakUI();
+              return;
+            }
+          } catch (e) {
+            console.warn('[Streak] server RPC failed, falling back to local:', e);
+          }
+        }
+
+        // Fallback: local-only (no session or RPC unavailable)
         var credits = CREDITS_PER_DAY[claimableDay - 1];
         var s = getStreak();
-        var now = Date.now();
         s.day = claimableDay;
-        s.lastClaimed = now;
-        if (claimableDay === 1) s.cycleStart = now;
+        s.lastClaimed = Date.now();
+        if (claimableDay === 1) s.cycleStart = Date.now();
         saveStreak(s);
-        // Award credits
         if (window.setCredits && window.getCredits) {
           var current = window.getCredits();
           await window.setCredits(current + credits);
         } else if (window.sb && window.user) {
           try {
-            var sessionRes = await window.sb.auth.getSession();
-            var session = sessionRes && sessionRes.data && sessionRes.data.session;
-            if (session) {
-              var profRes = await window.sb.from('profiles').select('credits').eq('id', window.user.id).maybeSingle();
-              var cur = (profRes && profRes.data && profRes.data.credits) || 0;
-              await window.sb.from('profiles').update({ credits: Number(cur) + credits }).eq('id', window.user.id);
-              localStorage.setItem('nestly-credits', Number(cur) + credits);
-              if (window.updateCreditsBadges) window.updateCreditsBadges();
-            }
+            var profRes = await window.sb.from('profiles').select('credits').eq('id', window.user.id).maybeSingle();
+            var cur = (profRes && profRes.data && profRes.data.credits) || 0;
+            await window.sb.from('profiles').update({ credits: Number(cur) + credits }).eq('id', window.user.id);
+            localStorage.setItem('nestly-credits', Number(cur) + credits);
+            if (window.updateCreditsBadges) window.updateCreditsBadges();
           } catch (e) { console.warn('[Streak] credits award failed:', e); }
         }
-        if (window.toast) window.toast('🔥 Day ' + claimableDay + ' claimed! +' + credits + ' credit' + (credits > 1 ? 's' : '') + ' added!', 'success');
-        if (window.pushNotif) window.pushNotif('🔥', 'Day ' + claimableDay + ' streak! You earned +' + credits + ' credit' + (credits > 1 ? 's' : '') + '.');
+        if (window.toast) window.toast('🔥 Day ' + claimableDay + ' claimed! +' + credits + ' credit added!', 'success');
+        if (window.pushNotif) window.pushNotif('🔥', 'Day ' + claimableDay + ' streak! +' + credits + ' credit earned.');
         updateStreakUI();
+      };
+
+      // Sync streak state from server so it's accurate across devices/sessions.
+      // Called when the popup opens. Only updates localStorage if server state is newer.
+      window.syncStreakFromServer = async function () {
+        if (!window.sb || !window.user) return;
+        try {
+          var r = await window.sb.from('profiles')
+            .select('daily_streak_day,daily_streak_claimed_at')
+            .eq('id', window.user.id).maybeSingle();
+          var p = r && r.data;
+          if (!p) return;
+          var serverDay = parseInt(p.daily_streak_day || '0', 10);
+          var serverClaimedAt = p.daily_streak_claimed_at ? new Date(p.daily_streak_claimed_at).getTime() : 0;
+          var local = getStreak();
+          if (serverClaimedAt > local.lastClaimed) {
+            local.day = serverDay;
+            local.lastClaimed = serverClaimedAt;
+            if (serverDay === 1 && serverClaimedAt > 0) local.cycleStart = serverClaimedAt;
+            saveStreak(local);
+          }
+        } catch (e) { console.warn('[Streak] server sync failed:', e); }
       };
 
 
 
-      window.openStreakPopup = function () {
+      window.openStreakPopup = async function () {
         var bg = document.getElementById('streak-popup-bg');
         if (!bg) return;
+        // Sync with server before rendering so the grid reflects authoritative state
+        await window.syncStreakFromServer();
         updateStreakUI();
         // Use the same style-based show pattern as the welcome popup so the
         // CSS opacity transition actually fires (classList.add in a single
