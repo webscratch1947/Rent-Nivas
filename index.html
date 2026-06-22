@@ -17396,13 +17396,30 @@
         setTimeout(function () {
           var bg = document.getElementById('welcome-popup-bg');
           if (!bg) return;
-          // If the user is already logged in, show a simpler version with
-          // just a "Continue" button instead of signup/browse options.
-          if (window.user) {
-            var guestBtns = document.getElementById('wp-guest-btns');
-            var userBtn   = document.getElementById('wp-user-btn');
+          // Detect logged-in state from localStorage (instant, no network needed).
+          // window.user may not be set yet at popup time because auth init is async.
+          var isLoggedIn = (function() {
+            try {
+              var raw = localStorage.getItem('rentnivas-auth');
+              if (!raw) return false;
+              var stored = JSON.parse(raw);
+              var token = stored.id_token || stored.access_token;
+              if (!token || !stored.refresh_token) return false;
+              var parts = token.split('.');
+              if (parts.length !== 3) return false;
+              var payload = JSON.parse(atob(parts[1].replace(/-/g,'+').replace(/_/g,'/')));
+              var exp = payload.exp ? payload.exp * 1000 : 0;
+              return !(exp > 0 && exp < Date.now() - 10 * 60 * 1000);
+            } catch(_) { return false; }
+          })();
+          var guestBtns = document.getElementById('wp-guest-btns');
+          var userBtn   = document.getElementById('wp-user-btn');
+          if (isLoggedIn) {
             if (guestBtns) guestBtns.style.display = 'none';
             if (userBtn)   userBtn.style.display   = '';
+          } else {
+            if (guestBtns) guestBtns.style.display = '';
+            if (userBtn)   userBtn.style.display   = 'none';
           }
           bg.style.display = 'flex';
           bg.style.pointerEvents = 'all';
