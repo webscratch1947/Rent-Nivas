@@ -9419,6 +9419,26 @@
                     <div class="fg"><label id="add-balcony-lbl">Balcony</label><input type="number" id="h-balcony" placeholder="0" min="0"></div>
                     <div class="fg"><label id="add-parking-lbl">Parking</label><input type="number" id="h-parking" placeholder="0" min="0"></div>
                   </div>
+                  <div class="form-2col" style="margin-top:10px;">
+                    <div class="fg">
+                      <label>Furnishing Status</label>
+                      <select id="h-furnish-status">
+                        <option value="">— Select —</option>
+                        <option value="Fully Furnished">Fully Furnished</option>
+                        <option value="Semi-Furnished">Semi-Furnished</option>
+                        <option value="Unfurnished">Unfurnished</option>
+                      </select>
+                    </div>
+                    <div class="fg">
+                      <label>Preferred Tenant</label>
+                      <select id="h-tenant-type">
+                        <option value="">— Any —</option>
+                        <option value="Family">Family</option>
+                        <option value="Bachelor">Bachelor</option>
+                        <option value="Company Lease">Company Lease</option>
+                      </select>
+                    </div>
+                  </div>
                 </div>
                 <!-- Office -->
                 <div id="pt-fields-office" class="pt-fields-block" style="display:none;">
@@ -10928,6 +10948,14 @@
           localStorage.setItem('nestly-role', 'partner');
           showPage('partner-dashboard');
           loadPartnerDashboard();
+        } else if (!error && data && data.status === 'revoked') {
+          // Access was revoked — show them the revoked page with reason + apply again button
+          localStorage.removeItem('nestly-role');
+          _partnerRequestCache = data;
+          applyPartnerStatusToBadges(data);
+          showPage('partner-page');
+          const content = document.getElementById('partner-page-content');
+          if (content) content.innerHTML = renderPartnerRevoked(data);
         } else {
           // Not actually a partner on this account — clear the stale role
           // and send them to pick a role instead of the partner dashboard.
@@ -10991,7 +11019,7 @@
 
     function applyPartnerStatusToBadges(data) {
       document.querySelectorAll('.partner-nav-badge').forEach(b => {
-        if (!data || data.status === 'rejected') {
+        if (!data || data.status === 'rejected' || data.status === 'revoked') {
           b.style.display = 'none';
           b.style.background = '';
           b.style.color = '';
@@ -11101,9 +11129,43 @@
           content.innerHTML = renderPartnerPending(data);
           return;
         }
+        if (data && data.status === 'revoked') {
+          content.innerHTML = renderPartnerRevoked(data);
+          return;
+        }
         content.innerHTML = renderPartnerForm(data);
       } catch (e) {
         content.innerHTML = '<div class="partner-status-card"><div class="partner-status-icon">⚠️</div><div class="partner-status-title">Something went wrong</div><div class="partner-status-text">' + esc(e.message || 'Could not load your partner status.') + '</div></div>';
+      }
+    }
+
+    function renderPartnerRevoked(req) {
+      const reason = req?.revoke_reason ? `<div style="background:var(--red-bg);border:1px solid rgba(220,38,38,.2);border-radius:var(--r);padding:14px 16px;font-size:14px;color:var(--red);margin-bottom:20px;"><b>Reason:</b> ${esc(req.revoke_reason)}</div>` : '';
+      return `<div class="partner-status-card">
+        <div class="partner-status-icon">🚫</div>
+        <div class="partner-status-title">Partner Access Removed</div>
+        <div class="partner-status-text" style="margin-bottom:16px;">Your partner dashboard access has been removed by the Rent Nivas team.</div>
+        ${reason}
+        <p style="color:var(--muted);font-size:13px;margin-bottom:20px;">If you believe this was a mistake or your situation has changed, you can submit a new application below.</p>
+        <button class="btn btn-terra" onclick="applyAgainForPartner('${esc(req.id)}')">🔄 Apply Again</button>
+      </div>`;
+    }
+
+    async function applyAgainForPartner(requestId) {
+      if (!user) return;
+      try {
+        // Clear the revoke reason and reset status so they can re-apply fresh
+        const { error } = await sb.from('partner_requests').update({ status: 'rejected', revoke_reason: null }).eq('id', requestId);
+        if (error) throw error;
+        // Reload the page which will now show the application form (since status = 'rejected')
+        const content = document.getElementById('partner-page-content');
+        if (content) {
+          const { data } = await sb.from('partner_requests').select('*').eq('id', requestId).maybeSingle();
+          content.innerHTML = renderPartnerForm(data);
+        }
+        toast('You can now submit a new application.', 'success');
+      } catch(e) {
+        toast('Could not reset application: ' + (e.message || 'Unknown error'), 'error');
       }
     }
 
@@ -11553,18 +11615,62 @@
       const countEl = document.getElementById('pd-tasks-count');
       if (!el || !user) return;
       try {
-        const { data, error } = await sb.from('partner_tasks')
-          .select('*').order('created_at', { ascending: false });
-        if (error) throw error;
+        // Fetch all tasks + partner's join date in parallel
+        const [tasksResult, partnerResult] = await Promise.all([
+          sb.from('partner_tasks').select('*').order('created_at', { ascending: false }),
+          sb.from('partner_requests').select('created_at').eq('user_id', user.id).eq('status', 'accepted').limit(1).maybeSingle(),
+        ]);
+        if (tasksResult.error) throw tasksResult.error;
+
+        const allTasks = tasksResult.data || [];
+        const partnerSince = partnerResult.data?.created_at ? new Date(partnerResult.data.created_at) : null;
         const done = getCompletedTasks();
-        const myTasks = (data || []).filter(t =>
-          !t.assigned_to || t.assigned_to.includes(user.id) || t.assigned_to.includes(String(user.id))
-        ).filter(t => !done.includes(t.id)); // hide completed tasks
-        if (countEl) {
-          countEl.style.display = myTasks.length ? 'inline-block' : 'none';
-          countEl.textContent = myTasks.length;
+        const now = new Date();
+
+        // Filter: must be assigned to this partner (or global), not yet completed,
+        // and created AFTER the partner was accepted (so new partners don't see old tasks).
+        let myTasks = allTasks.filter(t => {
+          if (done.includes(t.id)) return false;
+          if (t.assigned_to && !t.assigned_to.includes(user.id) && !t.assigned_to.includes(String(user.id))) return false;
+          if (partnerSince && t.created_at && new Date(t.created_at) < partnerSince) return false;
+          return true;
+        });
+
+        // Handle task expiry: tasks with time_limit_minutes that have elapsed are expired.
+        const expiredHtml = [];
+        const activeTasks = [];
+        for (const t of myTasks) {
+          if (t.time_limit_minutes && t.created_at) {
+            const taskStart = partnerSince && new Date(t.created_at) < partnerSince ? partnerSince : new Date(t.created_at);
+            const deadline = new Date(taskStart.getTime() + t.time_limit_minutes * 60 * 1000);
+            if (deadline < now) {
+              // Task expired — show missed message and remove progress from DB
+              expiredHtml.push(`<div style="border-radius:16px;padding:14px 18px;margin-bottom:12px;background:var(--red-bg);border:1.5px solid rgba(220,38,38,.2);display:flex;align-items:center;gap:12px;">
+                <span style="font-size:24px;">⏰</span>
+                <div>
+                  <div style="font-weight:700;color:var(--red);font-size:14px;">Missed: ${esc(t.title)}</div>
+                  <div style="font-size:12px;color:var(--muted);margin-top:2px;">This task expired before you completed it. No XP earned.</div>
+                </div>
+              </div>`);
+              // Clean up the task for this partner from DB
+              try { await sb.from('partner_task_progress').delete().eq('task_id', t.id).eq('user_id', user.id); } catch {}
+              // Mark as "done" locally so it doesn't reappear
+              const doneArr = getCompletedTasks();
+              if (!doneArr.includes(t.id)) { doneArr.push(t.id); setCompletedTasks(doneArr); }
+              continue;
+            }
+          }
+          activeTasks.push(t);
         }
-        if (!myTasks.length) {
+
+        if (countEl) {
+          countEl.style.display = activeTasks.length ? 'inline-block' : 'none';
+          countEl.textContent = activeTasks.length;
+        }
+        const activeHtml = activeTasks.map(t => renderPartnerTask(t)).join('');
+        const missedSection = expiredHtml.length
+          ? `<div style="margin-bottom:8px;font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;">Missed Tasks</div>${expiredHtml.join('')}<div style="height:1px;background:var(--border);margin:16px 0;"></div>` : '';
+        if (!activeTasks.length && !expiredHtml.length) {
           el.innerHTML = `<div style="text-align:center;padding:64px 20px;color:var(--muted);">
             <div style="font-size:48px;margin-bottom:14px;">🎉</div>
             <div style="font-size:16px;font-weight:700;color:var(--ink);margin-bottom:6px;">All caught up!</div>
@@ -11572,7 +11678,7 @@
           </div>`;
           return;
         }
-        el.innerHTML = myTasks.map(t => renderPartnerTask(t)).join('');
+        el.innerHTML = missedSection + activeHtml;
       } catch(e) {
         el.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted);">Could not load tasks.</div>';
       }
@@ -12152,7 +12258,8 @@
       const ban = bans[0];
 
       if (ban.type !== 'perm' && ban.until && new Date(ban.until) < new Date()) {
-        await sb.from('admin_bans').update({ active: false }).eq('id', ban.id);
+        // Temp ban expired — delete the record entirely from DB for cleanliness
+        try { await sb.from('admin_bans').delete().eq('id', ban.id); } catch { await sb.from('admin_bans').update({ active: false }).eq('id', ban.id); }
         _clearStoredBan();
         if (_banCountdownTimer) clearInterval(_banCountdownTimer);
         document.getElementById('ban-overlay')?.classList.add('hidden');
@@ -12620,6 +12727,10 @@
             <div class="l-title">${h.title}</div>
             <div class="l-addr">📍 ${loc}</div>
             ${expiryHtml}
+            ${(h.furnish_status || h.tenant_type) ? `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;">
+              ${h.furnish_status ? `<span style="font-size:11px;padding:2px 8px;background:var(--bg2);border:1px solid var(--border2);border-radius:99px;color:var(--soft);">🛋️ ${esc(h.furnish_status)}</span>` : ''}
+              ${h.tenant_type ? `<span style="font-size:11px;padding:2px 8px;background:var(--bg2);border:1px solid var(--border2);border-radius:99px;color:var(--soft);">👤 ${esc(h.tenant_type)}</span>` : ''}
+            </div>` : ''}
             <div class="l-meta">
               <div class="l-meta-item"><div class="l-meta-em">🛏</div><div class="l-meta-val">${h.bedrooms || 0}</div><div class="l-meta-lbl">Beds</div></div>
               <div class="l-meta-item"><div class="l-meta-em">🚿</div><div class="l-meta-val">${h.bathrooms || 0}</div><div class="l-meta-lbl">Baths</div></div>
@@ -12818,7 +12929,13 @@
         setV('h-conf-rooms', ed.conference_rooms); setV('h-baths-office', ed.bathrooms);
         setV('h-reception', ed.reception); setV('h-parking-office', ed.parking);
         setV('h-office-layout', ed.layout);
-      } else if (selectedPropType === 'PG') {
+      } else if (!['PG','Shop'].includes(selectedPropType)) {
+        // Residential: restore furnishing + tenant type
+        const selV = (id, val) => { const el = document.getElementById(id); if (el && val != null) el.value = val; };
+        selV('h-furnish-status', h.furnish_status);
+        selV('h-tenant-type', h.tenant_type);
+      }
+      if (selectedPropType === 'PG') {
         setV('h-pg-beds', ed.total_beds); setV('h-baths-pg', ed.bathrooms);
         setV('h-parking-pg', ed.parking);
         const sel = (id, val) => { const el = document.getElementById(id); if (el && val) el.value = val; };
@@ -12873,6 +12990,10 @@
       if (pgSharing) pgSharing.value = '';
       if (pgMeals) pgMeals.value = '';
       if (pgGender) pgGender.value = '';
+      const furnishEl = document.getElementById('h-furnish-status');
+      const tenantEl = document.getElementById('h-tenant-type');
+      if (furnishEl) furnishEl.value = '';
+      if (tenantEl) tenantEl.value = '';
 
       // Clear condition tags
       document.querySelectorAll('.cond-tag').forEach(t => t.classList.remove('selected'));
@@ -13262,6 +13383,8 @@
           custom_rooms: customRooms.length > 0 ? customRooms : null,
           conditions: condArr.length > 0 ? condArr : null,
           property_type: selectedPropType || null,
+          furnish_status: (selectedPropType && !['Office','PG','Shop'].includes(selectedPropType)) ? (document.getElementById('h-furnish-status')?.value || null) : null,
+          tenant_type: (selectedPropType && !['Office','PG','Shop'].includes(selectedPropType)) ? (document.getElementById('h-tenant-type')?.value || null) : null,
           extra_details: extraDetails,
           status,
           expires_at: expiresAt,
@@ -14276,6 +14399,10 @@
       }
 
       const icons = { House: '🏠', Apartment: '🏢', Villa: '🌟' };
+      const resMetaTags = [
+        h.furnish_status ? `🛋️ ${h.furnish_status}` : '',
+        h.tenant_type ? `👤 ${h.tenant_type} Preferred` : '',
+      ].filter(Boolean);
       return {
         sectionTitle: (propType && icons[propType]) ? `${icons[propType]} Room Details` : '🏠 Room Details',
         items: [
@@ -14286,7 +14413,7 @@
           { em: '🏠', val: h.balcony, lbl: 'Balcony' },
           { em: '🚗', val: h.parking, lbl: 'Parking' },
         ].filter(r => r.val > 0),
-        metaTags: [],
+        metaTags: resMetaTags,
         layoutNote: '',
       };
     }
@@ -15285,19 +15412,57 @@
           el.innerHTML = '<div style="text-align:center;padding:32px;color:var(--muted);">No tasks sent yet.</div>';
           return;
         }
+        const now = new Date();
+        // Auto-delete globally expired tasks (time limit elapsed from creation)
+        const expiredIds = [];
+        for (const t of data) {
+          if (t.time_limit_minutes && t.created_at) {
+            const expiry = new Date(new Date(t.created_at).getTime() + t.time_limit_minutes * 60 * 1000);
+            if (expiry < now) expiredIds.push(t.id);
+          }
+        }
+        if (expiredIds.length) {
+          try {
+            for (const id of expiredIds) {
+              await sb.from('partner_task_progress').delete().eq('task_id', id);
+              await sb.from('partner_tasks').delete().eq('id', id);
+            }
+          } catch (e) { console.warn('[Admin] Task cleanup error:', e.message); }
+          // Reload after cleanup
+          return loadAdminTasksTab();
+        }
         el.innerHTML = data.map(t => {
           const timerTxt = t.time_limit_minutes ? '⏱️ ' + fmtMinutes(t.time_limit_minutes) + ' limit · -' + (t.xp_penalty ?? t.xp_reward ?? 10) + ' XP if late' : '⏱️ No time limit';
           return `
-          <div style="padding:10px 14px;border:1px solid var(--border2);border-radius:var(--r);margin-bottom:8px;background:var(--bg2);">
-            <div style="font-size:14px;font-weight:700;color:var(--ink);margin-bottom:2px;">${esc(t.title)}</div>
-            ${t.description ? `<div style="font-size:13px;color:var(--muted);margin-bottom:4px;">${esc(t.description)}</div>` : ''}
-            <div style="font-size:12px;color:var(--muted2);">${t.assigned_to ? '🎯 Specific partners' : '📢 All partners'} · ${new Date(t.created_at).toLocaleDateString('en-IN')}</div>
-            <div style="font-size:12px;color:var(--muted2);margin-top:4px;">🏆 +${t.xp_reward ?? 10} XP · ${timerTxt}</div>
+          <div style="padding:10px 14px;border:1px solid var(--border2);border-radius:var(--r);margin-bottom:8px;background:var(--bg2);display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">
+            <div style="min-width:0;flex:1;">
+              <div style="font-size:14px;font-weight:700;color:var(--ink);margin-bottom:2px;">${esc(t.title)}</div>
+              ${t.description ? `<div style="font-size:13px;color:var(--muted);margin-bottom:4px;">${esc(t.description)}</div>` : ''}
+              <div style="font-size:12px;color:var(--muted2);">${t.assigned_to ? '🎯 Specific partners' : '📢 All partners'} · ${new Date(t.created_at).toLocaleDateString('en-IN')}</div>
+              <div style="font-size:12px;color:var(--muted2);margin-top:4px;">🏆 +${t.xp_reward ?? 10} XP · ${timerTxt}</div>
+            </div>
+            <button class="btn btn-sm" style="flex-shrink:0;background:var(--red-bg);color:var(--red);font-size:12px;" onclick="adminDeleteTask('${esc(t.id)}','${esc(t.title)}')">🗑 Delete</button>
           </div>`;
         }).join('');
       } catch (e) {
         el.innerHTML = `<div style="padding:24px;color:var(--muted);">Failed to load tasks: ${esc(e.message)}</div>`;
       }
+    }
+
+    async function adminDeleteTask(taskId, taskTitle) {
+      openAdminModal({
+        title: '🗑️ Delete Task',
+        subtitle: '"' + taskTitle + '" — this will permanently remove this task and all partner progress. Cannot be undone.',
+        fields: [],
+        confirmText: 'Delete Task', confirmClass: 'btn-danger-soft',
+        onConfirm: async () => {
+          await sb.from('partner_task_progress').delete().eq('task_id', taskId);
+          const { error } = await sb.from('partner_tasks').delete().eq('id', taskId);
+          if (error) throw error;
+          toast('Task deleted', 'success');
+          setTimeout(loadAdminTasksTab, 400);
+        }
+      });
     }
 
     // ══ ADMIN HOUSES TAB ══
@@ -15501,26 +15666,36 @@
         el.innerHTML = '<div style="text-align:center;padding:32px;color:var(--muted);">Loading partner requests...</div>';
         try {
           const { data, error } = await withTimeout(
-            sb.from('partner_requests').select('id,user_id,full_name,email,phone,partner_type,city,status,created_at').order('created_at', { ascending: false }).limit(200),
+            sb.from('partner_requests').select('id,user_id,full_name,email,phone,partner_type,city,status,created_at,revoke_reason').order('created_at', { ascending: false }).limit(200),
             8000, 'Partner requests load timed out'
           );
           if (error) throw error;
           if (!data?.length) { el.innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted);">No partner requests found.</div>'; return; }
-          el.innerHTML = data.map(p => `
-            <div style="border:1px solid var(--border2);border-radius:var(--r);margin-bottom:10px;background:var(--bg2);padding:12px 14px;display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
+          el.innerHTML = data.map(p => {
+            const statusBg = p.status==='pending'?'var(--amber-bg)':p.status==='accepted'?'var(--green-bg)':'var(--red-bg)';
+            const statusClr = p.status==='pending'?'var(--amber)':p.status==='accepted'?'var(--green)':'var(--red)';
+            const revokeNote = (p.status==='revoked' && p.revoke_reason) ? `<div style="font-size:11px;color:var(--red);margin-top:3px;">Reason: ${esc(p.revoke_reason)}</div>` : '';
+            const actionBtns = p.status==='pending'
+              ? `<div style="display:flex;gap:6px;">
+                  <button class="btn btn-sm" style="background:var(--green-bg);color:var(--green);font-size:12px;" onclick="adminGivePartner('${esc(p.user_id)}','${esc(p.full_name)}','${esc(p.email)}')">✅ Accept</button>
+                  <button class="btn btn-sm" style="background:var(--red-bg);color:var(--red);font-size:12px;" onclick="rejectPartnerRequest('${esc(p.id)}')">❌ Reject</button>
+                </div>`
+              : p.status==='accepted'
+              ? `<button class="btn btn-sm" style="background:var(--red-bg);color:var(--red);font-size:12px;" onclick="adminRevokePartner('${esc(p.id)}','${esc(p.full_name)}')">🚫 Remove Access</button>`
+              : '';
+            return `<div style="border:1px solid var(--border2);border-radius:var(--r);margin-bottom:10px;background:var(--bg2);padding:12px 14px;display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
               <div style="min-width:0;">
                 <div style="font-size:14px;font-weight:700;color:var(--ink);margin-bottom:2px;">${esc(p.full_name||'—')}</div>
                 <div style="font-size:12px;color:var(--muted);">${esc(p.email||'—')} &nbsp;·&nbsp; ${esc(p.phone||'—')} &nbsp;·&nbsp; ${esc(p.city||'—')}</div>
-                <div style="font-size:12px;color:var(--muted);margin-top:2px;">Type: ${esc(p.partner_type||'—')}</div>
+                <div style="font-size:12px;color:var(--muted);margin-top:2px;">Type: ${esc(p.partner_type||'—')} &nbsp;·&nbsp; ${fmtDate(p.created_at)}</div>
+                ${revokeNote}
               </div>
               <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0;">
-                <span style="padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;background:${p.status==='pending'?'var(--amber-bg)':p.status==='accepted'?'var(--green-bg)':'var(--red-bg)'};color:${p.status==='pending'?'var(--amber)':p.status==='accepted'?'var(--green)':'var(--red)'};">${esc(p.status||'pending')}</span>
-                ${p.status==='pending'?`<div style="display:flex;gap:6px;">
-                  <button class="btn btn-sm" style="background:var(--green-bg);color:var(--green);font-size:12px;" onclick="adminGivePartner('${esc(p.user_id)}','${esc(p.full_name)}','${esc(p.email)}')">✅ Accept</button>
-                  <button class="btn btn-sm" style="background:var(--red-bg);color:var(--red);font-size:12px;" onclick="rejectPartnerRequest('${esc(p.id)}')">❌ Reject</button>
-                </div>`:''}
+                <span style="padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;background:${statusBg};color:${statusClr};">${esc(p.status||'pending')}</span>
+                ${actionBtns}
               </div>
-            </div>`).join('');
+            </div>`;
+          }).join('');
         } catch(e) {
           el.innerHTML = `<div style="padding:24px;text-align:center;color:var(--muted);">Failed to load: ${esc(e.message)}</div>`;
         }
@@ -15535,6 +15710,21 @@
         } catch(e) {
           toast('Failed: ' + e.message, 'error');
         }
+      }
+
+      async function adminRevokePartner(requestId, partnerName) {
+        openAdminModal({
+          title: '🚫 Remove Partner Access',
+          subtitle: 'Removing access for: ' + partnerName,
+          fields: [{ id: 'reason', label: 'Reason for removal (shown to partner)', type: 'textarea', placeholder: 'e.g. Violation of partner guidelines, inactivity, etc.', required: true }],
+          confirmText: 'Remove Access', confirmClass: 'btn-terra',
+          onConfirm: async (vals) => {
+            const { error } = await sb.from('partner_requests').update({ status: 'revoked', revoke_reason: vals.reason }).eq('id', requestId);
+            if (error) throw error;
+            toast('Partner access removed', 'success');
+            setTimeout(loadAdminPartners, 400);
+          }
+        });
       }
 
 
