@@ -170,8 +170,19 @@
   var REFRESH_RETRY_DELAYS_MS = [2000, 5000, 15000];
 
   function isDefinitelyInvalidRefreshToken(err) {
+    // NotAuthorizedException is Cognito's generic error code — it fires for
+    // rate limits, transient failures, wrong clock, and other issues that are
+    // NOT permanent token invalidation. Treating it as "sign out immediately"
+    // causes users to be logged out after any background refresh hiccup.
+    //
+    // Only sign out when Cognito's message body *explicitly* says the refresh
+    // token itself is the problem. All other errors are treated as transient.
     var msg = (err && (err.raw && (err.raw.__type || err.raw.message))) || (err && err.message) || '';
-    return /NotAuthorizedException/i.test(msg) || /Refresh Token has expired/i.test(msg) || /Invalid Refresh Token/i.test(msg);
+    return /Refresh Token has expired/i.test(msg)
+        || /Invalid Refresh Token/i.test(msg)
+        || /Token has been revoked/i.test(msg)
+        || /Refresh token.*revoked/i.test(msg)
+        || /UserNotFoundException/i.test(msg);
   }
 
   async function attemptRefresh(current) {
@@ -231,7 +242,9 @@
   function scheduleRefresh(session) {
     if (refreshTimer) clearTimeout(refreshTimer);
     if (!session || !session.expires_at || !session.refresh_token) return;
-    var ms = Math.max(30000, (session.expires_at * 1000) - Date.now() - 120000);
+    // Refresh 5 minutes before expiry (increased from 2 min) to give more
+    // buffer for background-tab timer throttling by browsers.
+    var ms = Math.max(30000, (session.expires_at * 1000) - Date.now() - 300000);
     refreshTimer = setTimeout(refreshSession, ms);
   }
 
@@ -398,7 +411,8 @@
     async getSession() {
       var session = getStoredSession();
       if (!session) return { data: { session: null }, error: null };
-      if (session.expires_at && session.expires_at * 1000 < Date.now() + 60000) return refreshSession();
+      // Refresh if within 5 minutes of expiry (matches scheduleRefresh buffer)
+      if (session.expires_at && session.expires_at * 1000 < Date.now() + 300000) return refreshSession();
       scheduleRefresh(session);
       return { data: { session: session }, error: null };
     },
@@ -488,4 +502,19 @@
 
   var restored = getStoredSession();
   if (restored) scheduleRefresh(restored);
+
+  // When the tab comes back to the foreground after being in the background,
+  // browsers may have throttled or silently dropped the refresh setTimeout.
+  // This listener fires immediately on visibility restore and proactively
+  // refreshes the token if it has already expired or is within 5 minutes of
+  // expiry — preventing the "logged out after leaving tab in background" bug.
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState !== 'visible') return;
+    var session = getStoredSession();
+    if (!session || !session.refresh_token) return;
+    var expiresAt = session.expires_at ? session.expires_at * 1000 : 0;
+    if (expiresAt < Date.now() + 300000) {
+      refreshSession();
+    }
+  });
 })();
