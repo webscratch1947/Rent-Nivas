@@ -9028,8 +9028,8 @@
                   <div class="pst-lbl">Active Unlocks</div>
                 </div>
                 <div class="pst-item">
-                  <div class="pst-val" id="rent-pst-days">0</div>
-                  <div class="pst-lbl">Days Active</div>
+                  <div class="pst-val" id="rent-pst-days">—</div>
+                  <div class="pst-lbl">Member Days</div>
                 </div>
               </div>
               <div class="prof-xp-block">
@@ -9799,8 +9799,8 @@
                   <div class="pst-lbl" data-i18n="kpi_pub">Published</div>
                 </div>
                 <div class="pst-item">
-                  <div class="pst-val" id="pst-days">0</div>
-                  <div class="pst-lbl">Days Active</div>
+                  <div class="pst-val" id="pst-days">—</div>
+                  <div class="pst-lbl">Member Days</div>
                 </div>
               </div>
               <div style="margin:-10px 20px 18px;text-align:center;font-size:13px;color:var(--muted);"><span data-i18n="prof_avg_price">Avg. price:</span> <strong id="pst-avg">—</strong> &nbsp;·&nbsp; <span id="pst-draft">0</span> drafts</div>
@@ -12562,9 +12562,15 @@
       selectRole(savedRole);          // ← page renders HERE, instantly
       checkPartnerCongrats();
       updatePartnerNavBadges();
-      // Show daily streak popup for logged-in users (after a short delay so
-      // the page settles first). Only shown once per session.
-      setTimeout(function() { if (window.maybeShowStreakPopup) window.maybeShowStreakPopup(); }, 1200);
+      // Show daily streak popup for logged-in users. Skip if the welcome
+      // popup is currently open — closeWelcomePopup() will call it instead,
+      // so the two popups never stack.
+      setTimeout(function() {
+        var wp = document.getElementById('welcome-popup-bg');
+        var wpOpen = wp && (wp.style.display === 'flex' || parseFloat(wp.style.opacity) > 0);
+        if (wpOpen) return; // welcome popup is showing — it will trigger streak after close
+        if (window.maybeShowStreakPopup) window.maybeShowStreakPopup();
+      }, 1400);
 
       // Non-security background work — fine to run after render
       Promise.all([
@@ -13778,10 +13784,38 @@
 
     // Returns { label, days } from a raw date value — never "Invalid Date" / NaN.
     function rnMemberSinceInfo(rawDate) {
+      // Try the profile's created_at first; fall back to the Cognito user
+      // metadata (user.created_at is set by some auth flows), then the JWT
+      // iat (issued-at) claim as a last resort. If nothing is available,
+      // show "—" rather than "0 days" which looks broken.
       let ts = rawDate ? new Date(rawDate).getTime() : NaN;
-      if (!isFinite(ts) || ts <= 0) ts = Date.now(); // fallback: treat as joined today
+      if (!isFinite(ts) || ts <= 0) {
+        // Try Cognito user created_at from the user object
+        const userTs = window.user && (window.user.created_at || window.user.UserCreateDate);
+        ts = userTs ? new Date(userTs).getTime() : NaN;
+      }
+      if (!isFinite(ts) || ts <= 0) {
+        // Try decoding the JWT iat claim from the stored id_token
+        try {
+          const raw = localStorage.getItem('rentnivas-auth');
+          if (raw) {
+            const sess = JSON.parse(raw);
+            const token = sess.id_token || sess.access_token;
+            if (token) {
+              const parts = token.split('.');
+              if (parts.length === 3) {
+                const payload = JSON.parse(atob(parts[1].replace(/-/g,'+').replace(/_/g,'/')));
+                if (payload.auth_time) ts = payload.auth_time * 1000;
+              }
+            }
+          }
+        } catch (_) {}
+      }
+      if (!isFinite(ts) || ts <= 0) {
+        return { label: 'Member', days: '—' };
+      }
       const label = new Date(ts).toLocaleDateString('en-IN', { year: 'numeric', month: 'long' });
-      const days = Math.max(0, Math.floor((Date.now() - ts) / (24 * 60 * 60 * 1000)));
+      const days = Math.max(1, Math.floor((Date.now() - ts) / (24 * 60 * 60 * 1000)));
       return { label, days };
     }
 
@@ -16445,6 +16479,10 @@
             if (savedRole) await selectRole(savedRole);
             else showPage('role-page');
           }
+          // Show streak popup after a fresh sign-in (clear the per-session
+          // "already shown" flag so it always fires on login).
+          sessionStorage.removeItem('rn-streak-shown');
+          setTimeout(function() { if (window.maybeShowStreakPopup) window.maybeShowStreakPopup(); }, 1400);
         }
       });
     })();
@@ -17402,7 +17440,10 @@
       _unlockScroll();
       setTimeout(function () {
         bg.style.display = 'none';
-        // After welcome popup closes, check if logged-in user should see streak
+        // After welcome popup closes, show the streak popup for logged-in users.
+        // Clear the per-session flag first so the startup timer (which skips
+        // when welcome popup is open) doesn't block it.
+        sessionStorage.removeItem('rn-streak-shown');
         if (window.maybeShowStreakPopup) window.maybeShowStreakPopup();
       }, 300);
     }
