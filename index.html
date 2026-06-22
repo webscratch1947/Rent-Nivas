@@ -16279,19 +16279,56 @@
 
       setLoader(true, 'Loading Rent Nivas...');
       try {
-        let res = await withTimeout(sb.auth.getSession(), 20000, 'Startup timed out. Please refresh the page.');
+        // Use a shorter startup timeout so an expired-token refresh (which
+        // now retries for max ~2s instead of 22s) never blocks the splash
+        // past 8 seconds.  If we still can't get a session within 8s, fall
+        // through to the stored-session rescue path below.
+        let res = null;
+        try {
+          res = await withTimeout(sb.auth.getSession(), 8000, 'session-timeout');
+        } catch (startupErr) {
+          res = null;
+        }
         let session = res?.data?.session ?? null;
-        // If no session yet but a token is sitting in storage, the client may
-        // not have finished restoring it on this load — retry once shortly.
+
+        // If getSession timed out or returned null but there IS stored auth
+        // data (e.g. background tab throttled the refresh timer), try to
+        // read the stored session directly and proceed — the token will be
+        // refreshed on the first API call via the retry-on-expired logic in
+        // cognito-auth.js.
         if (!session) {
-          let hasStoredToken = false;
-          try { hasStoredToken = !!localStorage.getItem('rentnivas-auth'); } catch (e) {}
-          if (hasStoredToken) {
-            await new Promise(r => setTimeout(r, 400));
-            res = await withTimeout(sb.auth.getSession(), 20000, 'Startup timed out. Please refresh the page.');
-            session = res?.data?.session ?? null;
+          let storedRaw = null;
+          try { storedRaw = localStorage.getItem('rentnivas-auth'); } catch (_) {}
+          if (storedRaw) {
+            try {
+              const stored = JSON.parse(storedRaw);
+              if (stored && (stored.access_token || stored.id_token) && stored.refresh_token) {
+                // Kick off a background refresh — don't await it so startup is instant.
+                sb.auth.getSession().catch(() => {});
+                session = stored;
+                // Attach the user object if missing (decoded from the token).
+                if (!session.user && (session.id_token || session.access_token)) {
+                  try {
+                    const parts = (session.id_token || session.access_token).split('.');
+                    if (parts.length === 3) {
+                      const payload = JSON.parse(atob(parts[1].replace(/-/g,'+').replace(/_/g,'/')));
+                      session.user = { id: payload.sub, email: payload.email || payload['cognito:username'] || '', role: 'authenticated' };
+                    }
+                  } catch (_) {}
+                }
+              }
+            } catch (_) {}
           }
         }
+
+        // Second attempt if still no session and no stored data
+        if (!session) {
+          try {
+            res = await withTimeout(sb.auth.getSession(), 8000, 'Startup timed out. Please refresh the page.');
+            session = res?.data?.session ?? null;
+          } catch (_) {}
+        }
+
         setLoader(false);
         if (session) {
           user = session.user;
@@ -16303,8 +16340,34 @@
         syncMobNavAuth();
         hideBootSplash();
       } catch (e) {
+        // Last-resort: if something unexpected throws, try stored session
+        // before giving up so users aren't logged out by a transient error.
+        let rescuedSession = null;
+        try {
+          const storedRaw = localStorage.getItem('rentnivas-auth');
+          if (storedRaw) {
+            const stored = JSON.parse(storedRaw);
+            if (stored && (stored.access_token || stored.id_token) && stored.refresh_token) {
+              rescuedSession = stored;
+              if (!rescuedSession.user && (rescuedSession.id_token || rescuedSession.access_token)) {
+                const parts = (rescuedSession.id_token || rescuedSession.access_token).split('.');
+                if (parts.length === 3) {
+                  const payload = JSON.parse(atob(parts[1].replace(/-/g,'+').replace(/_/g,'/')));
+                  rescuedSession.user = { id: payload.sub, email: payload.email || payload['cognito:username'] || '', role: 'authenticated' };
+                }
+              }
+            }
+          }
+        } catch (_) {}
         setLoader(false);
-        toast(e.message || 'Could not load the app. Please refresh.', 'error');
+        if (rescuedSession) {
+          // Proceed with the stored session; tokens will be refreshed in background.
+          sb.auth.getSession().catch(() => {});
+          user = rescuedSession.user;
+          await initDash(rescuedSession).catch(() => { showPage('landing-page'); });
+        } else {
+          toast(e.message || 'Could not load the app. Please refresh.', 'error');
+        }
         syncMobNavAuth();
         hideBootSplash();
       }
