@@ -187,7 +187,9 @@
   //       (next user action, next visibility change) try again. The user
   //       is only ever actually signed out by an explicit, confirmed
   //       "this refresh token is no longer valid" response from Cognito.
-  var REFRESH_RETRY_DELAYS_MS = [500, 1500];
+  // More retries with longer backoff — covers network blips, Cognito throttle,
+  // slow mobile connections, backgrounded tabs waking up late.
+  var REFRESH_RETRY_DELAYS_MS = [500, 1500, 3000, 6000];
 
   function isDefinitelyInvalidRefreshToken(err) {
     // Check .message FIRST (has the descriptive text like "Refresh Token has
@@ -275,10 +277,14 @@
   function scheduleRefresh(session) {
     if (refreshTimer) clearTimeout(refreshTimer);
     if (!session || !session.expires_at || !session.refresh_token) return;
-    // Refresh 5 minutes before expiry (increased from 2 min) to give more
-    // buffer for background-tab timer throttling by browsers.
-    var ms = (session.expires_at * 1000) - Date.now() - 300000;
-    refreshTimer = setTimeout(refreshSession, Math.max(1, ms));
+    // Refresh 10 minutes before expiry — double the previous 5-min buffer.
+    // Browsers heavily throttle background timers (Chrome caps at 1-min
+    // intervals for hidden tabs), so a 5-min buffer was sometimes not enough
+    // when the tab was backgrounded right as the timer was about to fire.
+    // 10 minutes gives a comfortable window even on slow mobile connections.
+    var ms = (session.expires_at * 1000) - Date.now() - 600000;
+    // If already within 10 min of expiry, refresh in at most 30 seconds.
+    refreshTimer = setTimeout(refreshSession, Math.max(1, Math.min(ms, 30000 * Math.ceil(ms / 30000))));
   }
 
   async function doFetch(token, spec) {
@@ -319,21 +325,33 @@
     // fresh token refresh and retry exactly once.  This handles the edge case
     // where the browser tab was backgrounded, the timer fired late, and an
     // expired token slipped through getSession's 5-minute guard.
-    if (
-      (!result.ok || result.json.error) &&
+    // Detect ANY auth-related rejection from the backend — not just the exact
+    // string "token expired". Cognito / the backend can return several variants.
+    var errMsg = (result.json.error && result.json.error.message) || '';
+    var isAuthError = !result.ok && (
       result.json.error &&
-      typeof result.json.error.message === 'string' &&
-      result.json.error.message.toLowerCase().includes('token expired')
-    ) {
+      (
+        /token expired/i.test(errMsg) ||
+        /not authorized/i.test(errMsg) ||
+        /unauthorized/i.test(errMsg) ||
+        /invalid.*token/i.test(errMsg) ||
+        /token.*invalid/i.test(errMsg) ||
+        /access.*denied/i.test(errMsg) ||
+        result.json.statusCode === 401 ||
+        result.json.status === 401
+      )
+    );
+    if (isAuthError) {
       log('received token-expired error — forcing refresh and retrying once');
       var retry = await refreshSession();
       var retrySession = retry.data && retry.data.session;
       if (!retrySession) {
-        // Refresh truly failed (e.g. refresh token revoked) — sign the user
-        // out cleanly so they see the login screen instead of a broken app.
-        clearSession();
-        notify('SIGNED_OUT', null);
-        return { data: null, error: { message: 'Your session has expired. Please sign in again.' } };
+        // Only sign out if we are CERTAIN the refresh token is dead.
+        // isDefinitelyInvalidRefreshToken already signed out inside refreshSession
+        // if it was truly invalid — so if we get here with no session, it means
+        // a transient failure. Return the error without signing out so the user
+        // can retry their action.
+        return { data: null, error: { message: 'Connection issue — please try again.' } };
       }
       var retryToken = retrySession.id_token || retrySession.access_token;
       result = await doFetch(retryToken, spec);
@@ -483,8 +501,8 @@
     async getSession() {
       var session = getStoredSession();
       if (!session) return { data: { session: null }, error: null };
-      // Refresh if within 5 minutes of expiry (matches scheduleRefresh buffer)
-      if (session.expires_at && session.expires_at * 1000 < Date.now() + 300000) return refreshSession();
+      // Refresh if within 10 minutes of expiry (matches scheduleRefresh buffer)
+      if (session.expires_at && session.expires_at * 1000 < Date.now() + 600000) return refreshSession();
       scheduleRefresh(session);
       return { data: { session: session }, error: null };
     },
@@ -578,15 +596,31 @@
   // When the tab comes back to the foreground after being in the background,
   // browsers may have throttled or silently dropped the refresh setTimeout.
   // This listener fires immediately on visibility restore and proactively
-  // refreshes the token if it has already expired or is within 5 minutes of
+  // refreshes the token if it has already expired or is within 10 minutes of
   // expiry — preventing the "logged out after leaving tab in background" bug.
   document.addEventListener('visibilitychange', function () {
     if (document.visibilityState !== 'visible') return;
     var session = getStoredSession();
     if (!session || !session.refresh_token) return;
     var expiresAt = session.expires_at ? session.expires_at * 1000 : 0;
-    if (expiresAt < Date.now() + 300000) {
+    if (expiresAt < Date.now() + 600000) {
       refreshSession();
+    } else {
+      // Re-arm the timer in case the browser dropped it while backgrounded.
+      scheduleRefresh(session);
     }
   });
+
+  // Heartbeat: every 4 minutes, check if the token needs refreshing.
+  // This is a backstop against browsers that throttle/drop setTimeout
+  // for background tabs — setInterval is more reliably kept alive than
+  // one-shot setTimeout chains.
+  setInterval(function () {
+    var session = getStoredSession();
+    if (!session || !session.refresh_token) return;
+    var expiresAt = session.expires_at ? session.expires_at * 1000 : 0;
+    if (expiresAt < Date.now() + 600000) {
+      refreshSession();
+    }
+  }, 4 * 60 * 1000);
 })();
