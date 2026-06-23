@@ -17448,7 +17448,7 @@
     (function () {
       'use strict';
       var STREAK_KEY = 'rn-streak-v1';
-      var CREDITS_PER_DAY = [1, 2, 3, 4, 5, 6, 7]; // Day 1=1cr, Day 2=2cr … Day 7=7cr (28 credits total)
+      var CREDITS_PER_DAY = [1, 2, 3, 4, 5, 6, 7]; // Day 1=1, Day 2=2 … Day 7=7 credits
       var DAY_MS = 24 * 60 * 60 * 1000;
 
       function getStreak() {
@@ -17652,6 +17652,8 @@
       window.maybeShowStreakPopup = function () {
         // Only show for logged-in users (user object exists)
         if (!window.user) return;
+        // Always show streak popup on every page load/refresh for logged-in
+        // users — whether or not there is something to claim right now.
         // Guard against firing twice on the SAME page load (e.g. both the
         // welcome-popup-close path and the startup timer calling this in
         // quick succession) — but this is an in-memory flag, not
