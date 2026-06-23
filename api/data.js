@@ -852,7 +852,9 @@ async function handleRpc(spec, claims) {
     }
 
     const nextDay = streakDay >= 7 ? 1 : streakDay + 1;
-    const creditsToAdd = 1;
+    // Day N awards N credits: Day 1=1, Day 2=2, … Day 7=7
+    const CREDITS_PER_DAY = [1, 2, 3, 4, 5, 6, 7];
+    const creditsToAdd = CREDITS_PER_DAY[nextDay - 1];
     const currentCredits = parseFloat(profile.credits || '0');
     const newCredits = Math.round((currentCredits + creditsToAdd) * 100) / 100;
 
@@ -862,7 +864,7 @@ async function handleRpc(spec, claims) {
       filters: [{ op: 'eq', column: 'id', value: userId }],
     });
 
-    console.log('[DailyReward] User ' + userId + ' claimed day ' + nextDay + ' — +1 credit, new balance: ' + newCredits);
+    console.log('[DailyReward] User ' + userId + ' claimed day ' + nextDay + ' — +' + creditsToAdd + ' credits, new balance: ' + newCredits);
     return { claimed: true, day: nextDay, credits_awarded: creditsToAdd, new_credits: newCredits };
   }
 
