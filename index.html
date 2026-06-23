@@ -17652,9 +17652,6 @@
       window.maybeShowStreakPopup = function () {
         // Only show for logged-in users (user object exists)
         if (!window.user) return;
-        // Nothing ready to claim right now (already claimed today's, or
-        // mid-cooldown) — don't show at all.
-        if (getClaimableDay() <= 0) return;
         // Guard against firing twice on the SAME page load (e.g. both the
         // welcome-popup-close path and the startup timer calling this in
         // quick succession) — but this is an in-memory flag, not
