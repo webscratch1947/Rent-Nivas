@@ -12590,8 +12590,12 @@
       // Also refresh immediately whenever the tab regains focus/visibility —
       // covers the common case of an admin making a change while the user's
       // tab was backgrounded, without waiting up to 30s.
+      let _rnFocusLastRun = 0;
       const refreshOnFocus = async () => {
         if (!user) return;
+        const now = Date.now();
+        if (now - _rnFocusLastRun < 10000) return; // debounce: max once per 10s
+        _rnFocusLastRun = now;
         await checkUserBan();
         await loadCreditsFromDB();
       };
@@ -14266,6 +14270,8 @@
       const grid = document.getElementById('rent-grid');
       const failBrowse = (msg, showRetry) => {
         if (!grid) return;
+        grid.style.opacity = '';
+        grid.style.pointerEvents = '';
         const retry = showRetry
           ? `<br><button type="button" class="btn btn-terra btn-sm" style="margin-top:14px;" onclick="loadRentPage()">Retry</button>`
           : '';
@@ -14283,6 +14289,9 @@
             if (cached && cached.length && grid) {
               rentAllHouses = cached;
               renderRentPage(rentAllHouses);
+              // Dim stale cache — real data will clear this
+              grid.style.opacity = '0.45';
+              grid.style.pointerEvents = 'none';
             } else if (grid) {
               grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:64px;color:var(--muted);font-size:15px;">' + (window.t ? t('t_loading_listings','Loading listings...') : 'Loading listings...') + '</div>';
             }
@@ -14327,6 +14336,8 @@
         const allChip = document.querySelector('.prop-filter-chip');
         if (allChip) allChip.classList.add('active');
         renderRentPage(rentAllHouses);
+        // Clear stale-cache dim — live data is now shown
+        if (grid) { grid.style.opacity = ''; grid.style.pointerEvents = ''; }
       } catch (e) {
         failBrowse(e.message || 'Could not load listings.', true);
         toast('Browse: ' + (e.message || 'failed'), 'error');
