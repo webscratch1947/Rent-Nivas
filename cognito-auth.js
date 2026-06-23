@@ -77,10 +77,6 @@
     var prior = getStoredSession() || {};
     var tokenClaims = decodeJwt(authResult.AccessToken || authResult.IdToken);
     var user = normalizeUser(decodeJwt(authResult.IdToken || authResult.AccessToken));
-    // FIX: always resolve username from token claims as the final fallback.
-    // Cognito's REFRESH_TOKEN_AUTH response does not include a Username field,
-    // so prior.username was sometimes empty for sessions created before this fix.
-    // cognito:username is the Cognito sub-style username; fall back to email.
     var resolvedUsername = authResult.Username
       || prior.username
       || (tokenClaims && (tokenClaims['cognito:username'] || tokenClaims.username || tokenClaims.email))
@@ -196,16 +192,10 @@
   }
 
   async function attemptRefresh(current) {
-    // FIX: username is required for SECRET_HASH computation on the backend.
-    // Old sessions stored before this fix may have an empty/undefined username.
-    // Fall back to extracting it from the stored token claims so the HMAC
-    // is always computed with a real value and Cognito does not reject the
-    // refresh with NotAuthorizedException (which the old code treated as
-    // "sign out immediately", causing random logouts for affected users).
     var username = current.username;
     if (!username) {
       var claims = decodeJwt(current.access_token || current.id_token);
-      username = (claims && (claims.username || claims['cognito:username'] || claims.email)) || '';
+      username = (claims && (claims['cognito:username'] || claims.username || claims.email)) || '';
     }
     if (!username) throw new Error('Cannot refresh: username not found in stored session');
     return cognito('InitiateAuth', {
@@ -266,16 +256,6 @@
     if (!session || !session.expires_at || !session.refresh_token) return;
     // Refresh 5 minutes before expiry (increased from 2 min) to give more
     // buffer for background-tab timer throttling by browsers.
-    //
-    // FIX: removed Math.max(30000, ...) floor. The old 30-second minimum
-    // meant that if a user reopened the tab with an already-expired token,
-    // the scheduled refresh would be delayed by 30 seconds. During those
-    // 30 seconds every API call would hit the expired-token path. Worse,
-    // if the token expired while the tab was in the background (timer
-    // throttled by the browser), the first visible-state refresh would
-    // also be delayed. Now: if the token is already expired (or expires
-    // within 5 minutes), fire immediately (1ms) so the refresh happens
-    // before any API call needs the token.
     var ms = (session.expires_at * 1000) - Date.now() - 300000;
     refreshTimer = setTimeout(refreshSession, Math.max(1, ms));
   }
