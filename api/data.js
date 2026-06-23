@@ -852,7 +852,6 @@ async function handleRpc(spec, claims) {
     }
 
     const nextDay = streakDay >= 7 ? 1 : streakDay + 1;
-    // Day N awards N credits: Day 1=1, Day 2=2, … Day 7=7
     const CREDITS_PER_DAY = [1, 2, 3, 4, 5, 6, 7];
     const creditsToAdd = CREDITS_PER_DAY[nextDay - 1];
     const currentCredits = parseFloat(profile.credits || '0');
