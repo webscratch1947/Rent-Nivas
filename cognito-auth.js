@@ -75,21 +75,35 @@
   function storeSession(authResult) {
     var now = Math.floor(Date.now() / 1000);
     var prior = getStoredSession() || {};
-    var tokenClaims = decodeJwt(authResult.AccessToken || authResult.IdToken);
     var user = normalizeUser(decodeJwt(authResult.IdToken || authResult.AccessToken));
-    var resolvedUsername = authResult.Username
-      || prior.username
-      || (tokenClaims && (tokenClaims['cognito:username'] || tokenClaims.username || tokenClaims.email))
-      || (user && user.email)
-      || '';
     var session = {
       access_token: authResult.AccessToken,
       id_token: authResult.IdToken,
       refresh_token: authResult.RefreshToken || prior.refresh_token,
-      username: resolvedUsername,
+      // Resolve username from JWT claims so it is never stored empty.
+      // Empty username → wrong SECRET_HASH on next REFRESH_TOKEN_AUTH.
+      username: authResult.Username
+        || prior.username
+        || (function() {
+             var tc = decodeJwt(authResult.AccessToken || authResult.IdToken);
+             return (tc && (tc['cognito:username'] || tc.username || tc.email)) || '';
+           })()
+        || (user && user.email)
+        || '',
       token_type: authResult.TokenType || 'Bearer',
       expires_in: authResult.ExpiresIn || 3600,
-      expires_at: now + (authResult.ExpiresIn || 3600),
+      // ROOT CAUSE FIX: read expiry from the ID token's own exp claim.
+      // Cognito's ExpiresIn reflects the ACCESS token duration (1 day when
+      // access token = 1 day). The ID token (used for API calls) expires
+      // in 60 minutes. Using ExpiresIn caused expires_at = now+86400, so
+      // the proactive refresh never fired inside the 60-min ID token window.
+      expires_at: (function() {
+        var idClaims = decodeJwt(authResult.IdToken);
+        if (idClaims && idClaims.exp) return idClaims.exp;
+        var acClaims = decodeJwt(authResult.AccessToken);
+        if (acClaims && acClaims.exp) return acClaims.exp;
+        return now + (authResult.ExpiresIn || 3600);
+      })(),
       user: user
     };
     localStorage.setItem(CONFIG.storageKey, JSON.stringify(session));
@@ -176,28 +190,32 @@
   var REFRESH_RETRY_DELAYS_MS = [500, 1500];
 
   function isDefinitelyInvalidRefreshToken(err) {
-    // NotAuthorizedException is Cognito's generic error code — it fires for
-    // rate limits, transient failures, wrong clock, and other issues that are
-    // NOT permanent token invalidation. Treating it as "sign out immediately"
-    // causes users to be logged out after any background refresh hiccup.
-    //
-    // Only sign out when Cognito's message body *explicitly* says the refresh
-    // token itself is the problem. All other errors are treated as transient.
-    var msg = (err && (err.raw && (err.raw.__type || err.raw.message))) || (err && err.message) || '';
-    return /Refresh Token has expired/i.test(msg)
-        || /Invalid Refresh Token/i.test(msg)
-        || /Token has been revoked/i.test(msg)
-        || /Refresh token.*revoked/i.test(msg)
-        || /UserNotFoundException/i.test(msg);
+    // Check .message FIRST (has the descriptive text like "Refresh Token has
+    // expired"), then __type. Old code checked __type first; since __type is
+    // always "NotAuthorizedException" (truthy), .message was never read, so
+    // the "Refresh Token has expired" text was invisible and every refresh
+    // failure was treated as transient — keeping the user stuck forever.
+    var rawMsg  = (err && err.raw && err.raw.message)  || '';
+    var rawType = (err && err.raw && err.raw.__type)   || '';
+    var anyMsg  = rawMsg + ' ' + rawType + ' ' + ((err && err.message) || '');
+    return /Refresh Token has expired/i.test(anyMsg)
+        || /Invalid Refresh Token/i.test(anyMsg)
+        || /Token has been revoked/i.test(anyMsg)
+        || /Refresh token.*revoked/i.test(anyMsg)
+        || /UserNotFoundException/i.test(anyMsg)
+        // Any NotAuthorizedException in a REFRESH_TOKEN_AUTH context means
+        // the refresh token is invalid/expired/revoked. Sign out cleanly.
+        || /NotAuthorizedException/i.test(rawType);
   }
 
   async function attemptRefresh(current) {
+    // Older sessions may have empty username; fall back to JWT claims.
     var username = current.username;
     if (!username) {
       var claims = decodeJwt(current.access_token || current.id_token);
       username = (claims && (claims['cognito:username'] || claims.username || claims.email)) || '';
     }
-    if (!username) throw new Error('Cannot refresh: username not found in stored session');
+    if (!username) throw new Error('Cannot refresh: username missing from session');
     return cognito('InitiateAuth', {
       AuthFlow: 'REFRESH_TOKEN_AUTH',
       ClientId: CONFIG.clientId,
@@ -228,6 +246,9 @@
             log('refresh token is genuinely invalid — signing out', err);
             clearSession();
             notify('SIGNED_OUT', null);
+            if (typeof window !== 'undefined' && window.toast) {
+              window.toast('⏰ Your session has expired — please sign in again.', 'info');
+            }
             return { data: { session: null }, error: err };
           }
           log('session refresh attempt ' + (attempt + 1) + ' failed (will retry if attempts remain)', err);
