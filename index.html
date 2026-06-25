@@ -5,18 +5,18 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Rent Nivas - Find & List Homes Across India</title>
-  <link rel="icon" type="image/png" sizes="32x32" href="./favicon.png">
-  <link rel="icon" type="image/png" sizes="16x16" href="./favicon.png">
-  <link rel="apple-touch-icon" href="./favicon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon.png">
+  <link rel="apple-touch-icon" href="/favicon.png">
   <meta name="theme-color" content="#c2714f">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link
     href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800;1,9..40,400&family=Playfair+Display:ital,wght@0,700;0,800;1,700&display=swap"
     rel="stylesheet">
-  <script src="./env-inject.js"></script>
-  <script src="./translations.js"></script> <!-- ← ADD THIS -->
-  <script src="./cognito-auth.js"></script>
+  <script src="/env-inject.js"></script>
+  <script src="/translations.js"></script> <!-- ← ADD THIS -->
+  <script src="/cognito-auth.js"></script>
   <!-- Chart.js is loaded lazily (only when the admin analytics tab is opened) via loadChartJS() -->
   <script>
     /* ── Lazy-loader for Chart.js (saves ~200KB on first load; only admin analytics needs it) ── */
@@ -8342,6 +8342,45 @@
     .streak-claim-area { padding:16px 18px 22px;text-align:center; }
     .streak-timer { font-size:12px;color:var(--muted);margin-top:8px; }
   </style>
+<style id="rn-tut-styles">
+  #rn-tutorial{position:fixed;inset:0;z-index:9999;pointer-events:none;}
+  #rn-tutorial.rn-hidden{display:none!important;}
+  .rn-tut-backdrop{position:absolute;inset:0;background:rgba(0,0,0,0.72);pointer-events:auto;transition:opacity .4s;}
+  .rn-tut-backdrop.rn-transparent{opacity:0;pointer-events:none;}
+  .rn-tut-panel{position:absolute;bottom:0;left:0;right:0;display:flex;align-items:flex-end;z-index:2;animation:rn-slide-up .5s cubic-bezier(.22,1,.36,1) both;}
+  .rn-tut-bubble-wrap{flex:1;padding:0 12px 0;pointer-events:auto;min-width:0;}
+  .rn-tut-bubble-body{background:#FEFDF4;border:2.5px solid #1E3A5F;border-bottom:none;border-radius:20px 20px 0 0;padding:14px 16px 14px;}
+  .rn-tut-controls{display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap;}
+  .rn-tut-lang-wrap{display:flex;align-items:center;gap:5px;}
+  .rn-tut-lang-wrap select{border:1.5px solid #1E3A5F;color:#1E3A5F;background:#fff;border-radius:6px;padding:3px 7px;font-size:12px;font-weight:600;cursor:pointer;outline:none;font-family:inherit;}
+  .rn-tut-play{display:inline-flex;align-items:center;gap:5px;border:1.5px solid #1E3A5F;color:#1E3A5F;background:#fff;border-radius:20px;padding:4px 12px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;}
+  .rn-tut-next-btn{display:none;align-items:center;gap:4px;background:#1E3A5F;color:#fff;border:none;border-radius:20px;padding:5px 14px;font-size:12px;font-weight:700;cursor:pointer;margin-left:auto;font-family:inherit;}
+  .rn-tut-next-btn.rn-show{display:inline-flex;}
+  .rn-tut-skip{background:rgba(30,58,95,.08);color:#1E3A5F;border:1.5px solid rgba(30,58,95,.2);border-radius:20px;padding:4px 12px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;}
+  .rn-tut-text{font-size:14px;line-height:1.6;color:#1E3A5F;font-weight:500;margin:0;}
+  .rn-tut-character{width:244px;flex-shrink:0;display:flex;align-items:flex-end;pointer-events:none;}
+  .rn-tut-char-img{height:320px;object-fit:contain;object-position:bottom;animation:rn-char-slide .6s .2s cubic-bezier(.22,1,.36,1) both;}
+  .rn-audio-bars{display:inline-flex;align-items:flex-end;gap:2px;height:12px;}
+  .rn-audio-bars span{display:inline-block;width:3px;background:#1E3A5F;border-radius:2px;transform-origin:bottom;}
+  .rn-audio-bars span:nth-child(1){height:100%;animation:rn-audio-bar .7s ease-in-out 0s infinite;}
+  .rn-audio-bars span:nth-child(2){height:100%;animation:rn-audio-bar .7s ease-in-out .15s infinite;}
+  .rn-audio-bars span:nth-child(3){height:100%;animation:rn-audio-bar .7s ease-in-out .3s infinite;}
+  #rn-tut-spotlight{display:none;position:fixed;z-index:10001;pointer-events:none;border:2.5px solid #FFD232;border-radius:10px;background:transparent;}
+  #rn-tut-spotlight.rn-show{display:block;animation:rn-spot-pulse 1.4s ease-in-out infinite;}
+  #rn-tut-spotlight-label{display:none;position:fixed;z-index:20002;pointer-events:none;transform:translateX(-50%);}
+  #rn-tut-spotlight-label.rn-show{display:block;animation:rn-label-bounce 1.4s ease-in-out infinite;}
+  #rn-tut-btn-click{display:none;}
+  #rn-tut-spotlight2{display:none;position:fixed;z-index:10001;pointer-events:none;border:2.5px solid #FFD232;border-radius:10px;animation:rn-spot-pulse2 1.4s ease-in-out infinite;}
+  @keyframes rn-slide-up{from{transform:translateY(100%);opacity:0}to{transform:translateY(0);opacity:1}}
+  @keyframes rn-char-slide{from{transform:translateY(60px);opacity:0}to{transform:translateY(0);opacity:1}}
+  @keyframes rn-spot-pulse{0%,100%{box-shadow:0 0 0 9999px rgba(0,0,0,0.72),0 0 0 4px rgba(255,210,50,.4),0 0 25px rgba(255,210,50,.7)}50%{box-shadow:0 0 0 9999px rgba(0,0,0,0.72),0 0 0 8px rgba(255,210,50,.2),0 0 45px rgba(255,210,50,.9)}}
+  @keyframes rn-spot-pulse2{0%,100%{box-shadow:0 0 0 4px rgba(255,210,50,.4),0 0 25px rgba(255,210,50,.7)}50%{box-shadow:0 0 0 8px rgba(255,210,50,.2),0 0 45px rgba(255,210,50,.9)}}
+  @keyframes rn-label-bounce{0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(-5px)}}
+  @keyframes rn-audio-bar{0%,100%{transform:scaleY(.4)}50%{transform:scaleY(1)}}
+  @media(max-width:767px){.rn-tut-character{display:none!important}.rn-tut-bubble-wrap{max-width:100%!important;padding:0 8px 0}}
+  /* Keep Tawk.to widget from blocking content on mobile */
+  @media(max-width:767px){#fc_frame,iframe[title*="chat" i],iframe[src*="tawk"]{bottom:80px!important;max-height:55px!important;}}
+</style>
 </head>
 
 <body>
@@ -8349,7 +8388,7 @@
   <!-- ══ BOOT SPLASH — shown instantly on every load/reload until the app
        finishes checking your session & routing you to the right page ══ -->
   <div id="rn-boot-splash" style="position:fixed;inset:0;z-index:99999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;background:linear-gradient(135deg,#faf8f5 0%,#f2ede6 55%,#e9e2d8 100%);transition:opacity .35s ease;">
-    <img src="./favicon.png" alt="Rent Nivas" style="width:72px;height:72px;border-radius:18px;box-shadow:0 8px 32px rgba(194,113,79,.2);">
+    <img src="/favicon.png" alt="Rent Nivas" style="width:72px;height:72px;border-radius:18px;box-shadow:0 8px 32px rgba(194,113,79,.2);">
     <div style="font-size:22px;font-weight:900;letter-spacing:-.4px;color:#18150f;">Rent<span style="color:#c2714f;">Nivas</span></div>
     <div style="width:38px;height:38px;border:3px solid rgba(194,113,79,.2);border-top-color:#c2714f;border-radius:50%;animation:spin .75s linear infinite;"></div>
     <div style="font-size:13px;font-weight:600;color:#7a7068;letter-spacing:.4px;">Loading your experience…</div>
@@ -8363,7 +8402,7 @@
   <!-- ══ MOBILE SIDEBAR MENU ══ -->
   <div class="mob-sidebar" id="mob-sidebar">
     <div class="mob-sidebar-head">
-      <img src="./favicon.png" alt="Rent Nivas" class="rn-logo-img">
+      <img src="/favicon.png" alt="Rent Nivas" class="rn-logo-img">
       <button class="mob-sidebar-close" onclick="closeMobSidebar()">✕</button>
     </div>
     <!-- USER INFO (shown when logged in) -->
@@ -8377,7 +8416,7 @@
         style="background:rgba(194,113,79,.18);border-radius:12px;">
         <span class="mob-nav-icon">✨</span> Create Account
       </button>
-      <button class="mob-nav-item" onclick="closeMobSidebar();window.open('./language.html','_blank')">
+      <button class="mob-nav-item" onclick="closeMobSidebar();window.open('/language.html','_blank')">
         <span class="mob-nav-icon">🌐</span> Language <span id="mob-lang-badge-lo"
           style="margin-left:4px;font-size:10px;background:rgba(201,106,59,0.22);color:#e88a5a;border-radius:5px;padding:1px 6px;font-weight:600;"></span>
       </button>
@@ -8412,7 +8451,7 @@
         onclick="closeMobSidebar();showPage('purchased-page');if(typeof loadPurchasedPage==='function')loadPurchasedPage()">
         <span class="mob-nav-icon">🔓</span> Unlocked
       </button>
-      <button class="mob-nav-item" onclick="closeMobSidebar();window.open('./language.html','_blank')">
+      <button class="mob-nav-item" onclick="closeMobSidebar();window.open('/language.html','_blank')">
         <span class="mob-nav-icon">🌐</span> Language <span id="mob-lang-badge"
           style="margin-left:4px;font-size:10px;background:rgba(201,106,59,0.22);color:#e88a5a;border-radius:5px;padding:1px 6px;font-weight:600;"></span>
       </button>
@@ -8543,13 +8582,13 @@
   <!-- ══ LANDING PAGE ══ -->
   <div class="page active" id="landing-page">
     <nav class="lp-nav" id="lp-nav">
-      <img src="./favicon.png" alt="Rent Nivas" class="rn-logo-img" onclick="showPage('landing-page')">
+      <img src="/favicon.png" alt="Rent Nivas" class="rn-logo-img" onclick="showPage('landing-page')">
       <div class="lp-nav-links">
         <a onclick="smoothScroll('#how-it-works')">How it works</a>
         <a onclick="smoothScroll('#features')">Features</a>
         <a onclick="smoothScroll('#testimonials')">Testimonials</a>
         <a onclick="smoothScroll('#support')">Support</a>
-        <a onclick="window.open('./language.html','_blank')" style="display:flex;align-items:center;gap:5px;">🌐
+        <a onclick="window.open('/language.html','_blank')" style="display:flex;align-items:center;gap:5px;">🌐
           Language<span id="lp-nav-lang-badge"
             style="font-size:11px;background:rgba(201,106,59,0.18);color:#e88a5a;border-radius:6px;padding:1px 7px;font-weight:600;"></span></a>
       </div>
@@ -8735,7 +8774,7 @@
     </section>
     <footer class="lp-footer">
       <div class="footer-simple-inner">
-        <img src="./favicon.png" alt="Rent Nivas" class="rn-logo-img">
+        <img src="/favicon.png" alt="Rent Nivas" class="rn-logo-img">
         <div class="footer-simple-links">
           <a onclick="smoothScroll('#how-it-works')">How it works</a>
           <a onclick="smoothScroll('#support')">Support</a>
@@ -8774,7 +8813,7 @@
     <div class="auth-wrap">
       <div class="auth-left">
         <div class="auth-left-content">
-          <img src="./favicon.png" alt="Rent Nivas" class="rn-logo-img" onclick="showPage('landing-page')"
+          <img src="/favicon.png" alt="Rent Nivas" class="rn-logo-img" onclick="showPage('landing-page')"
             style="height:40px;cursor:pointer;">
           <div class="auth-left-h">Welcome<br><em>back.</em></div>
           <p class="auth-left-p">Your dashboard awaits. Manage listings, track performance, and connect with renters.
@@ -8824,7 +8863,7 @@
     <div class="auth-wrap">
       <div class="auth-left">
         <div class="auth-left-content">
-          <img src="./favicon.png" alt="Rent Nivas" class="rn-logo-img" onclick="showPage('landing-page')"
+          <img src="/favicon.png" alt="Rent Nivas" class="rn-logo-img" onclick="showPage('landing-page')"
             style="height:40px;cursor:pointer;">
           <div class="auth-left-h">List your<br><em>home, today.</em></div>
           <p class="auth-left-p">Join India's growing rental marketplace. Direct connections with verified renters.</p>
@@ -8873,7 +8912,7 @@
   <!-- ══ ROLE SELECTION PAGE ══ -->
   <div class="page" id="role-page">
     <div class="role-page-wrap">
-      <img src="./favicon.png" alt="Rent Nivas" class="rn-logo-img">
+      <img src="/favicon.png" alt="Rent Nivas" class="rn-logo-img">
       <div class="role-page-sub">India's premier rental platform</div>
       <div class="role-page-title">What are you here for?</div>
       <p style="font-size:16px;color:var(--muted);text-align:center;margin-bottom:40px;max-width:400px;">Choose your
@@ -8934,7 +8973,7 @@
           <button class="nav-btn" id="rnb-partner" onclick="goToPartnerArea()">
             <span class="icon">🤝</span><span class="label">Partner Panel</span><span class="nav-badge partner-nav-badge" style="display:none;"></span>
           </button>
-          <button class="nav-btn" onclick="window.open('./language.html','_blank')"><span class="icon">🌐</span><span class="label" data-i18n="rent_nav_language">Language</span></button>
+          <button class="nav-btn" onclick="window.open('/language.html','_blank')"><span class="icon">🌐</span><span class="label" data-i18n="rent_nav_language">Language</span></button>
           <button class="nav-btn" onclick="window.open('https://wa.me/919303322445','_blank')"><span class="icon">💬</span><span class="label" data-i18n="rent_nav_whatsapp">WhatsApp Support</span></button>
           <button class="nav-btn" onclick="showPage('landing-page');setTimeout(function(){var el=document.getElementById('support');if(el){window.scrollTo({top:el.offsetTop-20,behavior:'smooth'});}},400)"><span class="icon">🛟</span><span class="label" data-i18n="rent_nav_support">Support</span></button>
         </div>
@@ -9123,7 +9162,7 @@
               class="label" data-i18n="dash_nav_settings">Settings</span></button>
           <button class="nav-btn" id="nb-partner" onclick="goToPartnerArea()"><span class="icon">🤝</span><span
               class="label">Partner Panel</span><span class="nav-badge partner-nav-badge" style="display:none;"></span></button>
-          <button class="nav-btn" onclick="window.open('./language.html','_blank')"><span class="icon">🌐</span><span
+          <button class="nav-btn" onclick="window.open('/language.html','_blank')"><span class="icon">🌐</span><span
               class="label" data-i18n="dash_nav_language">Language<span id="ds-lang-badge"
                 style="margin-left:6px;font-size:10px;background:rgba(201,106,59,0.18);color:#e88a5a;border-radius:5px;padding:1px 6px;font-weight:600;"></span></span></button>
           <button class="nav-btn" onclick="window.open('https://wa.me/919303322445','_blank')"><span class="icon">💬</span><span class="label" data-i18n="dash_nav_whatsapp">WhatsApp Support</span></button>
@@ -16709,7 +16748,7 @@
             ['🏠', 'Platform Only', 'We are only a platform connecting house owners and renters. We do not guarantee any deal.'],
             ['✅', 'Genuine Information', 'Users must provide correct and genuine information.'],
             ['⚖️', 'No Liability for Disputes', 'We are not responsible for any fraud, dispute, or agreement between users.'],
-            ['🪙', 'Free Unlocks', 'Payments are disabled right now, so listings and contact unlocks are free.'],
+            ['🪙', 'RN Credits on Signup', 'New users receive 10 RN credits on signup to unlock property contact details. Credits are limited — not unlimited.'],
             ['🗑️', 'Listing Removal', 'We reserve the right to remove any listing that is fake or inappropriate.'],
             ['🚫', 'Misuse Policy', 'Misuse of the platform may lead to account suspension.'],
           ].map(([icon, title, text], i) => `
@@ -17197,7 +17236,7 @@
     <div class="auth-wrap">
       <div class="auth-left">
         <div class="auth-left-content">
-          <img src="./favicon.png" alt="Rent Nivas" class="rn-logo-img" onclick="showPage('landing-page')"
+          <img src="/favicon.png" alt="Rent Nivas" class="rn-logo-img" onclick="showPage('landing-page')"
             style="height:40px;cursor:pointer;">
           <div class="auth-left-h">Create a<br><em>new password.</em></div>
           <p class="auth-left-p">Choose a strong password for your Rent Nivas account. You'll be redirected to sign in
@@ -17357,7 +17396,7 @@
         style="background:linear-gradient(135deg,var(--ink) 0%,#2d2318 100%);padding:36px 32px 28px;text-align:center;">
         <!-- Logo on top, bigger -->
         <div style="display:flex;justify-content:center;margin-bottom:20px;">
-          <img src="./favicon.png" alt="Rent Nivas"
+          <img src="/favicon.png" alt="Rent Nivas"
             style="height:100px;width:100px;border-radius:50%;border:3px solid rgba(255,255,255,0.35);object-fit:cover;box-shadow:0 6px 24px rgba(0,0,0,0.4);">
         </div>
         <!-- Stylised Welcome / To / Rent Nivas text -->
@@ -17733,10 +17772,11 @@
       });
     })();
   </script>
-  <script src="./partner-badges.js"></script>
+  <script src="/partner-badges.js"></script>
 <!--Start of Tawk.to Script-->
 <script type="text/javascript">
 var Tawk_API=Tawk_API||{}, Tawk_LoadStart=new Date();
+Tawk_API.onLoad=function(){Tawk_API.minimize();};
 (function(){
 var s1=document.createElement("script"),s0=document.getElementsByTagName("script")[0];
 s1.async=true;
@@ -17747,6 +17787,157 @@ s0.parentNode.insertBefore(s1,s0);
 })();
 </script>
 <!--End of Tawk.to Script-->
+<!-- == RENT NIVAS TUTORIAL OVERLAY == -->
+<div id="rn-tutorial" class="rn-hidden">
+  <div class="rn-tut-backdrop" id="rn-tut-backdrop"></div>
+  <div id="rn-tut-spotlight"></div>
+  <div id="rn-tut-spotlight-label">
+    <div id="rn-tut-label-text" style="background:#FFD232;color:#1E3A5F;font-weight:700;font-size:12px;padding:5px 14px;border-radius:8px;box-shadow:0 2px 10px rgba(255,210,50,.5);white-space:nowrap;font-family:inherit;"></div>
+    <div style="width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-top:8px solid #FFD232;margin:0 auto;"></div>
+  </div>
+  <div id="rn-tut-btn-click" onclick="window._RNTut&&window._RNTut.handleGetStartedClick()"></div>
+  <div id="rn-tut-spotlight2"></div>
+  <div class="rn-tut-panel" id="rn-tut-panel">
+    <div class="rn-tut-bubble-wrap" id="rn-tut-bubble-wrap">
+      <div class="rn-tut-bubble-body">
+        <div class="rn-tut-controls">
+          <div class="rn-tut-lang-wrap">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1E3A5F" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 010 20M12 2a15 15 0 000 20"/></svg>
+            <select id="rn-tut-lang" onchange="window._RNTut&&window._RNTut.setLang(this.value)">
+              <option value="en">English</option>
+              <option value="hi">&#x939;&#x93F;&#x902;&#x926;&#x940;</option>
+              <option value="te">&#x0C24;&#x0C46;&#x0C32;&#x0C41;&#x0C17;&#x0C41;</option>
+            </select>
+          </div>
+          <button id="rn-tut-play-btn" class="rn-tut-play" onclick="window._RNTut&&window._RNTut.toggleAudio()">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="#1E3A5F"><path d="M8 5v14l11-7z"/></svg><span>Play</span>
+          </button>
+          <button id="rn-tut-next" class="rn-tut-next-btn" onclick="window._RNTut&&window._RNTut.handleContinue()">Continue &#x2192;</button>
+          <button class="rn-tut-skip" onclick="window._RNTut&&window._RNTut.skip()">Skip Tutorial</button>
+        </div>
+        <p class="rn-tut-text" id="rn-tut-text"></p>
+      </div>
+      <svg width="100%" height="24" viewBox="0 0 600 24" preserveAspectRatio="none" style="display:block;margin-top:-1px;">
+        <path d="M0,0 L600,0 Q585,24 570,0 Q555,24 540,0 Q525,24 510,0 Q495,24 480,0 Q465,24 450,0 Q435,24 420,0 Q405,24 390,0 Q375,24 360,0 Q345,24 330,0 Q315,24 300,0 Q285,24 270,0 Q255,24 240,0 Q225,24 210,0 Q195,24 180,0 Q165,24 150,0 Q135,24 120,0 Q105,24 90,0 Q75,24 60,0 Q45,24 30,0 Q15,24 0,0 Z" fill="#FEFDF4"/>
+        <path d="M0,0 Q15,24 30,0 Q45,24 60,0 Q75,24 90,0 Q105,24 120,0 Q135,24 150,0 Q165,24 180,0 Q195,24 210,0 Q225,24 240,0 Q255,24 270,0 Q285,24 300,0 Q315,24 330,0 Q345,24 360,0 Q375,24 390,0 Q405,24 420,0 Q435,24 450,0 Q465,24 480,0 Q495,24 510,0 Q525,24 540,0 Q555,24 570,0 Q585,24 600,0" fill="none" stroke="#1E3A5F" stroke-width="2.5"/>
+      </svg>
+    </div>
+    <div class="rn-tut-character">
+      <img src="/character.png" alt="Rent Nivas Guide" class="rn-tut-char-img">
+    </div>
+  </div>
+</div>
+<audio id="rn-tut-audio"></audio>
+<script>
+(function(){
+'use strict';
+var C={
+  en:{
+    0:"Welcome to Rent Nivas! I'm your guide to India's growing rental platform. Sign up for free — you get 10 RN credits which you can use to unlock houses, and listing your property is completely free for our first 999 hosts. Let me show you around!",
+    1:"Click the 'Get Started' button to create your free account. It only takes a minute!",
+    2:"Fill in your full name, email and password. A referral code is optional. You'll get 10 RN credits on signup to unlock property contact details — no payment needed!",
+    3:"Almost done! We just sent a 6-digit code to your email. Check your inbox (and spam folder too), then enter the code to verify and complete your account!"
+  },
+  hi:{
+    0:"Rent Nivas में आपका स्वागत है! मैं आपका गाइड हूँ। साइन अप करें — यह मुफ्त है! 10 RN क्रेडिट मिलेंगे जिनसे आप घर अनलॉक कर सकते हैं, और पहली 999 प्रॉपर्टी लिस्टिंग बिल्कुल मुफ्त है।",
+    1:"अपना मुफ्त खाता बनाने के लिए 'Get Started' बटन पर क्लिक करें। बस एक मिनट लगेगा!",
+    2:"अपना पूरा नाम, ईमेल और पासवर्ड भरें। रेफरल कोड वैकल्पिक है। साइन अप पर 10 मुफ्त क्रेडिट मिलेंगे!",
+    3:"लगभग हो गया! हमने आपके ईमेल पर 6 अंकों का कोड भेजा है। इनबॉक्स और स्पैम चेक करें, फिर यहाँ कोड दर्ज करें!"
+  },
+  te:{
+    0:"Rent Nivas కి స్వాగతం! నేను మీ గైడ్. సైన్ అప్ చేయండి — ఉచితం! 10 RN క్రెడిట్స్ పొందండి ఇంటిని అన్‌లాక్ చేయడానికి, మరియు మొదటి 999 హోస్ట్‌లకు లిస్టింగ్ పూర్తిగా ఉచితం.",
+    1:"'Get Started' బటన్ పై క్లిక్ చేసి మీ ఉచిత ఖాతాను సృష్టించండి. ఒక నిమిషం మాత్రమే!",
+    2:"మీ పూర్తి పేరు, ఇమెయిల్ మరియు పాస్‌వర్డ్ నమోదు చేయండి. రెఫరల్ కోడ్ ఐచ్ఛికం. సైన్ అప్‌లో 10 ఉచిత క్రెడిట్స్!",
+    3:"దాదాపు అయిపోయింది! మేము మీ ఇమెయిల్‌కు 6 అంకెల కోడ్ పంపాము. ఇన్‌బాక్స్ మరియు స్పామ్ చెక్ చేసి కోడ్ నమోదు చేయండి!"
+  }
+};
+var LBL={en:"Click here to Get Started!",hi:"यहाँ क्लिक करें",te:"ఇక్కడ క్లిక్ చేయండి"};
+var T={
+  step:-1,lang:'en',isPlaying:false,done:false,
+  isLoggedIn:function(){
+    if(localStorage.getItem('rn-tutorial-done'))return true;
+    try{
+      var raw=localStorage.getItem('rentnivas-auth');
+      if(raw){var s=JSON.parse(raw),t=s.id_token||s.access_token;if(t&&s.refresh_token){var p=JSON.parse(atob(t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/')));var exp=p.exp?p.exp*1000:0;if(!(exp>0&&exp<Date.now()-600000))return true;}}
+    }catch(_){}
+    return false;
+  },
+  init:function(){
+    var s=this;
+    if(this.isLoggedIn())return;
+    var ov=document.getElementById('rn-tutorial');
+    if(!ov)return;
+    ov.classList.remove('rn-hidden');
+    setTimeout(function(){if(typeof window.closeWelcomePopup==='function')window.closeWelcomePopup();},300);
+    if(typeof window.showPage==='function'){
+      var orig=window.showPage;
+      window.showPage=function(p){orig.apply(this,arguments);setTimeout(function(){s.onPageChange(p);},250);};
+    }
+    var obs=new MutationObserver(function(ms){
+      for(var i=0;i<ms.length;i++){var m=ms[i];for(var j=0;j<m.addedNodes.length;j++){var n=m.addedNodes[j];if(!n)continue;if(n.id==='signup-verify-box'){s.setStep(3);return;}if(n.querySelector&&n.querySelector('#signup-verify-box')){s.setStep(3);return;}}}
+    });
+    obs.observe(document.body,{childList:true,subtree:true});
+    window.addEventListener('scroll',function(){s.updateSpot();},{passive:true});
+    window.addEventListener('resize',function(){s.updateSpot();},{passive:true});
+    setTimeout(function(){s.setStep(0);},600);
+  },
+  setStep:function(n){
+    if(this.done||n===this.step)return;
+    this.step=n;
+    this.stopAudio();
+    this.updateText();
+    this.updateBd();
+    this.updateSpot();
+    if(n!==0){var nx=document.getElementById('rn-tut-next');if(nx)nx.classList.remove('rn-show');}
+    this.playAudio();
+  },
+  updateText:function(){var el=document.getElementById('rn-tut-text');if(el)el.textContent=(C[this.lang]||C.en)[this.step]||'';},
+  updateBd:function(){
+    var bd=document.getElementById('rn-tut-backdrop');
+    var panel=document.getElementById('rn-tut-panel');
+    if(!bd)return;
+    if(this.step>=1){
+      bd.classList.add('rn-transparent');
+    }else{
+      bd.classList.remove('rn-transparent');
+    }
+    if(panel){panel.style.zIndex=this.step===1?'20001':'2';}
+  },
+  updateSpot:function(){
+    var sp=document.getElementById('rn-tut-spotlight'),lb=document.getElementById('rn-tut-spotlight-label'),lt=document.getElementById('rn-tut-label-text'),cl=document.getElementById('rn-tut-btn-click'),sp2=document.getElementById('rn-tut-spotlight2');
+    if(sp)sp.classList.remove('rn-show');if(lb)lb.classList.remove('rn-show');if(cl)cl.classList.remove('rn-show');if(sp2)sp2.style.display='none';
+    if(this.step===1){
+      var btn=document.getElementById('lp-nav-getstarted');if(!btn)return;
+      var r=btn.getBoundingClientRect();
+      if(sp){sp.style.cssText='top:'+(r.top-7)+'px;left:'+(r.left-7)+'px;width:'+(r.width+14)+'px;height:'+(r.height+14)+'px;';sp.classList.add('rn-show');}
+      if(lb&&lt){lt.textContent=LBL[this.lang]||LBL.en;lb.style.top=(r.top-50)+'px';lb.style.left=(r.left+r.width/2)+'px';lb.classList.add('rn-show');}
+      if(cl){cl.style.cssText='top:'+(r.top-7)+'px;left:'+(r.left-7)+'px;width:'+(r.width+14)+'px;height:'+(r.height+14)+'px;';cl.classList.add('rn-show');}
+    }
+    if(this.step===3){
+      var inp=document.getElementById('signup-verification-code');
+      if(inp&&sp2){var r2=inp.getBoundingClientRect();sp2.style.cssText='display:block;top:'+(r2.top-6)+'px;left:'+(r2.left-6)+'px;width:'+(r2.width+12)+'px;height:'+(r2.height+12)+'px;';}
+    }
+  },
+  playAudio:function(){
+    var s=this,a=document.getElementById('rn-tut-audio');if(!a)return;
+    a.src='/audio/step'+(this.step+1)+'-'+this.lang+'.mp3';a.load();
+    var p=a.play();
+    if(p&&p.then)p.then(function(){s.isPlaying=true;s.updPB();}).catch(function(){s.isPlaying=false;s.updPB();if(s.step===0){var nx=document.getElementById('rn-tut-next');if(nx)nx.classList.add('rn-show');}});
+    a.onended=function(){s.isPlaying=false;s.updPB();if(s.step===0)setTimeout(function(){s.setStep(1);},600);};
+  },
+  stopAudio:function(){var a=document.getElementById('rn-tut-audio');if(a){try{a.pause();a.currentTime=0;}catch(e){}}this.isPlaying=false;this.updPB();},
+  toggleAudio:function(){var s=this,a=document.getElementById('rn-tut-audio');if(!a)return;if(this.isPlaying){a.pause();this.isPlaying=false;}else{a.play().then(function(){s.isPlaying=true;s.updPB();}).catch(function(){});}this.updPB();},
+  updPB:function(){var b=document.getElementById('rn-tut-play-btn');if(!b)return;b.innerHTML=this.isPlaying?'<span class="rn-audio-bars"><span></span><span></span><span></span></span><span>Playing</span>':'<svg width="12" height="12" viewBox="0 0 24 24" fill="#1E3A5F"><path d="M8 5v14l11-7z"/></svg><span>Play</span>';},
+  setLang:function(l){this.lang=l;this.updateText();this.stopAudio();this.playAudio();var lt=document.getElementById('rn-tut-label-text');if(lt&&this.step===1)lt.textContent=LBL[l]||LBL.en;},
+  handleGetStartedClick:function(){if(typeof window.showPage==='function')window.showPage('signup-page');},
+  handleContinue:function(){if(this.step===0)this.setStep(1);},
+  onPageChange:function(p){if(p==='signup-page'&&this.step<=1)this.setStep(2);},
+  skip:function(){localStorage.setItem('rn-tutorial-done','1');var o=document.getElementById('rn-tutorial');if(o)o.classList.add('rn-hidden');this.done=true;}
+};
+window._RNTut=T;
+if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',function(){setTimeout(function(){T.init();},400);});}else{setTimeout(function(){T.init();},400);}
+})();
+</script>
 </body>
 
 </html>
