@@ -8345,8 +8345,12 @@
 <style id="rn-tut-styles">
   #rn-tutorial{position:fixed;inset:0;z-index:9999;pointer-events:none;}
   #rn-tutorial.rn-hidden{display:none!important;}
-  .rn-tut-backdrop{position:absolute;inset:0;background:rgba(0,0,0,0.72);pointer-events:auto;transition:opacity .4s;}
+  .rn-tut-backdrop{position:absolute;inset:0;background:rgba(0,0,0,0.72);pointer-events:auto;transition:opacity .4s;opacity:0;pointer-events:none;}
+  .rn-tut-backdrop.rn-active{opacity:1;pointer-events:auto;}
   .rn-tut-backdrop.rn-transparent{opacity:0;pointer-events:none;}
+  /* Mobile: prevent tutorial panel from covering page content */
+  body.rn-tut-open{padding-bottom:160px!important;}
+  @media(max-width:767px){body.rn-tut-open{padding-bottom:180px!important;}}
   .rn-tut-panel{position:absolute;bottom:0;left:0;right:0;display:flex;align-items:flex-end;z-index:2;animation:rn-slide-up .5s cubic-bezier(.22,1,.36,1) both;}
   .rn-tut-bubble-wrap{flex:1;padding:0 12px 0;pointer-events:auto;min-width:0;}
   .rn-tut-bubble-body{background:#FEFDF4;border:2.5px solid #1E3A5F;border-bottom:none;border-radius:20px 20px 0 0;padding:14px 16px 14px;}
@@ -8378,8 +8382,17 @@
   @keyframes rn-label-bounce{0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(-5px)}}
   @keyframes rn-audio-bar{0%,100%{transform:scaleY(.4)}50%{transform:scaleY(1)}}
   @media(max-width:767px){.rn-tut-character{display:none!important}.rn-tut-bubble-wrap{max-width:100%!important;padding:0 8px 0}}
-  /* Keep Tawk.to widget from blocking content on mobile */
-  @media(max-width:767px){#fc_frame,iframe[title*="chat" i],iframe[src*="tawk"]{bottom:80px!important;max-height:55px!important;}}
+  /* Tawk.to widget: float above tutorial panel on mobile, keep button-sized */
+  @media(max-width:767px){
+    #fc_frame,iframe[title*="chat" i],iframe[src*="tawk"]{
+      bottom:170px!important;
+      right:12px!important;
+      width:56px!important;
+      height:56px!important;
+      max-height:56px!important;
+      min-height:unset!important;
+    }
+  }
 </style>
 </head>
 
@@ -17914,6 +17927,7 @@ var T={
     var ov=document.getElementById('rn-tutorial');
     if(!ov)return;
     ov.classList.remove('rn-hidden');
+    document.body.classList.add('rn-tut-open');
     setTimeout(function(){if(typeof window.closeWelcomePopup==='function')window.closeWelcomePopup();},300);
     if(typeof window.showPage==='function'){
       var origPage=window.showPage;
@@ -17976,10 +17990,12 @@ var T={
     var bd=document.getElementById('rn-tut-backdrop');
     var panel=document.getElementById('rn-tut-panel');
     if(!bd)return;
-    if(this.step>=1){
-      bd.classList.add('rn-transparent');
-    }else{
+    if(this.step===0){
+      bd.classList.add('rn-active');
       bd.classList.remove('rn-transparent');
+    }else{
+      bd.classList.remove('rn-active');
+      bd.classList.add('rn-transparent');
     }
     if(panel){panel.style.zIndex=this.step===1?'20001':'2';}
   },
@@ -18056,6 +18072,7 @@ var T={
   finish:function(){
     localStorage.setItem('rn-tutorial-done','1');
     var o=document.getElementById('rn-tutorial');if(o)o.classList.add('rn-hidden');
+    document.body.classList.remove('rn-tut-open');
     this.done=true;
     this.stopAudio();
     this.applyChat();
