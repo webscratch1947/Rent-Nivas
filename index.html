@@ -17776,7 +17776,7 @@
 <!--Start of Tawk.to Script-->
 <script type="text/javascript">
 var Tawk_API=Tawk_API||{}, Tawk_LoadStart=new Date();
-Tawk_API.onLoad=function(){Tawk_API.minimize();};
+Tawk_API.onLoad=function(){Tawk_API.minimize();if(window._rnTutHideChat&&typeof Tawk_API.hideWidget==='function')Tawk_API.hideWidget();};
 (function(){
 var s1=document.createElement("script"),s0=document.getElementsByTagName("script")[0];
 s1.async=true;
@@ -17836,22 +17836,68 @@ var C={
     0:"Welcome to Rent Nivas! I'm your guide to India's growing rental platform. Sign up for free — you get 10 RN credits which you can use to unlock houses, and listing your property is completely free for our first 999 hosts. Let me show you around!",
     1:"Click the 'Get Started' button to create your free account. It only takes a minute!",
     2:"Fill in your full name, email and password. A referral code is optional. You'll get 10 RN credits on signup to unlock property contact details — no payment needed!",
-    3:"Almost done! We just sent a 6-digit code to your email. Check your inbox (and spam folder too), then enter the code to verify and complete your account!"
+    3:"Almost done! We just sent a 6-digit code to your email. Check your inbox (and spam folder too), then enter the code to verify and complete your account!",
+    4:"Now enter your registered email and password, then click 'Sign In →' to log into your account!",
+    5:"Great! Now choose what you'd like to do — list a property as an Owner, or browse rentals as a Renter.",
+    6:"🎉 Congratulations — you've successfully created your account! Let me show you around the main features of Rent Nivas.",
+    7:"📊 This is your main dashboard. From here you can list houses, check your analytics, manage clients, and track everything about your properties.",
+    8:"➕ Let's list your first home! Click the 'Add Listing' button to open the listing form.",
+    9:"Here's how to list your property: pick a Property Type, then fill in your Address & Location, Rent & Deposit, Rooms & Amenities, and upload Photos. When you're ready, scroll down and click '🚀 Publish Listing' to make it live!",
+    10:"🎉 Congratulations — your account is ready! Let me show you how to find your next home on Rent Nivas.",
+    11:"🔍 This is the Browse Homes page — every verified listing shows up here. Use the search bar or the filter chips to narrow results by property type.",
+    12:"🔓 Found a home you like? Unlocking it reveals the owner's phone number and address. You start with 10 free RN credits — check 'Unlocked Homes' anytime to see what you've already unlocked."
   },
   hi:{
     0:"Rent Nivas में आपका स्वागत है! मैं आपका गाइड हूँ। साइन अप करें — यह मुफ्त है! 10 RN क्रेडिट मिलेंगे जिनसे आप घर अनलॉक कर सकते हैं, और पहली 999 प्रॉपर्टी लिस्टिंग बिल्कुल मुफ्त है।",
     1:"अपना मुफ्त खाता बनाने के लिए 'Get Started' बटन पर क्लिक करें। बस एक मिनट लगेगा!",
     2:"अपना पूरा नाम, ईमेल और पासवर्ड भरें। रेफरल कोड वैकल्पिक है। साइन अप पर 10 मुफ्त क्रेडिट मिलेंगे!",
-    3:"लगभग हो गया! हमने आपके ईमेल पर 6 अंकों का कोड भेजा है। इनबॉक्स और स्पैम चेक करें, फिर यहाँ कोड दर्ज करें!"
+    3:"लगभग हो गया! हमने आपके ईमेल पर 6 अंकों का कोड भेजा है। इनबॉक्स और स्पैम चेक करें, फिर यहाँ कोड दर्ज करें!",
+    4:"अब अपना रजिस्टर्ड ईमेल और पासवर्ड डालें, फिर अपने अकाउंट में लॉगिन करने के लिए 'Sign In →' पर क्लिक करें!",
+    5:"बहुत बढ़िया! अब चुनें कि आप क्या करना चाहते हैं — मालिक के रूप में प्रॉपर्टी लिस्ट करें, या किरायेदार के रूप में किराये के घर ब्राउज़ करें।",
+    6:"🎉 बधाई हो — आपका अकाउंट सफलतापूर्वक बन गया है! आइए मैं आपको Rent Nivas की मुख्य सुविधाएं दिखाता हूँ।",
+    7:"📊 यह आपका मुख्य डैशबोर्ड है। यहाँ से आप घर लिस्ट कर सकते हैं, एनालिटिक्स देख सकते हैं, क्लाइंट मैनेज कर सकते हैं, और अपनी सभी प्रॉपर्टीज़ ट्रैक कर सकते हैं।",
+    8:"➕ चलिए अपना पहला घर लिस्ट करते हैं! लिस्टिंग फॉर्म खोलने के लिए 'Add Listing' बटन पर क्लिक करें।",
+    9:"अपनी प्रॉपर्टी लिस्ट करने का तरीका: सबसे पहले Property Type चुनें, फिर Address & Location, Rent & Deposit, Rooms & Amenities भरें, और फोटो अपलोड करें। तैयार होने पर नीचे स्क्रॉल करें और '🚀 Publish Listing' पर क्लिक करें!",
+    10:"🎉 बधाई हो — आपका अकाउंट तैयार है! आइए मैं आपको दिखाता हूँ कि Rent Nivas पर अपना नया घर कैसे खोजें।",
+    11:"🔍 यह Browse Homes पेज है — यहाँ सभी वेरिफाइड लिस्टिंग दिखती हैं। सर्च बार या फ़िल्टर चिप्स से प्रॉपर्टी टाइप के अनुसार खोज सकते हैं।",
+    12:"🔓 कोई घर पसंद आया? अनलॉक करने पर मालिक का फोन नंबर और एड्रेस दिख जाता है। आपको शुरुआत में 10 मुफ्त RN क्रेडिट मिलते हैं — 'Unlocked Homes' में अपनी अनलॉक की हुई प्रॉपर्टीज़ देखें।"
   },
   te:{
     0:"Rent Nivas కి స్వాగతం! నేను మీ గైడ్. సైన్ అప్ చేయండి — ఉచితం! 10 RN క్రెడిట్స్ పొందండి ఇంటిని అన్‌లాక్ చేయడానికి, మరియు మొదటి 999 హోస్ట్‌లకు లిస్టింగ్ పూర్తిగా ఉచితం.",
     1:"'Get Started' బటన్ పై క్లిక్ చేసి మీ ఉచిత ఖాతాను సృష్టించండి. ఒక నిమిషం మాత్రమే!",
     2:"మీ పూర్తి పేరు, ఇమెయిల్ మరియు పాస్‌వర్డ్ నమోదు చేయండి. రెఫరల్ కోడ్ ఐచ్ఛికం. సైన్ అప్‌లో 10 ఉచిత క్రెడిట్స్!",
-    3:"దాదాపు అయిపోయింది! మేము మీ ఇమెయిల్‌కు 6 అంకెల కోడ్ పంపాము. ఇన్‌బాక్స్ మరియు స్పామ్ చెక్ చేసి కోడ్ నమోదు చేయండి!"
+    3:"దాదాపు అయిపోయింది! మేము మీ ఇమెయిల్‌కు 6 అంకెల కోడ్ పంపాము. ఇన్‌బాక్స్ మరియు స్పామ్ చెక్ చేసి కోడ్ నమోదు చేయండి!",
+    4:"ఇప్పుడు మీ రిజిస్టర్డ్ ఇమెయిల్ మరియు పాస్‌వర్డ్ నమోదు చేసి, మీ ఖాతాలో లాగిన్ అవ్వడానికి 'Sign In →' పై క్లిక్ చేయండి!",
+    5:"చాలా బాగుంది! ఇప్పుడు మీరు ఏమి చేయాలనుకుంటున్నారో ఎంచుకోండి — యజమానిగా ప్రాపర్టీ లిస్ట్ చేయండి, లేదా అద్దెకు ఇళ్లను బ్రౌజ్ చేయండి.",
+    6:"🎉 అభినందనలు — మీ ఖాతా విజయవంతంగా సృష్టించబడింది! Rent Nivas ముఖ్య ఫీచర్లను చూపిస్తాను.",
+    7:"📊 ఇది మీ ముఖ్య డాష్‌బోర్డ్. ఇక్కడ నుండి మీరు ఇళ్లను లిస్ట్ చేయవచ్చు, అనలిటిక్స్ చూడవచ్చు, క్లయింట్లను నిర్వహించవచ్చు.",
+    8:"➕ మీ మొదటి ఇంటిని లిస్ట్ చేద్దాం! లిస్టింగ్ ఫారమ్ తెరవడానికి 'Add Listing' బటన్‌పై క్లిక్ చేయండి.",
+    9:"మీ ప్రాపర్టీని ఎలా లిస్ట్ చేయాలి: ముందుగా Property Type ఎంచుకోండి, తర్వాత Address & Location, Rent & Deposit, Rooms & Amenities నింపి, ఫోటోలు అప్‌లోడ్ చేయండి. తయారైనప్పుడు కిందికి స్క్రోల్ చేసి '🚀 Publish Listing' క్లిక్ చేయండి!",
+    10:"🎉 అభినందనలు — మీ ఖాతా సిద్ధంగా ఉంది! Rent Nivas లో మీ తదుపరి ఇంటిని ఎలా కనుగొనాలో చూపిస్తాను.",
+    11:"🔍 ఇది Browse Homes పేజీ — అన్ని వెరిఫైడ్ లిస్టింగ్‌లు ఇక్కడ కనిపిస్తాయి. సెర్చ్ బార్ లేదా ఫిల్టర్ చిప్స్ ఉపయోగించి ప్రాపర్టీ టైప్ ద్వారా వెతకండి.",
+    12:"🔓 మీకు నచ్చిన ఇల్లు దొరికిందా? అన్‌లాక్ చేయడం వల్ల యజమాని ఫోన్ నంబర్ మరియు చిరునామా కనిపిస్తుంది. ప్రారంభంలో 10 ఉచిత RN క్రెడిట్స్ లభిస్తాయి — 'Unlocked Homes' లో మీరు అన్‌లాక్ చేసినవి చూడవచ్చు."
   }
 };
-var LBL={en:"Click here to Get Started!",hi:"यहाँ क्लिक करें",te:"ఇక్కడ క్లిక్ చేయండి"};
+// Floating "click here" callout label shown above certain spotlighted buttons.
+var LBL={
+  1:{en:"Click here to Get Started!",hi:"यहाँ क्लिक करें",te:"ఇక్కడ క్లిక్ చేయండి"},
+  4:{en:"Click here to Sign In!",hi:"यहाँ क्लिक करें",te:"ఇక్కడ క్లిక్ చేయండి"},
+  8:{en:"Click here to Add Listing!",hi:"यहाँ क्लिक करें",te:"ఇక్కడ క్లిక్ చేయండి"},
+  9:{en:"Click here to Publish!",hi:"यहाँ क्लिक करें",te:"ఇక్కడ క్లిక్ చేయండి"},
+  12:{en:"Click here for Unlocked Homes!",hi:"यहाँ क्लिक करें",te:"ఇక్కడ క్లిక్ చేయండి"}
+};
+// Steps that spotlight a real button using the ring+label combo (#rn-tut-spotlight)
+var SPOT1={1:'lp-nav-getstarted',4:'login-btn',8:'nb-add',9:'add-publish-btn',12:'rnb-purchased'};
+// Steps that spotlight a real area using the plain ring only, no label (#rn-tut-spotlight2)
+var SPOT2={3:'signup-verification-code',11:'prop-filter-wrap'};
+// Steps where the target should be scrolled into view first (fixes the mobile
+// "tutorial panel/chat widget blocks the highlighted field" issue)
+var SCROLL_STEPS={3:1,4:1,9:1,11:1};
+// Steps where the Continue button should always be visible (no specific
+// in-page action is required to move forward — the guide is just talking)
+var FORCE_CONTINUE={6:1,7:1,8:1,9:1,10:1,11:1,12:1};
+// Steps that end/finish the whole tutorial when Continue is pressed
+var FINISH_STEPS={9:1,12:1};
 var T={
   step:-1,lang:'en',isPlaying:false,done:false,
   isLoggedIn:function(){
@@ -17870,8 +17916,12 @@ var T={
     ov.classList.remove('rn-hidden');
     setTimeout(function(){if(typeof window.closeWelcomePopup==='function')window.closeWelcomePopup();},300);
     if(typeof window.showPage==='function'){
-      var orig=window.showPage;
-      window.showPage=function(p){orig.apply(this,arguments);setTimeout(function(){s.onPageChange(p);},250);};
+      var origPage=window.showPage;
+      window.showPage=function(p){origPage.apply(this,arguments);setTimeout(function(){s.onPageChange(p);},250);};
+    }
+    if(typeof window.showSection==='function'){
+      var origSection=window.showSection;
+      window.showSection=function(id){origSection.apply(this,arguments);setTimeout(function(){s.onSectionChange(id);},250);};
     }
     var obs=new MutationObserver(function(ms){
       for(var i=0;i<ms.length;i++){var m=ms[i];for(var j=0;j<m.addedNodes.length;j++){var n=m.addedNodes[j];if(!n)continue;if(n.id==='signup-verify-box'){s.setStep(3);return;}if(n.querySelector&&n.querySelector('#signup-verify-box')){s.setStep(3);return;}}}
@@ -17888,8 +17938,38 @@ var T={
     this.updateText();
     this.updateBd();
     this.updateSpot();
-    if(n!==0){var nx=document.getElementById('rn-tut-next');if(nx)nx.classList.remove('rn-show');}
+    var nx=document.getElementById('rn-tut-next');
+    if(nx){
+      if(FORCE_CONTINUE[n]){nx.classList.add('rn-show');nx.innerHTML=FINISH_STEPS[n]?'Got it! ✓':'Continue →';}
+      else if(n!==0){nx.classList.remove('rn-show');nx.innerHTML='Continue →';}
+    }
     this.playAudio();
+    this.autoScrollFor(n);
+    this.applyChat();
+  },
+  // Smoothly scrolls the spotlighted element into the safe middle of the
+  // viewport (so neither the bottom tutorial panel nor the support-chat
+  // bubble covers it), then repositions the spotlight ring once settled.
+  // Also auto-opens the mobile sidebar for step 8, since the "Add New
+  // Listing" nav button lives inside the off-canvas mobile sidebar.
+  autoScrollFor:function(n){
+    var s=this;
+    if(n===8||n===12){
+      var sbId=n===8?'ds-sidebar':'rent-ds-sidebar';
+      var toggler=n===8?'toggleSidebar':'toggleRentSidebar';
+      var sidebar=document.getElementById(sbId);
+      if(sidebar&&window.innerWidth<=900&&!sidebar.classList.contains('mob-open')){
+        if(typeof window[toggler]==='function')window[toggler]();
+        setTimeout(function(){if(s.step===n)s.updateSpot();},350);
+      }
+      return;
+    }
+    if(!SCROLL_STEPS[n])return;
+    var id=SPOT1[n]||SPOT2[n];
+    var el=id&&document.getElementById(id);
+    if(!el)return;
+    try{el.scrollIntoView({behavior:'smooth',block:'center'});}catch(e){}
+    setTimeout(function(){if(s.step===n)s.updateSpot();},450);
   },
   updateText:function(){var el=document.getElementById('rn-tut-text');if(el)el.textContent=(C[this.lang]||C.en)[this.step]||'';},
   updateBd:function(){
@@ -17904,18 +17984,22 @@ var T={
     if(panel){panel.style.zIndex=this.step===1?'20001':'2';}
   },
   updateSpot:function(){
-    var sp=document.getElementById('rn-tut-spotlight'),lb=document.getElementById('rn-tut-spotlight-label'),lt=document.getElementById('rn-tut-label-text'),cl=document.getElementById('rn-tut-btn-click'),sp2=document.getElementById('rn-tut-spotlight2');
-    if(sp)sp.classList.remove('rn-show');if(lb)lb.classList.remove('rn-show');if(cl)cl.classList.remove('rn-show');if(sp2)sp2.style.display='none';
-    if(this.step===1){
-      var btn=document.getElementById('lp-nav-getstarted');if(!btn)return;
-      var r=btn.getBoundingClientRect();
-      if(sp){sp.style.cssText='top:'+(r.top-7)+'px;left:'+(r.left-7)+'px;width:'+(r.width+14)+'px;height:'+(r.height+14)+'px;';sp.classList.add('rn-show');}
-      if(lb&&lt){lt.textContent=LBL[this.lang]||LBL.en;lb.style.top=(r.top-50)+'px';lb.style.left=(r.left+r.width/2)+'px';lb.classList.add('rn-show');}
-      if(cl){cl.style.cssText='top:'+(r.top-7)+'px;left:'+(r.left-7)+'px;width:'+(r.width+14)+'px;height:'+(r.height+14)+'px;';cl.classList.add('rn-show');}
+    var sp=document.getElementById('rn-tut-spotlight'),lb=document.getElementById('rn-tut-spotlight-label'),lt=document.getElementById('rn-tut-label-text'),sp2=document.getElementById('rn-tut-spotlight2');
+    if(sp)sp.classList.remove('rn-show');if(lb)lb.classList.remove('rn-show');if(sp2)sp2.style.display='none';
+    var id1=SPOT1[this.step];
+    if(id1){
+      var btn=document.getElementById(id1);
+      if(btn){
+        var r=btn.getBoundingClientRect();
+        if(sp){sp.style.cssText='top:'+(r.top-7)+'px;left:'+(r.left-7)+'px;width:'+(r.width+14)+'px;height:'+(r.height+14)+'px;';sp.classList.add('rn-show');}
+        var lbl=LBL[this.step];
+        if(lb&&lt&&lbl){lt.textContent=lbl[this.lang]||lbl.en;lb.style.top=(r.top-50)+'px';lb.style.left=(r.left+r.width/2)+'px';lb.classList.add('rn-show');}
+      }
     }
-    if(this.step===3){
-      var inp=document.getElementById('signup-verification-code');
-      if(inp&&sp2){var r2=inp.getBoundingClientRect();sp2.style.cssText='display:block;top:'+(r2.top-6)+'px;left:'+(r2.left-6)+'px;width:'+(r2.width+12)+'px;height:'+(r2.height+12)+'px;';}
+    var id2=SPOT2[this.step];
+    if(id2){
+      var el2=document.getElementById(id2);
+      if(el2&&sp2){var r2=el2.getBoundingClientRect();sp2.style.cssText='display:block;top:'+(r2.top-6)+'px;left:'+(r2.left-6)+'px;width:'+(r2.width+12)+'px;height:'+(r2.height+12)+'px;';}
     }
   },
   playAudio:function(){
@@ -17928,11 +18012,55 @@ var T={
   stopAudio:function(){var a=document.getElementById('rn-tut-audio');if(a){try{a.pause();a.currentTime=0;}catch(e){}}this.isPlaying=false;this.updPB();},
   toggleAudio:function(){var s=this,a=document.getElementById('rn-tut-audio');if(!a)return;if(this.isPlaying){a.pause();this.isPlaying=false;}else{a.play().then(function(){s.isPlaying=true;s.updPB();}).catch(function(){});}this.updPB();},
   updPB:function(){var b=document.getElementById('rn-tut-play-btn');if(!b)return;b.innerHTML=this.isPlaying?'<span class="rn-audio-bars"><span></span><span></span><span></span></span><span>Playing</span>':'<svg width="12" height="12" viewBox="0 0 24 24" fill="#1E3A5F"><path d="M8 5v14l11-7z"/></svg><span>Play</span>';},
-  setLang:function(l){this.lang=l;this.updateText();this.stopAudio();this.playAudio();var lt=document.getElementById('rn-tut-label-text');if(lt&&this.step===1)lt.textContent=LBL[l]||LBL.en;},
+  setLang:function(l){
+    this.lang=l;this.updateText();this.stopAudio();this.playAudio();
+    var lt=document.getElementById('rn-tut-label-text'),lbl=LBL[this.step];
+    if(lt&&lbl)lt.textContent=lbl[l]||lbl.en;
+  },
   handleGetStartedClick:function(){if(typeof window.showPage==='function')window.showPage('signup-page');},
-  handleContinue:function(){if(this.step===0)this.setStep(1);},
-  onPageChange:function(p){if(p==='signup-page'&&this.step<=1)this.setStep(2);},
-  skip:function(){localStorage.setItem('rn-tutorial-done','1');var o=document.getElementById('rn-tutorial');if(o)o.classList.add('rn-hidden');this.done=true;}
+  handleContinue:function(){
+    if(this.step===0){this.setStep(1);return;}
+    if(FINISH_STEPS[this.step]){this.finish();return;}
+    if(this.step===8){if(typeof window.showSection==='function')window.showSection('add');this.setStep(9);return;}
+    if(FORCE_CONTINUE[this.step]){this.setStep(this.step+1);return;}
+  },
+  // Fires whenever the app navigates between full pages (landing, signup,
+  // login, role-page, host-dashboard, rent-page, etc.)
+  onPageChange:function(p){
+    if(this.done)return;
+    if(p==='signup-page'&&this.step<=1){this.setStep(2);return;}
+    if(p==='login-page'&&this.step<=4){this.setStep(4);return;}
+    if(p==='role-page'&&this.step<=5){this.setStep(5);return;}
+    if(p==='host-dashboard'&&this.step<=6){this.setStep(6);return;}
+    if(p==='rent-page'&&this.step<=6){this.setStep(10);return;}
+  },
+  // Fires whenever the host dashboard switches internal sections
+  // (Dashboard / My Listings / Add New Listing / Analytics / etc.)
+  onSectionChange:function(id){
+    if(this.done)return;
+    if(id==='add'&&this.step===8){this.setStep(9);return;}
+  },
+  // Hides the support-chat bubble on mobile only while the tutorial is
+  // actively running, so it never overlaps the guide's text. Restored the
+  // moment the tutorial is skipped or finished.
+  applyChat:function(){
+    var hide=!this.done&&this.step>=0;
+    window._rnTutHideChat=hide;
+    try{
+      if(window.Tawk_API&&typeof window.Tawk_API.hideWidget==='function'&&typeof window.Tawk_API.showWidget==='function'){
+        if(hide&&window.innerWidth<=767)window.Tawk_API.hideWidget();
+        else window.Tawk_API.showWidget();
+      }
+    }catch(e){}
+  },
+  finish:function(){
+    localStorage.setItem('rn-tutorial-done','1');
+    var o=document.getElementById('rn-tutorial');if(o)o.classList.add('rn-hidden');
+    this.done=true;
+    this.stopAudio();
+    this.applyChat();
+  },
+  skip:function(){this.finish();}
 };
 window._RNTut=T;
 if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',function(){setTimeout(function(){T.init();},400);});}else{setTimeout(function(){T.init();},400);}
