@@ -419,6 +419,7 @@
       gap: 30px;
       margin-left: 32px;
       margin-right: auto;
+      align-items: center;
     }
 
     .lp-nav-links a {
@@ -469,6 +470,11 @@
       font-family: var(--font);
       white-space: nowrap;
       letter-spacing: .01em;
+      margin: 0;
+      line-height: 1;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
     }
 
     .btn-nav-tutorial:hover {
@@ -8623,10 +8629,8 @@
         <a onclick="smoothScroll('#features')">Features</a>
         <a onclick="smoothScroll('#testimonials')">Testimonials</a>
         <a onclick="smoothScroll('#support')">Support</a>
+        <a onclick="window.open('/language.html','_blank')" style="display:flex;align-items:center;gap:5px;">🌐 Language<span id="lp-nav-lang-badge" style="font-size:11px;background:rgba(201,106,59,0.18);color:#e88a5a;border-radius:6px;padding:1px 7px;font-weight:600;"></span></a>
         <button class="btn-nav-tutorial" onclick="(function(){var isLI=window._RNTut&&typeof window._RNTut.isLoggedIn==='function'&&window._RNTut.isLoggedIn();if(isLI){if(typeof _rnStartUserTutorial==='function')_rnStartUserTutorial();}else{if(typeof window.startViewTutorial==='function')window.startViewTutorial('landing');}})();">🎓 Watch Tutorial</button>
-        <a onclick="window.open('/language.html','_blank')" style="display:flex;align-items:center;gap:5px;">🌐
-          Language<span id="lp-nav-lang-badge"
-            style="font-size:11px;background:rgba(201,106,59,0.18);color:#e88a5a;border-radius:6px;padding:1px 7px;font-weight:600;"></span></a>
       </div>
       <div class="lp-nav-right" id="lp-nav-right">
         <button class="btn-nav-outline" id="lp-nav-signin" onclick="showPage('login-page')">Sign In</button>
@@ -18097,7 +18101,6 @@ var FINISH_STEPS={9:1,12:1};
 var T={
   step:-1,lang:'en',isPlaying:false,done:false,
   isLoggedIn:function(){
-    if(localStorage.getItem('rn-tutorial-done'))return true;
     try{
       var raw=localStorage.getItem('rentnivas-auth');
       if(raw){var s=JSON.parse(raw),t=s.id_token||s.access_token;if(t&&s.refresh_token){var p=JSON.parse(atob(t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/')));var exp=p.exp?p.exp*1000:0;if(!(exp>0&&exp<Date.now()-600000))return true;}}
