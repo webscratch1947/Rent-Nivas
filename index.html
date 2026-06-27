@@ -1,4 +1,4 @@
-<!-- ✅ VERSION: WITH LEADERBOARD OPENING ANIMATION (coins-animation.svg plays when leaderboard opens for the first time each session) -->
+<!-- VERSION: WITH LEADERBOARD OPENING ANIMATION (coins-animation.svg plays first time) -->
 <!DOCTYPE html>
 <html lang="en">
 
@@ -8411,12 +8411,7 @@
   @media(max-width:767px){.rn-tut-character{display:none!important}.rn-tut-bubble-wrap{max-width:100%!important;padding:0 8px 0}}
   body.rn-tut-step-9 .rn-tut-character{display:none!important;}
 
-  /* Tawk.to: scale bubble smaller on all screens */
-  #tawk-bubble-container{transform:scale(0.75);transform-origin:bottom right;}
-  /* Tawk.to: float above tutorial panel on mobile */
-  @media(max-width:767px){
-    #fc_frame,iframe[title*="chat" i],iframe[src*="tawk"]{bottom:170px!important;right:12px!important;}
-  }
+
 </style>
 <style id="rn-leaderboard-styles">
 #rn-leaderboard-modal{position:fixed;inset:0;z-index:88888;display:none;align-items:center;justify-content:center;}
@@ -18054,20 +18049,7 @@
     })();
   </script>
   <script src="/partner-badges.js"></script>
-<!--Start of Tawk.to Script-->
-<script type="text/javascript">
-var Tawk_API=Tawk_API||{}, Tawk_LoadStart=new Date();
-Tawk_API.onLoad=function(){Tawk_API.minimize();if(window._rnTutHideChat&&typeof Tawk_API.hideWidget==='function')Tawk_API.hideWidget();};
-(function(){
-var s1=document.createElement("script"),s0=document.getElementsByTagName("script")[0];
-s1.async=true;
-s1.src='https://embed.tawk.to/6a3b3b47d0dd3e1d406c9637/1jrrlv4c5';
-s1.charset='UTF-8';
-s1.setAttribute('crossorigin','*');
-s0.parentNode.insertBefore(s1,s0);
-})();
-</script>
-<!--End of Tawk.to Script-->
+<!-- Tawk.to removed -->
 
 <!-- ══ LEADERBOARD MODAL ══ -->
 <div id="rn-leaderboard-modal">
@@ -18255,7 +18237,7 @@ function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').
 function makeAvatarEl(item,size,fontSize){
   var init=(item.name||'?')[0].toUpperCase();
   if(item.avatar_url){
-    return '<img src="'+esc(item.avatar_url)+'" alt="'+esc(item.name)+'" onerror="this.style.display='none';this.parentElement.textContent=''+esc(init)+''">';
+    return '<img src="'+esc(item.avatar_url)+'" alt="'+esc(item.name)+'" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" onerror="this.style.display=\'none\';">';
   }
   return esc(init);
 }
@@ -18431,6 +18413,13 @@ var T={
       var origSection=window.showSection;
       window.showSection=function(id){origSection.apply(this,arguments);setTimeout(function(){s.onSectionChange(id);},250);};
     }
+    // Mobile: re-run updateSpot after sidebar toggles so step 8 switches
+    // from hamburger → nb-add once the sidebar is open
+    if(typeof window.toggleSidebar==='function'&&!window._rnTutSidebarPatched){
+      window._rnTutSidebarPatched=true;
+      var origToggle=window.toggleSidebar;
+      window.toggleSidebar=function(){origToggle.apply(this,arguments);setTimeout(function(){if(!s.done&&s.step===8)s.updateSpot();},350);};
+    }
   },
   setStep:function(n){
     if(this.done||n===this.step)return;
@@ -18513,6 +18502,21 @@ var T={
       if(window._rnTutScrollLocked){window._rnTutScrollLocked=false;try{if(typeof window._unlockScroll==='function')window._unlockScroll();}catch(e){document.body.style.overflow='';}}
     }
     var id1=SPOT1[this.step];
+    // ── Mobile step 8: spotlight hamburger ☰ first, then nb-add once sidebar open ──
+    var isMobile=window.innerWidth<=900;
+    if(this.step===8&&isMobile){
+      var sidebar=document.getElementById('ds-sidebar');
+      var sidebarOpen=sidebar&&sidebar.classList.contains('mob-open');
+      if(!sidebarOpen){
+        // Sidebar closed: highlight the ☰ hamburger button
+        id1='mob-menu-btn';
+        LBL[8]={en:'Tap ☰ to open the menu!',hi:'☰ मेनू खोलें!'};
+      } else {
+        // Sidebar is open: highlight nb-add
+        id1='nb-add';
+        LBL[8]={en:'Tap here to Add Listing!',hi:'यहाँ क्लिक करें'};
+      }
+    }
     if(id1){
       var btn=document.getElementById(id1);
       if(btn){
@@ -18581,12 +18585,7 @@ var T={
   applyChat:function(){
     var hide=!this.done&&this.step>=0;
     window._rnTutHideChat=hide;
-    try{
-      if(window.Tawk_API&&typeof window.Tawk_API.hideWidget==='function'&&typeof window.Tawk_API.showWidget==='function'){
-        if(hide)window.Tawk_API.hideWidget();
-        else window.Tawk_API.showWidget();
-      }
-    }catch(e){}
+    // Tawk.to removed
   },
   finish:function(){
     localStorage.setItem('rn-tutorial-done','1');
