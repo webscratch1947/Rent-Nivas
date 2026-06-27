@@ -8408,6 +8408,7 @@
   @keyframes rn-label-bounce{0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(-5px)}}
   @keyframes rn-audio-bar{0%,100%{transform:scaleY(.4)}50%{transform:scaleY(1)}}
   @media(max-width:767px){.rn-tut-character{display:none!important}.rn-tut-bubble-wrap{max-width:100%!important;padding:0 8px 0}}
+  body.rn-tut-step-9 .rn-tut-character{display:none!important;}
 
   /* Tawk.to: scale bubble smaller on all screens */
   #tawk-bubble-container{transform:scale(0.75);transform-origin:bottom right;}
@@ -13647,6 +13648,14 @@
         if (status === 'published') {
           const expDate = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
           pushNotif('🚀', `"${title}" published! Valid till ${expDate}.`);
+          // Auto-finish tutorial after successful publish (step 9 is the publish step)
+          setTimeout(function() {
+            try {
+              if (window._RNTut && window._RNTut.step === 9 && !window._RNTut.done) {
+                window._RNTut.finish();
+              }
+            } catch(e) {}
+          }, 800);
         }
         currentEditId = null;
         editExistingImages = [];
@@ -17461,8 +17470,8 @@
   <!-- ══ COINS ANIMATION (centered popup, no card, dimmed backdrop) ══ -->
   <div id="rn-coins-overlay" style="display:none;position:fixed;inset:0;z-index:200001;background:rgba(0,0,0,0.55);backdrop-filter:blur(3px);align-items:center;justify-content:center;cursor:pointer;flex-direction:column;" onclick="window._rnCloseCoinsOverlay && window._rnCloseCoinsOverlay()">
     <div id="rn-coins-svg-wrap" style="width:min(420px,85vw);height:min(420px,85vw);display:flex;align-items:center;justify-content:center;pointer-events:none;"></div>
-    <div id="rn-coins-hint" style="display:none;margin-top:16px;color:#fff;font-size:17px;font-weight:500;letter-spacing:.5px;text-align:center;opacity:0;transition:opacity .6s ease;pointer-events:none;white-space:nowrap;text-shadow:0 2px 12px rgba(0,0,0,.9);">
-      Click anywhere to close
+    <div id="rn-coins-hint" style="display:none;margin-top:16px;color:#fff;font-size:17px;font-weight:500;letter-spacing:.5px;text-align:center;opacity:0;transition:opacity .6s ease;pointer-events:none;text-shadow:0 2px 12px rgba(0,0,0,.9);">
+      🎉 You received <strong>10 Free Credits!</strong><br><span style="font-size:13px;opacity:.75;font-weight:400;">Tap anywhere to close</span>
     </div>
   </div>
 
@@ -17528,7 +17537,9 @@
           }
           coinsOverlay.style.display = 'flex';
           if (typeof _lockScroll === 'function') _lockScroll();
-          // Show "click to close" after animation finishes (2.64 s)
+          // Stop tutorial audio while coins overlay is showing
+          try { if (window._RNTut && typeof window._RNTut.stopAudio === 'function') window._RNTut.stopAudio(); } catch(e) {}
+          // Show "🎉 credits" hint after animation finishes (2.8 s)
           setTimeout(function() {
             var h = document.getElementById('rn-coins-hint');
             if (!h) return;
@@ -18088,14 +18099,12 @@ var C={
 };
 var LBL={
   1:{en:"Click here to Get Started!",hi:"\u092f\u0939\u093e\u0901 \u0915\u094d\u0932\u093f\u0915 \u0915\u0930\u0947\u0902"},
-  4:{en:"Click here to Sign In!",hi:"\u092f\u0939\u093e\u0901 \u0915\u094d\u0932\u093f\u0915 \u0915\u0930\u0947\u0902"},
   8:{en:"Click here to Add Listing!",hi:"\u092f\u0939\u093e\u0901 \u0915\u094d\u0932\u093f\u0915 \u0915\u0930\u0947\u0902"},
-  9:{en:"Click here to Publish!",hi:"\u092f\u0939\u093e\u0901 \u0915\u094d\u0932\u093f\u0915 \u0915\u0930\u0947\u0902"},
   12:{en:"Click here for Unlocked Homes!",hi:"\u092f\u0939\u093e\u0901 \u0915\u094d\u0932\u093f\u0915 \u0915\u0930\u0947\u0902"}
 };
-var SPOT1={1:'lp-nav-getstarted',4:'login-btn',8:'nb-add',9:'add-publish-btn',12:'rnb-purchased'};
+var SPOT1={1:'lp-nav-getstarted',8:'nb-add',12:'rnb-purchased'};
 var SPOT2={3:'signup-verification-code',11:'prop-filter-wrap'};
-var SCROLL_STEPS={3:1,4:1,9:1,11:1};
+var SCROLL_STEPS={3:1,4:1,11:1};
 var FORCE_CONTINUE={0:1,6:1,7:1,8:1,9:1,10:1,11:1,12:1};
 var FINISH_STEPS={9:1,12:1};
 var T={
@@ -18142,6 +18151,9 @@ var T={
   },
   setStep:function(n){
     if(this.done||n===this.step)return;
+    // Remove old step class, add new one so CSS can target current step
+    if(this.step>=0)document.body.classList.remove('rn-tut-step-'+this.step);
+    document.body.classList.add('rn-tut-step-'+n);
     this.step=n;
     this.stopAudio();
     this.updateText();
@@ -18158,12 +18170,10 @@ var T={
   },
   autoScrollFor:function(n){
     var s=this;
-    if(n===8||n===12){
-      var sbId=n===8?'ds-sidebar':'rent-ds-sidebar';
-      var toggler=n===8?'toggleSidebar':'toggleRentSidebar';
-      var sidebar=document.getElementById(sbId);
+    if(n===12){
+      var sidebar=document.getElementById('rent-ds-sidebar');
       if(sidebar&&window.innerWidth<=900&&!sidebar.classList.contains('mob-open')){
-        if(typeof window[toggler]==='function')window[toggler]();
+        if(typeof window.toggleRentSidebar==='function')window.toggleRentSidebar();
         setTimeout(function(){if(s.step===n)s.updateSpot();},350);
       }
       return;
