@@ -456,6 +456,26 @@
       background: rgba(255, 255, 255, .12);
     }
 
+    .btn-nav-tutorial {
+      background: rgba(255, 210, 50, .15);
+      color: #FFD232;
+      border: 1.5px solid rgba(255, 210, 50, .45);
+      padding: 7px 16px;
+      border-radius: var(--r);
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all .2s;
+      font-family: var(--font);
+      white-space: nowrap;
+      letter-spacing: .01em;
+    }
+
+    .btn-nav-tutorial:hover {
+      background: rgba(255, 210, 50, .28);
+      border-color: rgba(255, 210, 50, .75);
+    }
+
     .lp-hero {
       position: relative;
       min-height: 100vh;
@@ -8603,7 +8623,7 @@
         <a onclick="smoothScroll('#features')">Features</a>
         <a onclick="smoothScroll('#testimonials')">Testimonials</a>
         <a onclick="smoothScroll('#support')">Support</a>
-        <a onclick="(function(){var isLI=window._RNTut&&typeof window._RNTut.isLoggedIn==='function'&&window._RNTut.isLoggedIn();if(isLI){if(typeof _rnStartUserTutorial==='function')_rnStartUserTutorial();}else{if(typeof window.startViewTutorial==='function')window.startViewTutorial('landing');}})();" style="cursor:pointer;">🎓 Tutorial</a>
+        <button class="btn-nav-tutorial" onclick="(function(){var isLI=window._RNTut&&typeof window._RNTut.isLoggedIn==='function'&&window._RNTut.isLoggedIn();if(isLI){if(typeof _rnStartUserTutorial==='function')_rnStartUserTutorial();}else{if(typeof window.startViewTutorial==='function')window.startViewTutorial('landing');}})();">🎓 Watch Tutorial</button>
         <a onclick="window.open('/language.html','_blank')" style="display:flex;align-items:center;gap:5px;">🌐
           Language<span id="lp-nav-lang-badge"
             style="font-size:11px;background:rgba(201,106,59,0.18);color:#e88a5a;border-radius:6px;padding:1px 7px;font-weight:600;"></span></a>
@@ -16767,7 +16787,7 @@
               <span style="font-size:22px;flex-shrink:0;">🤝</span>
               <div>
                 <div style="font-size:15px;font-weight:700;color:var(--ink);margin-bottom:6px;">Partner Panel — Not a Legal Partnership</div>
-                <p style="font-size:14px;color:var(--muted);line-height:1.7;">Having access to the Partner Panel on Rent Nivas does not make you a legal partner, co-owner, or business associate of Rent Nivas Technologies. The Partner Panel is a feature for verified property listing contributors only. Any use of the term "partner" on this platform refers solely to that listing role and carries no legal, financial, or business partnership rights.</p>
+                <p style="font-size:14px;color:var(--muted);line-height:1.7;">Having access to the Partner Panel on Rent Nivas does not make you a legal partner, co-owner, or business associate of Rent Nivas Technologies. Any use of the term "partner" on this platform refers solely to that listing role and carries no legal, financial, or business partnership rights.</p>
               </div>
             </div>
           </div>
@@ -16788,7 +16808,7 @@
             ['🪙', 'RN Credits on Signup', 'New users receive 10 RN credits on signup to unlock property contact details. Credits are limited — not unlimited.'],
             ['🗑️', 'Listing Removal', 'We reserve the right to remove any listing that is fake or inappropriate.'],
             ['🚫', 'Misuse Policy', 'Misuse of the platform may lead to account suspension.'],
-            ['🤝', 'Partner Panel — Not a Legal Partnership', 'Having access to the Partner Panel on Rent Nivas does not make you a legal partner, co-owner, or business associate of Rent Nivas Technologies. The Partner Panel is a feature for verified property listing contributors only. Any use of the term "partner" on this platform refers solely to that listing role and carries no legal, financial, or business partnership rights.'],
+            ['🤝', 'Partner Panel — Not a Legal Partnership', 'Having access to the Partner Panel on Rent Nivas does not make you a legal partner, co-owner, or business associate of Rent Nivas Technologies. Any use of the term "partner" on this platform refers solely to that listing role and carries no legal, financial, or business partnership rights.'],
           ].map(([icon, title, text], i) => `
             <div style="background:var(--white);border:1px solid var(--border);border-radius:var(--rl);padding:20px 22px;">
               <div style="display:flex;gap:14px;align-items:flex-start;">
