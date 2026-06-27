@@ -8603,7 +8603,7 @@
         <a onclick="smoothScroll('#features')">Features</a>
         <a onclick="smoothScroll('#testimonials')">Testimonials</a>
         <a onclick="smoothScroll('#support')">Support</a>
-        <a onclick="if(typeof _rnStartUserTutorial==='function')_rnStartUserTutorial();else if(typeof startViewTutorial==='function')startViewTutorial('landing');" style="cursor:pointer;">🎓 Tutorial</a>
+        <a onclick="(function(){var isLI=window._RNTut&&typeof window._RNTut.isLoggedIn==='function'&&window._RNTut.isLoggedIn();if(isLI){if(typeof _rnStartUserTutorial==='function')_rnStartUserTutorial();}else{if(typeof window.startViewTutorial==='function')window.startViewTutorial('landing');}})();" style="cursor:pointer;">🎓 Tutorial</a>
         <a onclick="window.open('/language.html','_blank')" style="display:flex;align-items:center;gap:5px;">🌐
           Language<span id="lp-nav-lang-badge"
             style="font-size:11px;background:rgba(201,106,59,0.18);color:#e88a5a;border-radius:6px;padding:1px 7px;font-weight:600;"></span></a>
