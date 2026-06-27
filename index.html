@@ -8439,7 +8439,7 @@
 .lb-hero-avatar-wrap{position:relative;display:inline-block;margin-bottom:12px;}
 .lb-hero-avatar{width:90px;height:90px;border-radius:50%;background:linear-gradient(135deg,#1E3A5F 0%,#2b5fa8 100%);display:flex;align-items:center;justify-content:center;font-size:34px;font-weight:900;color:#fff;overflow:hidden;border:4px solid #fff;box-shadow:0 8px 30px rgba(30,58,95,.2);}
 .lb-hero-avatar img.av-img{width:100%;height:100%;object-fit:cover;border-radius:50%;}
-.lb-hero-crown{position:absolute;top:-28px;left:50%;transform:translateX(-50%);width:46px;height:46px;object-fit:contain;filter:drop-shadow(0 3px 8px rgba(200,150,0,.5));animation:lb-crown-float 2.2s ease-in-out infinite;}
+.lb-hero-crown{position:absolute;top:-44px;left:50%;transform:translateX(-50%);width:80px;height:80px;object-fit:contain;filter:drop-shadow(0 4px 14px rgba(200,150,0,.7));animation:lb-crown-float 2.2s ease-in-out infinite;}
 @keyframes lb-crown-float{0%,100%{transform:translateX(-50%) translateY(0) rotate(-4deg)}50%{transform:translateX(-50%) translateY(-7px) rotate(4deg)}}
 .lb-rank1-badge{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;background:#FFD232;color:#1E3A5F;font-size:13px;font-weight:900;border-radius:50%;position:absolute;bottom:0;right:-2px;border:2px solid #fff;}
 .lb-hero-name{font-size:20px;font-weight:900;color:#1E3A5F;margin-bottom:6px;}
@@ -8468,8 +8468,8 @@
 
 /* ── Crown overlay for dashboard/bottom nav ── */
 .sb-crown-wrap{position:relative;display:inline-block;}
-.sb-crown-icon{position:absolute;top:-14px;left:50%;transform:translateX(-50%);width:20px;height:20px;object-fit:contain;filter:drop-shadow(0 1px 4px rgba(200,150,0,.8));animation:lb-crown-float 2.2s ease-in-out infinite;pointer-events:none;z-index:10;}
-.mbn-crown{position:absolute;top:-10px;left:50%;transform:translateX(-50%);width:18px;height:18px;object-fit:contain;filter:drop-shadow(0 1px 3px rgba(200,150,0,.9));animation:lb-crown-float 2.2s ease-in-out infinite;pointer-events:none;z-index:10;}
+.sb-crown-icon{position:absolute;top:-24px;left:50%;transform:translateX(-50%);width:38px;height:38px;object-fit:contain;filter:drop-shadow(0 2px 8px rgba(200,150,0,.9));animation:lb-crown-float 2.2s ease-in-out infinite;pointer-events:none;z-index:10;}
+.mbn-crown{position:absolute;top:-18px;left:50%;transform:translateX(-50%);width:32px;height:32px;object-fit:contain;filter:drop-shadow(0 2px 6px rgba(200,150,0,.9));animation:lb-crown-float 2.2s ease-in-out infinite;pointer-events:none;z-index:10;}
 </style>
 </head>
 
@@ -11061,6 +11061,8 @@
 
     // ══ PAGE ROUTING ══
     function showPage(id) {
+      // Save navigation for refresh-restore (skip overlay pages)
+      try { if(id && id !== 'landing-page') localStorage.setItem('rn-last-nav', JSON.stringify({page:id,section:null})); } catch(e){}
       closeNotif();
       // If user is temp-banned, block all navigation except logout/landing.
       // Also block login-page — if the ban overlay is currently visible, showing
@@ -16541,6 +16543,21 @@
         }
         syncMobNavAuth();
         hideBootSplash();
+        // Restore last page/section visited before refresh
+        try {
+          var _savedNav = JSON.parse(localStorage.getItem('rn-last-nav') || 'null');
+          if (_savedNav && _savedNav.page) {
+            var _el = document.getElementById(_savedNav.page);
+            if (_el && typeof showPage === 'function') {
+              setTimeout(function() {
+                showPage(_savedNav.page);
+                if (_savedNav.section && typeof showSection === 'function') {
+                  setTimeout(function() { showSection(_savedNav.section); }, 200);
+                }
+              }, 50);
+            }
+          }
+        } catch(e) {}
       }
       // ── Ignore legacy reset redirect errors after Cognito migration ──
       (function checkHashError() {
@@ -17539,11 +17556,13 @@
       var _rnCoinsSvgText = null;
 
       // Pre-fetch the SVG so it's ready instantly when needed
-      fetch('/coins-animation.svg')
+      fetch('/coin.svg')
         .then(function(r){ return r.text(); })
         .then(function(txt){
-          // Replace indefinite loop with play-once
-          _rnCoinsSvgText = txt.replace(/repeatCount="indefinite"/g, 'repeatCount="1"');
+          // Play once, freeze on last frame (prevents disappear bug)
+          _rnCoinsSvgText = txt
+            .replace(/repeatCount="indefinite"/g, 'repeatCount="1"')
+            .replace(/fill="remove"/g, 'fill="freeze"');
         })
         .catch(function(){});
 
@@ -17585,10 +17604,12 @@
             if (svg) { svg.style.width='100%'; svg.style.height='100%'; }
           } else {
             // Fallback: fetch now if pre-fetch didn't finish
-            fetch('/coins-animation.svg')
+            fetch('/coin.svg')
               .then(function(r){ return r.text(); })
               .then(function(txt){
-                var once = txt.replace(/repeatCount="indefinite"/g, 'repeatCount="1"');
+                var once = txt
+                  .replace(/repeatCount="indefinite"/g, 'repeatCount="1"')
+                  .replace(/fill="remove"/g, 'fill="freeze"');
                 wrap.innerHTML = once;
                 var svg = wrap.querySelector('svg');
                 if (svg) { svg.style.width='100%'; svg.style.height='100%'; }
@@ -18095,7 +18116,7 @@
     </div>
     <!-- Footer timer -->
     <div class="lb-footer">
-      Leaderboard will update in <span class="lb-timer-bold" id="lb-countdown">5:00</span>
+      Leaderboard will update in <span class="lb-timer-bold" id="lb-countdown">1:00</span>
     </div>
   </div>
 </div>
@@ -18145,12 +18166,15 @@
 (function(){
 'use strict';
 
-var LB_KEY='rn-lb-last-fetch'; // localStorage key for last fetch timestamp
-var LB_INTERVAL=5*60*1000; // 5 minutes in ms
+var LB_KEY='rn-lb-last-fetch';     // last fetch timestamp
+var LB_DATA_KEY='rn-lb-data';      // cached leaderboard data
+var LB_INTERVAL=1*60*1000;         // 1 minute in ms
 var _lbData=null;
 var _lbCountdownTimer=null;
 var _lbFetchTimer=null;
 var _lbAnimPlayed=false;
+// Restore cached data from localStorage so we can render without a new fetch
+try{var _c=localStorage.getItem(LB_DATA_KEY);if(_c)_lbData=JSON.parse(_c);}catch(e){}
 
 function openLeaderboard(){
   var modal=document.getElementById('rn-leaderboard-modal');
@@ -18208,13 +18232,14 @@ async function fetchLeaderboard(){
       .limit(20);
     if(res.data){
       _lbData=res.data;
+      try{localStorage.setItem(LB_DATA_KEY,JSON.stringify(res.data));}catch(e){}
       localStorage.setItem(LB_KEY,Date.now().toString());
       renderLeaderboard();
-      // Check if current user is #1 and update crown in sidebar
       updateDashboardCrown(res.data);
     }
   }catch(e){}
   // Schedule next fetch
+  if(_lbFetchTimer){clearTimeout(_lbFetchTimer);_lbFetchTimer=null;}
   _lbFetchTimer=setTimeout(function(){fetchLeaderboard();},LB_INTERVAL);
 }
 
@@ -18349,22 +18374,28 @@ function startCountdown(){
   _lbCountdownTimer=setInterval(tick,1000);
 }
 
-// Initial silent fetch on page load (background, doesn't block anything)
+// Initial silent load on page load — uses localStorage cache, only fetches if timer expired
+function _lbInitLoad(){
+  var wait=getMsUntilNextFetch();
+  if(wait===0){
+    // Timer expired — fetch fresh data
+    fetchLeaderboard();
+  } else {
+    // Timer still running — schedule next fetch at the right time; use cached data for crown
+    _lbFetchTimer=setTimeout(function(){fetchLeaderboard();},wait);
+    if(_lbData){
+      // Quietly update crown from cached data (no refetch, no timer reset)
+      try{updateDashboardCrown(_lbData);}catch(e){}
+    } else {
+      // No cached data at all — do a silent fetch now (first ever visit)
+      fetchLeaderboard();
+    }
+  }
+}
 if(document.readyState==='loading'){
-  document.addEventListener('DOMContentLoaded',function(){setTimeout(function(){
-    var wait=getMsUntilNextFetch();
-    if(wait===0)fetchLeaderboard();
-    else{_lbFetchTimer=setTimeout(function(){fetchLeaderboard();},wait);}
-    // Also do a one-time silent fetch to get crown data for dashboard
-    if(_lbData===null)fetchLeaderboard();
-  },2000);});
+  document.addEventListener('DOMContentLoaded',function(){setTimeout(_lbInitLoad,2000);});
 }else{
-  setTimeout(function(){
-    var wait=getMsUntilNextFetch();
-    if(wait===0)fetchLeaderboard();
-    else{_lbFetchTimer=setTimeout(function(){fetchLeaderboard();},wait);}
-    if(_lbData===null)fetchLeaderboard();
-  },2000);
+  setTimeout(_lbInitLoad,2000);
 }
 
 })();
