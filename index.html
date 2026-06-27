@@ -8603,6 +8603,7 @@
         <a onclick="smoothScroll('#features')">Features</a>
         <a onclick="smoothScroll('#testimonials')">Testimonials</a>
         <a onclick="smoothScroll('#support')">Support</a>
+        <a onclick="if(typeof _rnStartUserTutorial==='function')_rnStartUserTutorial();else if(typeof startViewTutorial==='function')startViewTutorial('landing');" style="cursor:pointer;">🎓 Tutorial</a>
         <a onclick="window.open('/language.html','_blank')" style="display:flex;align-items:center;gap:5px;">🌐
           Language<span id="lp-nav-lang-badge"
             style="font-size:11px;background:rgba(201,106,59,0.18);color:#e88a5a;border-radius:6px;padding:1px 7px;font-weight:600;"></span></a>
@@ -8799,7 +8800,7 @@
           <a onclick="showPolicyModal('terms')">Terms &amp; Conditions</a>
         </div>
       </div>
-      <div class="footer-simple-copy">© 2025 Rent Nivas Technologies. Made with ❤️ in India &nbsp;·&nbsp; <span
+      <div class="footer-simple-copy">© 2026 Rent Nivas Technologies. Made with ❤️ in India &nbsp;·&nbsp; <span
           onclick="showPolicyModal('privacy')" style="cursor:pointer;text-decoration:underline;opacity:.6;">Privacy
           Policy</span> &nbsp;·&nbsp; <span onclick="showPolicyModal('terms')"
           style="cursor:pointer;text-decoration:underline;opacity:.6;">Terms &amp; Conditions</span></div>
@@ -16761,6 +16762,15 @@
               </div>
             </div>
           </div>
+          <div style="background:var(--white);border:1.5px solid #e5c97a;border-radius:var(--rl);padding:20px 22px;margin-top:4px;">
+            <div style="display:flex;gap:14px;align-items:flex-start;">
+              <span style="font-size:22px;flex-shrink:0;">🤝</span>
+              <div>
+                <div style="font-size:15px;font-weight:700;color:var(--ink);margin-bottom:6px;">Partner Panel — Not a Legal Partnership</div>
+                <p style="font-size:14px;color:var(--muted);line-height:1.7;">Having access to the Partner Panel on Rent Nivas does not make you a legal partner, co-owner, or business associate of Rent Nivas Technologies. The Partner Panel is a feature for verified property listing contributors only. Any use of the term "partner" on this platform refers solely to that listing role and carries no legal, financial, or business partnership rights.</p>
+              </div>
+            </div>
+          </div>
           <div style="margin-top:24px;background:var(--terra-lt);border:1px solid var(--terra-mid);border-radius:var(--r);padding:16px 20px;font-size:14px;color:var(--terra);font-weight:600;text-align:center;">
             By using our website, you agree to this privacy policy.
           </div>
@@ -16778,6 +16788,7 @@
             ['🪙', 'RN Credits on Signup', 'New users receive 10 RN credits on signup to unlock property contact details. Credits are limited — not unlimited.'],
             ['🗑️', 'Listing Removal', 'We reserve the right to remove any listing that is fake or inappropriate.'],
             ['🚫', 'Misuse Policy', 'Misuse of the platform may lead to account suspension.'],
+            ['🤝', 'Partner Panel — Not a Legal Partnership', 'Having access to the Partner Panel on Rent Nivas does not make you a legal partner, co-owner, or business associate of Rent Nivas Technologies. The Partner Panel is a feature for verified property listing contributors only. Any use of the term "partner" on this platform refers solely to that listing role and carries no legal, financial, or business partnership rights.'],
           ].map(([icon, title, text], i) => `
             <div style="background:var(--white);border:1px solid var(--border);border-radius:var(--rl);padding:20px 22px;">
               <div style="display:flex;gap:14px;align-items:flex-start;">
