@@ -18179,7 +18179,7 @@ var _lbCountdownTimer=null;
 var _lbFetchTimer=null;
 var _lbAnimPlayed=false;
 // Restore cached data from localStorage so we can render without a new fetch
-try{var _c=localStorage.getItem(LB_DATA_KEY);if(_c)_lbData=JSON.parse(_c);}catch(e){}
+try{var _c=localStorage.getItem(LB_DATA_KEY);if(_c){var _raw=JSON.parse(_c);var _s={};_lbData=_raw.filter(function(x){if(!x.id||_s[x.id])return false;_s[x.id]=true;return !!(x.name&&x.name.trim());});}}catch(e){}
 
 function openLeaderboard(){
   var modal=document.getElementById('rn-leaderboard-modal');
@@ -18326,7 +18326,13 @@ function renderLeaderboard(){
     if(!last){fetchLeaderboard();}
     return;
   }
-  var data=_lbData;
+  // Always deduplicate and filter anonymous at render time — covers cached and fresh data
+  var _rs={};
+  var data=_lbData.filter(function(item){
+    if(!item.id||_rs[item.id])return false;
+    _rs[item.id]=true;
+    return !!(item.name&&item.name.trim());
+  });
   // ── Hero (rank 1) ──
   var hero=document.getElementById('lb-hero');
   if(hero){
