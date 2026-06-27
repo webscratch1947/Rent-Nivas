@@ -1,4 +1,4 @@
-<!-- VERSION: WITH coin.svg OPENING ANIMATION (plays first time leaderboard opens each session) -->
+<!-- VERSION: FIXED - tutorial skip persists, mobile Watch Tutorial btn, crown on avatar, leaderboard dedup+anon filter, coins-animation.svg -->
 <!DOCTYPE html>
 <html lang="en">
 
@@ -5246,6 +5246,10 @@
         display: flex !important;
       }
 
+      /* Mobile: swap Sign In for Watch Tutorial */
+      #lp-nav-signin { display: none !important; }
+      #lp-nav-mob-tutorial { display: inline-flex !important; }
+
       /* ══ LANDING — HERO ══ */
       .lp-hero {
         min-height: 100svh;
@@ -8691,6 +8695,7 @@
         <button class="btn-nav-tutorial" onclick="(function(){var isLI=window._RNTut&&typeof window._RNTut.isLoggedIn==='function'&&window._RNTut.isLoggedIn();if(isLI){if(typeof _rnStartUserTutorial==='function')_rnStartUserTutorial();}else{if(typeof window.startViewTutorial==='function')window.startViewTutorial('landing');}})();">🎓 Watch Tutorial</button>
       </div>
       <div class="lp-nav-right" id="lp-nav-right">
+        <button class="btn-nav-tutorial" id="lp-nav-mob-tutorial" style="display:none;" onclick="(function(){var isLI=window._RNTut&&typeof window._RNTut.isLoggedIn==='function'&&window._RNTut.isLoggedIn();if(isLI){if(typeof _rnStartUserTutorial==='function')_rnStartUserTutorial();}else{if(typeof window.startViewTutorial==='function')window.startViewTutorial('landing');}})();">🎓 Watch Tutorial</button>
         <button class="btn-nav-outline" id="lp-nav-signin" onclick="showPage('login-page')">Sign In</button>
         <button class="btn btn-terra btn-sm" id="lp-nav-getstarted" onclick="showPage('signup-page')">Get Started</button>
         <button class="btn btn-terra btn-sm" id="lp-nav-dashboard" style="display:none;" onclick="goToDashboard()">Dashboard →</button>
@@ -17556,7 +17561,7 @@
       var _rnCoinsSvgText = null;
 
       // Pre-fetch the SVG so it's ready instantly when needed
-      fetch('/coin.svg')
+      fetch('/coins-animation.svg')
         .then(function(r){ return r.text(); })
         .then(function(txt){
           // Play once, freeze on last frame (prevents disappear bug)
@@ -17604,7 +17609,7 @@
             if (svg) { svg.style.width='100%'; svg.style.height='100%'; }
           } else {
             // Fallback: fetch now if pre-fetch didn't finish
-            fetch('/coin.svg')
+            fetch('/coins-animation.svg')
               .then(function(r){ return r.text(); })
               .then(function(txt){
                 var once = txt
@@ -18231,8 +18236,14 @@ async function fetchLeaderboard(){
       .order('credits',{ascending:false})
       .limit(20);
     if(res.data){
-      _lbData=res.data;
-      try{localStorage.setItem(LB_DATA_KEY,JSON.stringify(res.data));}catch(e){}
+      // Deduplicate by id and filter out entries with no name
+      var _seen={};
+      _lbData=res.data.filter(function(item){
+        if(!item.id||_seen[item.id])return false;
+        _seen[item.id]=true;
+        return !!(item.name&&item.name.trim());
+      });
+      try{localStorage.setItem(LB_DATA_KEY,JSON.stringify(_lbData));}catch(e){}
       localStorage.setItem(LB_KEY,Date.now().toString());
       renderLeaderboard();
       updateDashboardCrown(res.data);
@@ -18259,9 +18270,7 @@ function updateDashboardCrown(data){
     ['sb-av','rent-user-av','mob-sb-av'].forEach(function(id){
       var el=document.getElementById(id);
       if(!el)return;
-      var wrap=el.parentElement;
-      if(!wrap)return;
-      var existing=wrap.querySelector('.sb-crown-icon');
+      var existing=el.querySelector('.sb-crown-icon');
       if(isTop){
         if(!existing){
           var img=document.createElement('img');
@@ -18269,8 +18278,8 @@ function updateDashboardCrown(data){
           img.className='sb-crown-icon';
           img.alt='crown';
           img.onerror=function(){this.style.display='none';};
-          if(getComputedStyle(wrap).position==='static')wrap.style.position='relative';
-          wrap.appendChild(img);
+          if(getComputedStyle(el).position==='static')el.style.position='relative';
+          el.appendChild(img);
         }
       }else{
         if(existing)existing.remove();
@@ -18461,6 +18470,8 @@ var T={
     if(this.isLoggedIn())return;
     var ov=document.getElementById('rn-tutorial');
     if(!ov)return;
+    // If user already skipped or finished, never auto-start again
+    if(localStorage.getItem('rn-tutorial-done'))return;
     // Track that tutorial has been started; only mark done when finished or skipped.
     localStorage.setItem('rn-tutorial-started','1');
     ov.classList.remove('rn-hidden');
