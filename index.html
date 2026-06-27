@@ -18099,7 +18099,7 @@
 <div id="rn-leaderboard-modal">
   <!-- Opening animation screen -->
   <div class="lb-anim-screen" id="lb-anim-screen">
-    <img class="lb-anim-svg" src="/coin.svg" alt="" onerror="this.style.display='none'">
+    <img class="lb-anim-svg" src="/leaderboard.svg" alt="" onerror="this.style.display='none'">
     <div class="lb-anim-title">🏆 Leaderboard</div>
   </div>
   <!-- Full page content -->
@@ -18121,7 +18121,7 @@
     </div>
     <!-- Footer timer -->
     <div class="lb-footer">
-      Leaderboard will update in <span class="lb-timer-bold" id="lb-countdown">1:00</span>
+      Leaderboard will update in <span class="lb-timer-bold" id="lb-countdown">0:30</span>
     </div>
   </div>
 </div>
@@ -18173,7 +18173,7 @@
 
 var LB_KEY='rn-lb-last-fetch';     // last fetch timestamp
 var LB_DATA_KEY='rn-lb-data';      // cached leaderboard data
-var LB_INTERVAL=1*60*1000;         // 1 minute in ms
+var LB_INTERVAL=30*1000;           // 30 seconds
 var _lbData=null;
 var _lbCountdownTimer=null;
 var _lbFetchTimer=null;
@@ -18187,10 +18187,14 @@ function openLeaderboard(){
   modal.classList.add('lb-open');
   var animScreen=document.getElementById('lb-anim-screen');
   var page=document.getElementById('lb-page');
+  // Always force a fresh fetch when opening so credits are never stale
+  if(_lbFetchTimer){clearTimeout(_lbFetchTimer);_lbFetchTimer=null;}
+  localStorage.removeItem('rn-lb-last-fetch');
   if(!_lbAnimPlayed){
     _lbAnimPlayed=true;
     if(animScreen)animScreen.classList.remove('lb-anim-done');
     if(page)page.style.opacity='0';
+    fetchLeaderboard();
     setTimeout(function(){
       if(animScreen)animScreen.classList.add('lb-anim-done');
       if(page)page.style.opacity='1';
@@ -18199,10 +18203,9 @@ function openLeaderboard(){
   } else {
     if(animScreen)animScreen.classList.add('lb-anim-done');
     if(page)page.style.opacity='1';
-    renderLeaderboard();
+    fetchLeaderboard();
   }
   startCountdown();
-  scheduleNextFetch();
 }
 window.openLeaderboard=openLeaderboard;
 
