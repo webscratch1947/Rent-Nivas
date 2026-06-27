@@ -17536,11 +17536,23 @@
   <!-- ══ FIRST-LOGIN WELCOME VIDEO OVERLAY (once per account, after registration) ══ -->
   <div id="rn-flv-overlay" style="display:none;position:fixed;inset:0;z-index:200000;background:#000;align-items:center;justify-content:center;cursor:pointer;" onclick="window._rnCloseFirstLoginVideo && window._rnCloseFirstLoginVideo()">
     <video id="rn-flv-video" src="/badge-earning.mp4" playsinline webkit-playsinline muted
-      style="width:100%;height:100%;object-fit:cover;display:block;"></video>
+      style="max-width:100%;max-height:100%;width:auto;height:auto;display:block;object-fit:contain;"></video>
     <div id="rn-flv-hint" style="display:none;position:absolute;bottom:48px;left:50%;transform:translateX(-50%);color:#fff;font-size:17px;font-weight:500;letter-spacing:.5px;text-align:center;opacity:0;transition:opacity .6s ease;pointer-events:none;white-space:nowrap;text-shadow:0 2px 12px rgba(0,0,0,.7);">
       Click anywhere to close
     </div>
   </div>
+
+  <!-- ══ CREDITS REVEAL POPUP (coins animation + count-up, shown after first-login video closes) ══ -->
+  <div id="rn-coins-popup" style="display:none;position:fixed;inset:0;z-index:200001;background:rgba(0,0,0,.65);backdrop-filter:blur(4px);align-items:center;justify-content:center;" onclick="document.getElementById('rn-coins-popup').style.display='none';if(typeof _unlockScroll==='function')_unlockScroll();">
+    <div style="background:#fff;border-radius:24px;padding:36px 32px 28px;max-width:340px;width:92%;text-align:center;box-shadow:0 16px 56px rgba(0,0,0,.25);animation:fadeUp .4s cubic-bezier(.22,1,.36,1);" onclick="event.stopPropagation()">
+      <img src="/coins-animation.svg" alt="" style="width:120px;height:120px;display:block;margin:0 auto 16px;">
+      <div style="font-size:13px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#c2714f;margin-bottom:6px;">Free Credits</div>
+      <div style="font-size:42px;font-weight:900;color:#18150f;line-height:1;margin-bottom:8px;">🪙 <span id="rn-coins-count">0</span></div>
+      <div style="font-size:14px;color:#7a7068;line-height:1.6;margin-bottom:22px;">Welcome! These credits are yours — use them to unlock property contact details instantly.</div>
+      <button style="background:#c2714f;color:#fff;border:none;border-radius:12px;padding:13px 28px;font-size:15px;font-weight:700;cursor:pointer;width:100%;font-family:inherit;" onclick="document.getElementById('rn-coins-popup').style.display='none';if(typeof _unlockScroll==='function')_unlockScroll();">Start Exploring →</button>
+    </div>
+  </div>
+
   <script>
     (function() {
       window._rnShowFirstLoginVideo = function() {
@@ -17567,31 +17579,35 @@
         if (video) { try { video.pause(); } catch(e){} }
         overlay.style.display = 'none';
         if (hint) { hint.style.display = 'none'; hint.style.opacity = '0'; }
-        if (typeof _unlockScroll === 'function') _unlockScroll();
-        // Animate credits from 0 to actual value
+        // Show coins popup with animated count-up
         setTimeout(function() {
           var actualCredits = 0;
           try {
             var raw = localStorage.getItem('nestly-credits');
             if (raw !== null) actualCredits = Math.max(0, parseInt(raw, 10) || 0);
           } catch(e) {}
+          // Reset all credit badges to 0
           var ids = ['host-credits-count','rent-credits-count','pur-credits-count','detail-credits-count','sett-credits-count'];
           ids.forEach(function(id) {
-            var el = document.getElementById(id);
-            if (!el) return;
-            el.textContent = '0';
+            var el = document.getElementById(id); if (el) el.textContent = '0';
           });
-          if (actualCredits === 0) return;
+          // Show coins popup
+          var popup = document.getElementById('rn-coins-popup');
+          var countEl = document.getElementById('rn-coins-count');
+          if (popup) { popup.style.display = 'flex'; }
+          if (typeof _lockScroll === 'function') _lockScroll();
+          if (actualCredits === 0) { if (countEl) countEl.textContent = '0'; return; }
+          // Animate count-up in popup AND in badges simultaneously
           var start = null;
-          var duration = 1200;
+          var duration = 1400;
           function step(ts) {
             if (!start) start = ts;
             var progress = Math.min((ts - start) / duration, 1);
             var eased = 1 - Math.pow(1 - progress, 3);
             var current = Math.round(eased * actualCredits);
+            if (countEl) countEl.textContent = current;
             ids.forEach(function(id) {
-              var el = document.getElementById(id);
-              if (el) el.textContent = current;
+              var el = document.getElementById(id); if (el) el.textContent = current;
             });
             if (progress < 1) requestAnimationFrame(step);
           }
