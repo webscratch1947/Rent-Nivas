@@ -8382,6 +8382,126 @@
   @keyframes rn-label-bounce{0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(-5px)}}
   @keyframes rn-audio-bar{0%,100%{transform:scaleY(.4)}50%{transform:scaleY(1)}}
   @media(max-width:767px){.rn-tut-character{display:none!important}.rn-tut-bubble-wrap{max-width:100%!important;padding:0 8px 0}}
+  /* ══ 10-CREDITS POPUP ══ */
+  /* ══ CREDITS POPUP ══ */
+  #rn-credits-popup-bg{
+    display:none;position:fixed;inset:0;z-index:99999;
+    background:rgba(0,0,0,.65);backdrop-filter:blur(8px);
+    align-items:center;justify-content:center;
+    opacity:0;pointer-events:none;transition:opacity .32s;
+  }
+  #rn-credits-popup-bg.rn-cp-open{display:flex;opacity:1;pointer-events:all;}
+  .rn-cp-box{
+    background:linear-gradient(160deg,#1a0e04 0%,#0d0703 100%);
+    border:1.5px solid rgba(255,210,50,.22);
+    border-radius:28px;max-width:400px;width:92%;
+    padding:0 0 32px;overflow:hidden;
+    box-shadow:0 40px 120px rgba(0,0,0,.8),0 0 80px rgba(255,180,0,.07),inset 0 1px 0 rgba(255,255,255,.07);
+    animation:rn-cp-pop .55s cubic-bezier(.22,1,.36,1) both;
+    text-align:center;
+  }
+  @keyframes rn-cp-pop{from{transform:scale(.88) translateY(28px);opacity:0}to{transform:scale(1) translateY(0);opacity:1}}
+  @keyframes rn-cp-idle-bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+
+  /* SVG click area */
+  .rn-cp-svg-wrap{
+    width:100%;position:relative;cursor:pointer;
+    background:radial-gradient(ellipse at 50% 65%,rgba(255,180,30,.09) 0%,transparent 70%);
+    overflow:hidden;margin-bottom:-4px;
+    transition:background .3s;
+  }
+  .rn-cp-svg-wrap:hover{background:radial-gradient(ellipse at 50% 65%,rgba(255,180,30,.16) 0%,transparent 70%);}
+  .rn-cp-svg-wrap svg{width:88%;height:auto;display:block;margin:0 auto;}
+
+  /* Idle pulsing ring — signals "tap me" */
+  .rn-cp-svg-wrap::before{
+    content:'';position:absolute;
+    inset:15% 20%;border-radius:50%;
+    box-shadow:0 0 0 0 rgba(255,210,50,.5);
+    animation:rn-cp-idle-pulse 2.2s ease-in-out infinite;
+    pointer-events:none;
+  }
+  @keyframes rn-cp-idle-pulse{
+    0%{box-shadow:0 0 0 0 rgba(255,210,50,.45);}
+    60%{box-shadow:0 0 0 22px rgba(255,210,50,0);}
+    100%{box-shadow:0 0 0 0 rgba(255,210,50,0);}
+  }
+  .rn-cp-svg-wrap.rn-svg-played::before{animation:none;}
+
+  /* Tap affordance label */
+  .rn-cp-tap-hint{
+    position:absolute;bottom:12px;left:50%;transform:translateX(-50%);
+    background:rgba(255,210,50,.14);border:1px solid rgba(255,210,50,.3);
+    border-radius:20px;padding:5px 16px;
+    font-size:12px;font-weight:700;color:rgba(255,220,80,.9);
+    pointer-events:none;white-space:nowrap;
+    animation:rn-cp-hint-bob 2s ease-in-out infinite;
+    transition:opacity .3s;
+  }
+  @keyframes rn-cp-hint-bob{0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(-4px)}}
+  .rn-cp-svg-wrap.rn-svg-played .rn-cp-tap-hint{opacity:0;pointer-events:none;}
+
+  /* ── State-machine animations on the hidden SVG layers ── */
+  /* Groups #i4, #i9, #i20 start with opacity:0 in the SVG markup.
+     The .rn-svg-playing class triggers these to burst into view once. */
+  .rn-svg-playing #i4{
+    animation:rn-burst-tl 0.75s cubic-bezier(.22,1,.36,1) 0.05s both;
+  }
+  .rn-svg-playing #i9{
+    animation:rn-burst-br 0.75s cubic-bezier(.22,1,.36,1) 0.18s both;
+  }
+  .rn-svg-playing #i20{
+    animation:rn-burst-side 0.65s cubic-bezier(.22,1,.36,1) 0.32s both;
+  }
+  @keyframes rn-burst-tl{
+    0%  {opacity:0;transform:scale(.4) translate(12%,14%);}
+    60% {opacity:1;}
+    100%{opacity:1;transform:scale(1) translate(0,0);}
+  }
+  @keyframes rn-burst-br{
+    0%  {opacity:0;transform:scale(.4) translate(-10%,12%);}
+    60% {opacity:1;}
+    100%{opacity:1;transform:scale(1) translate(0,0);}
+  }
+  @keyframes rn-burst-side{
+    0%  {opacity:0;transform:scale(.5) translateY(10%);}
+    60% {opacity:1;}
+    100%{opacity:1;transform:scale(1) translateY(0);}
+  }
+  /* Golden flash on the box when animation fires */
+  .rn-svg-playing::after{
+    content:'';position:absolute;inset:0;
+    background:radial-gradient(ellipse at 50% 55%,rgba(255,220,80,.28) 0%,transparent 65%);
+    animation:rn-cp-flash .5s ease-out both;
+    pointer-events:none;
+  }
+  @keyframes rn-cp-flash{0%{opacity:1;}100%{opacity:0;}}
+
+  .rn-cp-badge{
+    display:inline-block;
+    background:linear-gradient(135deg,rgba(255,210,50,.18),rgba(255,160,40,.12));
+    border:1px solid rgba(255,210,50,.3);border-radius:20px;
+    padding:4px 16px;font-size:12px;font-weight:700;
+    color:rgba(255,215,70,.9);letter-spacing:.5px;margin-bottom:12px;
+  }
+  .rn-cp-title{
+    font-size:26px;font-weight:900;letter-spacing:-.4px;margin:0 0 8px;
+    background:linear-gradient(135deg,#FFE566 0%,#FFAE42 60%,#FF8C2A 100%);
+    -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+    font-family:var(--font-display);
+  }
+  .rn-cp-sub{font-size:14px;color:rgba(255,255,255,.6);line-height:1.65;margin:0 28px 24px;}
+  .rn-cp-sub strong{color:rgba(255,255,255,.9);}
+  .rn-cp-btn{
+    display:inline-block;
+    background:linear-gradient(135deg,#FFD232 0%,#FFA040 100%);
+    color:#1a0800;font-weight:800;border:none;
+    border-radius:16px;padding:14px 36px;font-size:15px;
+    cursor:pointer;font-family:inherit;letter-spacing:.2px;
+    box-shadow:0 8px 32px rgba(255,160,64,.35);
+    transition:transform .15s,box-shadow .15s;
+  }
+  .rn-cp-btn:hover{transform:translateY(-2px);box-shadow:0 14px 44px rgba(255,160,64,.55);}
   /* Tawk.to: scale bubble smaller on all screens */
   #tawk-bubble-container{transform:scale(0.75);transform-origin:bottom right;}
   /* Tawk.to: float above tutorial panel on mobile */
@@ -9097,8 +9217,7 @@
                 <button class="btn btn-terra btn-sm" onclick="updateRentProfile()" data-i18n="sett_save">Save Changes</button>
                 <button class="btn btn-outline btn-sm" onclick="openForgotPasswordModal(true)" data-i18n="sett_change_pw">🔑 Change Password</button>
               </div>
-              <div style="margin-top:24px;padding-top:20px;border-top:1px solid var(--border);display:flex;gap:10px;flex-wrap:wrap;">
-                <button class="btn btn-outline btn-sm" onclick="startViewTutorial('rent')" style="background:var(--bg2);">🎓 View Tutorial</button>
+              <div style="margin-top:24px;padding-top:20px;border-top:1px solid var(--border);">
                 <button class="btn btn-outline-dark btn-sm" onclick="doLogout()" style="color:rgba(220,38,38,.7);">🚪 Logout</button>
               </div>
             </div>
@@ -9872,9 +9991,6 @@
                 <button class="btn btn-outline btn-sm" onclick="openForgotPasswordModal(true)" data-i18n="sett_change_pw">🔑 Change
                   Password</button>
               </div>
-              <div style="margin-top:24px;padding-top:20px;border-top:1px solid var(--border);">
-                <button class="btn btn-outline btn-sm" onclick="startViewTutorial('host')" style="background:var(--bg2);">🎓 View Tutorial</button>
-              </div>
             </div>
           </div>
 
@@ -10621,45 +10737,6 @@
       }
       if (refCode && refCode.length < 8) {
         toast('Referral code must be 8 digits, or leave it blank.', 'error');
-        return;
-      }
-      // Block disposable / temporary email addresses
-      const BLOCKED_MAIL_DOMAINS = [
-        'mailinator.com','guerrillamail.com','guerrillamailblock.com','grr.la','guerrillamail.info',
-        'guerrillamail.biz','guerrillamail.de','guerrillamail.net','guerrillamail.org',
-        'sharklasers.com','spam4.me','yopmail.com','yopmail.fr','cool.fr.nf','jetable.fr.nf',
-        'nospam.ze.tc','nomail.xl.cx','mega.zik.dj','speed.1s.fr','courriel.fr.nf',
-        'moncourrier.fr.nf','monemail.fr.nf','monmail.fr.nf','trashmail.com','trashmail.me',
-        'trashmail.at','trashmail.io','trashmail.net','trashmail.org','throwam.com',
-        'tempmail.com','temp-mail.org','tempinbox.com','tempr.email','emailondeck.com',
-        'dispostable.com','maildrop.cc','mailnull.com','spamgourmet.com','trashdevil.com',
-        'mailsac.com','throwam.com','fakeinbox.com','getairmail.com','10minutemail.com',
-        '10minutemail.net','10minutemail.org','10minutemail.de','10minutemail.ru','10mail.org',
-        'mailnesia.com','tempemail.net','spamfree24.org','spam.la','spamex.com','mailexpire.com',
-        'throwaway.email','crazymailing.com','easytrashmail.com','mailscrap.com','spamgourmet.net',
-        'anonbox.net','despammed.com','nwldx.com','spamoff.de','binkmail.com','bobmail.info',
-        'dayrep.com','deadaddress.com','discard.email','discardmail.com','discardmail.de',
-        'disposableinbox.com','filzmail.com','gishpuppy.com','kasmail.com','klassmaster.com',
-        'klzlk.com','kurzepost.de','letthemeatspam.com','lookugly.com','lortemail.dk',
-        'meltmail.com','messagebeam.com','mytrashmail.com','nobulk.com','odnorazovyj.ru',
-        'owlpic.com','pookmail.com','rklips.com','rmqkr.net','safetymail.info',
-        'sendspamhere.com','sharedmailbox.org','sofimail.com','soodonims.com','spam.su',
-        'spamcorpse.com','spamhereplease.com','spamidol.com','spamkill.info','spammotel.com',
-        'spamspot.com','supergreatmail.com','suremail.info','tempalias.com','tempymail.com',
-        'thanksnospam.info','thecloudindex.com','throwam.com','tidni.com','tmailinator.com',
-        'tradermail.info','turual.com','uggsrock.com','upliftnow.com','uroid.com',
-        'veryrealemail.com','vidchart.com','viditag.com','wegwerfmail.de','wegwerfmail.net',
-        'wegwerfmail.org','wilemail.com','willselfdestruct.com','wuzupmail.net','xagloo.com',
-        'xemaps.com','xents.com','xmailer.be','xmaily.com','xxolocanto.com','yapped.net',
-        'yepmail.net','yert.ye.vc','zehnminuten.de','zippymail.info',
-        // more popular ones
-        'mailinator.net','spikio.com','incognitomail.com','getnada.com','discard.email',
-        'harakirimail.com','jetable.org','jetable.net','jetable.com','jetable.me',
-        'mytempemail.com','nowmymail.com','tempemail.com','tempinbox.net','tempr.email',
-      ];
-      const emailDomain = email.split('@')[1]?.toLowerCase();
-      if (emailDomain && BLOCKED_MAIL_DOMAINS.includes(emailDomain)) {
-        toast('Please use a real email address. Temporary/disposable emails are not allowed.', 'error');
         return;
       }
       if (btn) { btn.disabled = true; btn.textContent = 'Creating account…'; }
@@ -17537,13 +17614,74 @@
       _unlockScroll();
       setTimeout(function () {
         bg.style.display = 'none';
-        // After welcome popup closes, show the streak popup for logged-in
-        // users if a reward is currently claimable (see maybeShowStreakPopup).
-        if (window.maybeShowStreakPopup) window.maybeShowStreakPopup();
+        // Show 10-credits popup for guest users (once ever), else streak popup
+        var isGuest = !(function(){
+          try{var raw=localStorage.getItem('rentnivas-auth');if(!raw)return false;var s=JSON.parse(raw),t=s.id_token||s.access_token;if(!t||!s.refresh_token)return false;var p=JSON.parse(atob(t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/')));var exp=p.exp?p.exp*1000:0;return !(exp>0&&exp<Date.now()-600000);}catch(_){return false;}
+        })();
+        if(isGuest && !localStorage.getItem('rn-credits-popup-shown')){
+          localStorage.setItem('rn-credits-popup-shown','1');
+          setTimeout(_rnOpenCreditsPopup, 350);
+        } else {
+          if (window.maybeShowStreakPopup) window.maybeShowStreakPopup();
+        }
       }, 300);
+    }
+    function _rnOpenCreditsPopup(){
+      var el=document.getElementById('rn-credits-popup-bg');
+      if(!el)return;
+      el.style.display='flex';
+      _lockScroll();
+      requestAnimationFrame(function(){el.style.opacity='1';el.style.pointerEvents='all';});
+    }
+    function _rnCloseCreditsPopup(){
+      var el=document.getElementById('rn-credits-popup-bg');
+      if(!el)return;
+      el.style.opacity='0';el.style.pointerEvents='none';
+      _unlockScroll();
+      setTimeout(function(){
+        el.style.display='none';
+        if(window.maybeShowStreakPopup)window.maybeShowStreakPopup();
+      },320);
     }
   </script>
 
+  <!-- ══ 10 FREE CREDITS POPUP ══ -->
+  <div id="rn-credits-popup-bg">
+    <div class="rn-cp-box">
+
+      <!-- Click-to-play state machine -->
+      <div class="rn-cp-svg-wrap" id="rn-cp-svg-wrap" onclick="_rnPlayCoinAnim()" role="button" aria-label="Tap to open gift">
+        <!-- Idle: gift box emoji placeholder (shown before tap) -->
+        <div id="rn-cp-idle" style="display:flex;align-items:center;justify-content:center;padding:32px 0 20px;font-size:96px;line-height:1;animation:rn-cp-idle-bob 2.4s ease-in-out infinite;filter:drop-shadow(0 6px 18px rgba(255,210,50,.45));">🎁</div>
+        <!-- Played: animated SVG — src is set on first tap, plays once -->
+        <img id="rn-cp-anim-img" src="" alt="coins animation"
+          style="display:none;width:88%;height:auto;margin:0 auto 4px;display:none;">
+        <div class="rn-cp-tap-hint">🎁 Tap to open!</div>
+      </div>
+      @keyframes rn-cp-idle-bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+
+      <div style="padding:0 28px;">
+        <div class="rn-cp-badge">🪙 FREE CREDITS</div>
+        <div class="rn-cp-title">You've got 10 free credits!</div>
+        <p class="rn-cp-sub">Use them to <strong>unlock property details</strong> — see the owner's phone number &amp; address instantly. No payment needed.</p>
+        <button class="rn-cp-btn" onclick="_rnCloseCreditsPopup()">Start Exploring →</button>
+      </div>
+
+    </div>
+  </div>
+  <script>
+    window._rnCoinAnimPlayed = false;
+    function _rnPlayCoinAnim() {
+      if (window._rnCoinAnimPlayed) return;
+      window._rnCoinAnimPlayed = true;
+      var idle = document.getElementById('rn-cp-idle');
+      var img  = document.getElementById('rn-cp-anim-img');
+      var wrap = document.getElementById('rn-cp-svg-wrap');
+      if (idle) idle.style.display = 'none';
+      if (img)  { img.style.display = 'block'; img.src = 'coins-animation.svg'; }
+      if (wrap) { wrap.classList.add('rn-svg-playing'); setTimeout(function(){ wrap.classList.add('rn-svg-played'); }, 1400); }
+    }
+  </script>
   <!-- ══ DAILY STREAK SYSTEM ══ -->
   <script>
     (function () {
@@ -17857,6 +17995,7 @@ s0.parentNode.insertBefore(s1,s0);
             <select id="rn-tut-lang" onchange="window._RNTut&&window._RNTut.setLang(this.value)">
               <option value="en">English</option>
               <option value="hi">&#x939;&#x93F;&#x902;&#x926;&#x940;</option>
+              <option value="te">&#x0C24;&#x0C46;&#x0C32;&#x0C41;&#x0C17;&#x0C41;</option>
             </select>
           </div>
           <button id="rn-tut-play-btn" class="rn-tut-play" onclick="window._RNTut&&window._RNTut.toggleAudio()">
@@ -17887,66 +18026,43 @@ var C={
     1:"Click the 'Get Started' button to create your free account. It only takes a minute!",
     2:"Fill in your full name, email and password. A referral code is optional. You'll get 10 RN credits on signup to unlock property contact details — no payment needed!",
     3:"Almost done! We just sent a 6-digit code to your email. Check your inbox (and spam folder too), then enter the code to verify and complete your account!",
-    4:"Now enter your registered email and password, then click 'Sign In →' to log into your account!",
+    4:"Now enter your registered email and password, then click 'Sign In \u2192' to log into your account!",
     5:"Great! Now choose what you'd like to do — list a property as an Owner, or browse rentals as a Renter.",
-    6:"🎉 Congratulations — you've successfully created your account!",
-    7:"📊 This is your main dashboard. From here you can list houses, check your analytics, manage clients, and track everything about your properties.",
-    8:"➕ Let's list your first home! Click the 'Add Listing' button to open the listing form.",
-    9:"Here's how to list your property: pick a Property Type, then fill in your Address & Location, Rent & Deposit, Rooms & Amenities, and upload Photos. When you're ready, scroll down and click '🚀 Publish Listing' to make it live!",
-    10:"🎉 Congratulations — your account is ready!",
-    11:"🔍 This is the Browse Homes page — every verified listing shows up here. Use the search bar or the filter chips to narrow results by property type.",
-    12:"🔓 Found a home you like? Unlocking it reveals the owner's phone number and address. You start with 10 free RN credits — check 'Unlocked Homes' anytime to see what you've already unlocked."
+    6:"\ud83c\udf89 Congratulations — you've successfully created your account!",
+    7:"\ud83d\udcca This is your main dashboard. From here you can list houses, check your analytics, manage clients, and track everything about your properties.",
+    8:"\u2795 Let's list your first home! Click the 'Add Listing' button to open the listing form.",
+    9:"Here's how to list your property: pick a Property Type, then fill in your Address & Location, Rent & Deposit, Rooms & Amenities, and upload Photos. When you're ready, scroll down and click '\ud83d\ude80 Publish Listing' to make it live!",
+    10:"\ud83c\udf89 Congratulations — your account is ready!",
+    11:"\ud83d\udd0d This is the Browse Homes page — every verified listing shows up here. Use the search bar or the filter chips to narrow results by property type.",
+    12:"\ud83d\udd13 Found a home you like? Unlocking it reveals the owner's phone number and address. You start with 10 free RN credits — check 'Unlocked Homes' anytime to see what you've already unlocked."
   },
   hi:{
-    0:"Rent Nivas में आपका स्वागत है! मैं आपका गाइड हूँ। साइन अप करें — यह मुफ्त है! 10 RN क्रेडिट मिलेंगे जिनसे आप घर अनलॉक कर सकते हैं, और पहली 999 प्रॉपर्टी लिस्टिंग बिल्कुल मुफ्त है।",
-    1:"अपना मुफ्त खाता बनाने के लिए 'Get Started' बटन पर क्लिक करें। बस एक मिनट लगेगा!",
-    2:"अपना पूरा नाम, ईमेल और पासवर्ड भरें। रेफरल कोड वैकल्पिक है। साइन अप पर 10 मुफ्त क्रेडिट मिलेंगे!",
-    3:"लगभग हो गया! हमने आपके ईमेल पर 6 अंकों का कोड भेजा है। इनबॉक्स और स्पैम चेक करें, फिर यहाँ कोड दर्ज करें!",
-    4:"अब अपना रजिस्टर्ड ईमेल और पासवर्ड डालें, फिर अपने अकाउंट में लॉगिन करने के लिए 'Sign In →' पर क्लिक करें!",
-    5:"बहुत बढ़िया! अब चुनें कि आप क्या करना चाहते हैं — मालिक के रूप में प्रॉपर्टी लिस्ट करें, या किरायेदार के रूप में किराये के घर ब्राउज़ करें।",
-    6:"🎉 बधाई हो — आपका अकाउंट सफलतापूर्वक बन गया है!",
-    7:"📊 यह आपका मुख्य डैशबोर्ड है। यहाँ से आप घर लिस्ट कर सकते हैं, एनालिटिक्स देख सकते हैं, क्लाइंट मैनेज कर सकते हैं, और अपनी सभी प्रॉपर्टीज़ ट्रैक कर सकते हैं।",
-    8:"➕ चलिए अपना पहला घर लिस्ट करते हैं! लिस्टिंग फॉर्म खोलने के लिए 'Add Listing' बटन पर क्लिक करें।",
-    9:"अपनी प्रॉपर्टी लिस्ट करने का तरीका: सबसे पहले Property Type चुनें, फिर Address & Location, Rent & Deposit, Rooms & Amenities भरें, और फोटो अपलोड करें। तैयार होने पर नीचे स्क्रॉल करें और '🚀 Publish Listing' पर क्लिक करें!",
-    10:"🎉 बधाई हो — आपका अकाउंट तैयार है!",
-    11:"🔍 यह Browse Homes पेज है — यहाँ सभी वेरिफाइड लिस्टिंग दिखती हैं। सर्च बार या फ़िल्टर चिप्स से प्रॉपर्टी टाइप के अनुसार खोज सकते हैं।",
-    12:"🔓 कोई घर पसंद आया? अनलॉक करने पर मालिक का फोन नंबर और एड्रेस दिख जाता है। आपको शुरुआत में 10 मुफ्त RN क्रेडिट मिलते हैं — 'Unlocked Homes' में अपनी अनलॉक की हुई प्रॉपर्टीज़ देखें।"
-  },
-  te:{
-    0:"Rent Nivas కి స్వాగతం! నేను మీ గైడ్. సైన్ అప్ చేయండి — ఉచితం! 10 RN క్రెడిట్స్ పొందండి ఇంటిని అన్‌లాక్ చేయడానికి, మరియు మొదటి 999 హోస్ట్‌లకు లిస్టింగ్ పూర్తిగా ఉచితం.",
-    1:"'Get Started' బటన్ పై క్లిక్ చేసి మీ ఉచిత ఖాతాను సృష్టించండి. ఒక నిమిషం మాత్రమే!",
-    2:"మీ పూర్తి పేరు, ఇమెయిల్ మరియు పాస్‌వర్డ్ నమోదు చేయండి. రెఫరల్ కోడ్ ఐచ్ఛికం. సైన్ అప్‌లో 10 ఉచిత క్రెడిట్స్!",
-    3:"దాదాపు అయిపోయింది! మేము మీ ఇమెయిల్‌కు 6 అంకెల కోడ్ పంపాము. ఇన్‌బాక్స్ మరియు స్పామ్ చెక్ చేసి కోడ్ నమోదు చేయండి!",
-    4:"ఇప్పుడు మీ రిజిస్టర్డ్ ఇమెయిల్ మరియు పాస్‌వర్డ్ నమోదు చేసి, మీ ఖాతాలో లాగిన్ అవ్వడానికి 'Sign In →' పై క్లిక్ చేయండి!",
-    5:"చాలా బాగుంది! ఇప్పుడు మీరు ఏమి చేయాలనుకుంటున్నారో ఎంచుకోండి — యజమానిగా ప్రాపర్టీ లిస్ట్ చేయండి, లేదా అద్దెకు ఇళ్లను బ్రౌజ్ చేయండి.",
-    6:"🎉 అభినందనలు — మీ ఖాతా విజయవంతంగా సృష్టించబడింది!",
-    7:"📊 ఇది మీ ముఖ్య డాష్‌బోర్డ్. ఇక్కడ నుండి మీరు ఇళ్లను లిస్ట్ చేయవచ్చు, అనలిటిక్స్ చూడవచ్చు, క్లయింట్లను నిర్వహించవచ్చు.",
-    8:"➕ మీ మొదటి ఇంటిని లిస్ట్ చేద్దాం! లిస్టింగ్ ఫారమ్ తెరవడానికి 'Add Listing' బటన్‌పై క్లిక్ చేయండి.",
-    9:"మీ ప్రాపర్టీని ఎలా లిస్ట్ చేయాలి: ముందుగా Property Type ఎంచుకోండి, తర్వాత Address & Location, Rent & Deposit, Rooms & Amenities నింపి, ఫోటోలు అప్‌లోడ్ చేయండి. తయారైనప్పుడు కిందికి స్క్రోల్ చేసి '🚀 Publish Listing' క్లిక్ చేయండి!",
-    10:"🎉 అభినందనలు — మీ ఖాతా సిద్ధంగా ఉంది!",
-    11:"🔍 ఇది Browse Homes పేజీ — అన్ని వెరిఫైడ్ లిస్టింగ్‌లు ఇక్కడ కనిపిస్తాయి. సెర్చ్ బార్ లేదా ఫిల్టర్ చిప్స్ ఉపయోగించి ప్రాపర్టీ టైప్ ద్వారా వెతకండి.",
-    12:"🔓 మీకు నచ్చిన ఇల్లు దొరికిందా? అన్‌లాక్ చేయడం వల్ల యజమాని ఫోన్ నంబర్ మరియు చిరునామా కనిపిస్తుంది. ప్రారంభంలో 10 ఉచిత RN క్రెడిట్స్ లభిస్తాయి — 'Unlocked Homes' లో మీరు అన్‌లాక్ చేసినవి చూడవచ్చు."
+    0:"Rent Nivas \u092e\u0947\u0902 \u0906\u092a\u0915\u093e \u0938\u094d\u0935\u093e\u0917\u0924 \u0939\u0948! \u092e\u0948\u0902 \u0906\u092a\u0915\u093e \u0917\u093e\u0907\u0921 \u0939\u0942\u0901\u0964 \u0938\u093e\u0907\u0928 \u0905\u092a \u0915\u0930\u0947\u0902 \u2014 \u092f\u0939 \u092e\u0941\u092b\u093c\u094d\u0924 \u0939\u0948! 10 RN \u0915\u094d\u0930\u0947\u0921\u093f\u091f \u092e\u093f\u0932\u0947\u0902\u0917\u0947 \u091c\u093f\u0928\u0938\u0947 \u0906\u092a \u0918\u0930 \u0905\u0928\u0932\u0949\u0915 \u0915\u0930 \u0938\u0915\u0924\u0947 \u0939\u0948\u0902, \u0914\u0930 \u092a\u0939\u0932\u0940 999 \u092a\u094d\u0930\u0949\u092a\u0930\u094d\u091f\u0940 \u0932\u093f\u0938\u094d\u091f\u093f\u0902\u0917 \u092c\u093f\u0932\u094d\u0915\u0941\u0932 \u092e\u0941\u092b\u093c\u094d\u0924 \u0939\u0948\u0964",
+    1:"\u0905\u092a\u0928\u093e \u092e\u0941\u092b\u093c\u094d\u0924 \u0916\u093e\u0924\u093e \u092c\u0928\u093e\u0928\u0947 \u0915\u0947 \u0932\u093f\u090f 'Get Started' \u092c\u091f\u0928 \u092a\u0930 \u0915\u094d\u0932\u093f\u0915 \u0915\u0930\u0947\u0902\u0964 \u092c\u0938 \u090f\u0915 \u092e\u093f\u0928\u091f \u0932\u0917\u0947\u0917\u093e!",
+    2:"\u0905\u092a\u0928\u093e \u092a\u0942\u0930\u093e \u0928\u093e\u092e, \u0908\u092e\u0947\u0932 \u0914\u0930 \u092a\u093e\u0938\u0935\u0930\u094d\u0921 \u092d\u0930\u0947\u0902\u0964 \u0930\u0947\u092b\u0930\u0932 \u0915\u094b\u0921 \u0935\u0948\u0915\u0932\u094d\u092a\u093f\u0915 \u0939\u0948\u0964 \u0938\u093e\u0907\u0928 \u0905\u092a \u092a\u0930 10 \u092e\u0941\u092b\u093c\u094d\u0924 \u0915\u094d\u0930\u0947\u0921\u093f\u091f \u092e\u093f\u0932\u0947\u0902\u0917\u0947!",
+    3:"\u0932\u0917\u092d\u0917 \u0939\u094b \u0917\u092f\u093e! \u0939\u092e\u0928\u0947 \u0906\u092a\u0915\u0947 \u0908\u092e\u0947\u0932 \u092a\u0930 6 \u0905\u0902\u0915\u094b\u0902 \u0915\u093e \u0915\u094b\u0921 \u092d\u0947\u091c\u093e \u0939\u0948\u0964 \u0907\u0928\u092c\u0949\u0915\u094d\u0938 \u0914\u0930 \u0938\u094d\u092a\u0948\u092e \u091a\u0947\u0915 \u0915\u0930\u0947\u0902, \u092b\u093f\u0930 \u092f\u0939\u093e\u0901 \u0915\u094b\u0921 \u0926\u0930\u094d\u091c \u0915\u0930\u0947\u0902!",
+    4:"\u0905\u092c \u0905\u092a\u0928\u093e \u0930\u091c\u093f\u0938\u094d\u091f\u0930\u094d\u0921 \u0908\u092e\u0947\u0932 \u0914\u0930 \u092a\u093e\u0938\u0935\u0930\u094d\u0921 \u0921\u093e\u0932\u0947\u0902, \u092b\u093f\u0930 \u0905\u092a\u0928\u0947 \u0905\u0915\u093e\u0909\u0902\u091f \u092e\u0947\u0902 \u0932\u0949\u0917\u093f\u0928 \u0915\u0930\u0928\u0947 \u0915\u0947 \u0932\u093f\u090f 'Sign In \u2192' \u092a\u0930 \u0915\u094d\u0932\u093f\u0915 \u0915\u0930\u0947\u0902!",
+    5:"\u092c\u0939\u0941\u0924 \u092c\u095c\u093f\u092f\u093e! \u0905\u092c \u091a\u0941\u0928\u0947\u0902 \u0915\u093f \u0906\u092a \u0915\u094d\u092f\u093e \u0915\u0930\u0928\u093e \u091a\u093e\u0939\u0924\u0947 \u0939\u0948\u0902 \u2014 \u092e\u093e\u0932\u093f\u0915 \u0915\u0947 \u0930\u0942\u092a \u092e\u0947\u0902 \u092a\u094d\u0930\u0949\u092a\u0930\u094d\u091f\u0940 \u0932\u093f\u0938\u094d\u091f \u0915\u0930\u0947\u0902, \u092f\u093e \u0915\u093f\u0930\u093e\u092f\u0947\u0926\u093e\u0930 \u0915\u0947 \u0930\u0942\u092a \u092e\u0947\u0902 \u0915\u093f\u0930\u093e\u092f\u0947 \u0915\u0947 \u0918\u0930 \u092c\u094d\u0930\u093e\u0909\u095c \u0915\u0930\u0947\u0902\u0964",
+    6:"\ud83c\udf89 \u092c\u0927\u093e\u0908 \u0939\u094b \u2014 \u0906\u092a\u0915\u093e \u0905\u0915\u093e\u0909\u0902\u091f \u0938\u092b\u0932\u0924\u093e\u092a\u0942\u0930\u094d\u0935\u0915 \u092c\u0928 \u0917\u092f\u093e \u0939\u0948!",
+    7:"\ud83d\udcca \u092f\u0939 \u0906\u092a\u0915\u093e \u092e\u0941\u0916\u094d\u092f \u0921\u0948\u0936\u092c\u094b\u0930\u094d\u0921 \u0939\u0948\u0964 \u092f\u0939\u093e\u0901 \u0938\u0947 \u0906\u092a \u0918\u0930 \u0932\u093f\u0938\u094d\u091f \u0915\u0930 \u0938\u0915\u0924\u0947 \u0939\u0948\u0902, \u090f\u0928\u093e\u0932\u093f\u091f\u093f\u0915\u094d\u0938 \u0926\u0947\u0916 \u0938\u0915\u0924\u0947 \u0939\u0948\u0902, \u0915\u094d\u0932\u093e\u0907\u0902\u091f \u092e\u0948\u0928\u0947\u091c \u0915\u0930 \u0938\u0915\u0924\u0947 \u0939\u0948\u0902\u0964",
+    8:"\u2795 \u091a\u0932\u093f\u090f \u0905\u092a\u0928\u093e \u092a\u0939\u0932\u093e \u0918\u0930 \u0932\u093f\u0938\u094d\u091f \u0915\u0930\u0924\u0947 \u0939\u0948\u0902! \u0932\u093f\u0938\u094d\u091f\u093f\u0902\u0917 \u092b\u093c\u0949\u0930\u094d\u092e \u0916\u094b\u0932\u0928\u0947 \u0915\u0947 \u0932\u093f\u090f 'Add Listing' \u092c\u091f\u0928 \u092a\u0930 \u0915\u094d\u0932\u093f\u0915 \u0915\u0930\u0947\u0902\u0964",
+    9:"\u0905\u092a\u0928\u0940 \u092a\u094d\u0930\u0949\u092a\u0930\u094d\u091f\u0940 \u0932\u093f\u0938\u094d\u091f \u0915\u0930\u0928\u0947 \u0915\u093e \u0924\u0930\u0940\u0915\u093e: \u0938\u092c\u0938\u0947 \u092a\u0939\u0932\u0947 Property Type \u091a\u0941\u0928\u0947\u0902, \u092b\u093f\u0930 Address & Location, Rent & Deposit, Rooms & Amenities \u092d\u0930\u0947\u0902, \u0914\u0930 \u092b\u094b\u091f\u094b \u0905\u092a\u0932\u094b\u0921 \u0915\u0930\u0947\u0902\u0964 \u0924\u0948\u092f\u093e\u0930 \u0939\u094b\u0928\u0947 \u092a\u0930 \u0928\u0940\u091a\u0947 \u0938\u094d\u0915\u094d\u0930\u0949\u0932 \u0915\u0930\u0947\u0902 \u0914\u0930 '\ud83d\ude80 Publish Listing' \u092a\u0930 \u0915\u094d\u0932\u093f\u0915 \u0915\u0930\u0947\u0902!",
+    10:"\ud83c\udf89 \u092c\u0927\u093e\u0908 \u0939\u094b \u2014 \u0906\u092a\u0915\u093e \u0905\u0915\u093e\u0909\u0902\u091f \u0924\u0948\u092f\u093e\u0930 \u0939\u0948!",
+    11:"\ud83d\udd0d \u092f\u0939 Browse Homes \u092a\u0947\u091c \u0939\u0948 \u2014 \u092f\u0939\u093e\u0901 \u0938\u092d\u0940 \u0935\u0947\u0930\u093f\u092b\u093c\u093e\u0907\u0921 \u0932\u093f\u0938\u094d\u091f\u093f\u0902\u0917 \u0926\u093f\u0916\u0924\u0940 \u0939\u0948\u0902\u0964 \u0938\u0930\u094d\u091a \u092c\u093e\u0930 \u092f\u093e \u092b\u093c\u093f\u0932\u094d\u091f\u0930 \u091a\u093f\u092a\u094d\u0938 \u0938\u0947 \u092a\u094d\u0930\u0949\u092a\u0930\u094d\u091f\u0940 \u091f\u093e\u0907\u092a \u0915\u0947 \u0905\u0928\u0941\u0938\u093e\u0930 \u0916\u094b\u091c \u0938\u0915\u0924\u0947 \u0939\u0948\u0902\u0964",
+    12:"\ud83d\udd13 \u0915\u094b\u0908 \u0918\u0930 \u092a\u0938\u0902\u0926 \u0906\u092f\u093e? \u0905\u0928\u0932\u0949\u0915 \u0915\u0930\u0928\u0947 \u092a\u0930 \u092e\u093e\u0932\u093f\u0915 \u0915\u093e \u092b\u093c\u094b\u0928 \u0928\u0902\u092c\u0930 \u0914\u0930 \u090f\u0921\u094d\u0930\u0947\u0938 \u0926\u093f\u0916 \u091c\u093e\u0924\u093e \u0939\u0948\u0964 \u0906\u092a\u0915\u094b \u0936\u0941\u0930\u0941\u0906\u0924 \u092e\u0947\u0902 10 \u092e\u0941\u092b\u093c\u094d\u0924 RN \u0915\u094d\u0930\u0947\u0921\u093f\u091f \u092e\u093f\u0932\u0924\u0947 \u0939\u0948\u0902 \u2014 'Unlocked Homes' \u092e\u0947\u0902 \u0905\u092a\u0928\u0940 \u0905\u0928\u0932\u0949\u0915 \u0915\u0940 \u0939\u0941\u0908 \u092a\u094d\u0930\u0949\u092a\u0930\u094d\u091f\u0940\u095b\u093c \u0926\u0947\u0916\u0947\u0902\u0964"
   }
 };
-// Floating "click here" callout label shown above certain spotlighted buttons.
 var LBL={
-  1:{en:"Click here to Get Started!",hi:"यहाँ क्लिक करें",te:"ఇక్కడ క్లిక్ చేయండి"},
-  4:{en:"Click here to Sign In!",hi:"यहाँ क्लिक करें",te:"ఇక్కడ క్లిక్ చేయండి"},
-  8:{en:"Click here to Add Listing!",hi:"यहाँ क्लिक करें",te:"ఇక్కడ క్లిక్ చేయండి"},
-  9:{en:"Click here to Publish!",hi:"यहाँ क्लिक करें",te:"ఇక్కడ క్లిక్ చేయండి"},
-  12:{en:"Click here for Unlocked Homes!",hi:"यहाँ क्लिक करें",te:"ఇక్కడ క్లిక్ చేయండి"}
+  1:{en:"Click here to Get Started!",hi:"\u092f\u0939\u093e\u0901 \u0915\u094d\u0932\u093f\u0915 \u0915\u0930\u0947\u0902"},
+  4:{en:"Click here to Sign In!",hi:"\u092f\u0939\u093e\u0901 \u0915\u094d\u0932\u093f\u0915 \u0915\u0930\u0947\u0902"},
+  8:{en:"Click here to Add Listing!",hi:"\u092f\u0939\u093e\u0901 \u0915\u094d\u0932\u093f\u0915 \u0915\u0930\u0947\u0902"},
+  9:{en:"Click here to Publish!",hi:"\u092f\u0939\u093e\u0901 \u0915\u094d\u0932\u093f\u0915 \u0915\u0930\u0947\u0902"},
+  12:{en:"Click here for Unlocked Homes!",hi:"\u092f\u0939\u093e\u0901 \u0915\u094d\u0932\u093f\u0915 \u0915\u0930\u0947\u0902"}
 };
-// Steps that spotlight a real button using the ring+label combo (#rn-tut-spotlight)
 var SPOT1={1:'lp-nav-getstarted',4:'login-btn',8:'nb-add',9:'add-publish-btn',12:'rnb-purchased'};
-// Steps that spotlight a real area using the plain ring only, no label (#rn-tut-spotlight2)
 var SPOT2={3:'signup-verification-code',11:'prop-filter-wrap'};
-// Steps where the target should be scrolled into view first (fixes the mobile
-// "tutorial panel/chat widget blocks the highlighted field" issue)
 var SCROLL_STEPS={3:1,4:1,9:1,11:1};
-// Steps where the Continue button should always be visible (no specific
-// in-page action is required to move forward — the guide is just talking)
 var FORCE_CONTINUE={6:1,7:1,8:1,9:1,10:1,11:1,12:1};
-// Steps that end/finish the whole tutorial when Continue is pressed
 var FINISH_STEPS={9:1,12:1};
 var T={
   step:-1,lang:'en',isPlaying:false,done:false,
@@ -17963,17 +18079,14 @@ var T={
     if(this.isLoggedIn())return;
     var ov=document.getElementById('rn-tutorial');
     if(!ov)return;
+    // Mark as done immediately so it never auto-replays on refresh/logout.
+    // The user can reopen it from landing page or profile "View Tutorial" button.
+    localStorage.setItem('rn-tutorial-done','1');
     ov.classList.remove('rn-hidden');
     document.body.classList.add('rn-tut-open');
-    setTimeout(function(){if(typeof window.closeWelcomePopup==='function')window.closeWelcomePopup();},300);
-    if(typeof window.showPage==='function'){
-      var origPage=window.showPage;
-      window.showPage=function(p){origPage.apply(this,arguments);setTimeout(function(){s.onPageChange(p);},250);};
-    }
-    if(typeof window.showSection==='function'){
-      var origSection=window.showSection;
-      window.showSection=function(id){origSection.apply(this,arguments);setTimeout(function(){s.onSectionChange(id);},250);};
-    }
+    // Suppress welcome popup until tutorial finishes
+    // (welcome popup script checks localStorage and defers if tutWillRun)
+    s._patchNav();
     var obs=new MutationObserver(function(ms){
       for(var i=0;i<ms.length;i++){var m=ms[i];for(var j=0;j<m.addedNodes.length;j++){var n=m.addedNodes[j];if(!n)continue;if(n.id==='signup-verify-box'){s.setStep(3);return;}if(n.querySelector&&n.querySelector('#signup-verify-box')){s.setStep(3);return;}}}
     });
@@ -17981,6 +18094,19 @@ var T={
     window.addEventListener('scroll',function(){s.updateSpot();},{passive:true});
     window.addEventListener('resize',function(){s.updateSpot();},{passive:true});
     setTimeout(function(){s.setStep(0);},600);
+  },
+  _patchNav:function(){
+    var s=this;
+    if(typeof window.showPage==='function'&&!window._rnTutPagePatched){
+      window._rnTutPagePatched=true;
+      var origPage=window.showPage;
+      window.showPage=function(p){origPage.apply(this,arguments);setTimeout(function(){s.onPageChange(p);},250);};
+    }
+    if(typeof window.showSection==='function'&&!window._rnTutSectionPatched){
+      window._rnTutSectionPatched=true;
+      var origSection=window.showSection;
+      window.showSection=function(id){origSection.apply(this,arguments);setTimeout(function(){s.onSectionChange(id);},250);};
+    }
   },
   setStep:function(n){
     if(this.done||n===this.step)return;
@@ -17991,18 +18117,13 @@ var T={
     this.updateSpot();
     var nx=document.getElementById('rn-tut-next');
     if(nx){
-      if(FORCE_CONTINUE[n]){nx.classList.add('rn-show');nx.innerHTML=FINISH_STEPS[n]?'Finish ✓':'Continue →';}
-      else if(n!==0){nx.classList.remove('rn-show');nx.innerHTML='Continue →';}
+      if(FORCE_CONTINUE[n]){nx.classList.add('rn-show');nx.innerHTML=FINISH_STEPS[n]?'Finish \u2713':'Continue \u2192';}
+      else if(n!==0){nx.classList.remove('rn-show');nx.innerHTML='Continue \u2192';}
     }
     this.playAudio();
     this.autoScrollFor(n);
     this.applyChat();
   },
-  // Smoothly scrolls the spotlighted element into the safe middle of the
-  // viewport (so neither the bottom tutorial panel nor the support-chat
-  // bubble covers it), then repositions the spotlight ring once settled.
-  // Also auto-opens the mobile sidebar for step 8, since the "Add New
-  // Listing" nav button lives inside the off-canvas mobile sidebar.
   autoScrollFor:function(n){
     var s=this;
     if(n===8||n===12){
@@ -18027,14 +18148,9 @@ var T={
     var bd=document.getElementById('rn-tut-backdrop');
     var panel=document.getElementById('rn-tut-panel');
     if(!bd)return;
-    if(this.step===0){
-      bd.classList.add('rn-active');
-      bd.classList.remove('rn-transparent');
-    }else{
-      bd.classList.remove('rn-active');
-      bd.classList.add('rn-transparent');
-    }
-    if(panel){panel.style.zIndex=this.step===1?'20001':'2';}
+    if(this.step===0){bd.classList.add('rn-active');bd.classList.remove('rn-transparent');}
+    else{bd.classList.remove('rn-active');bd.classList.add('rn-transparent');}
+    if(panel){panel.style.zIndex=this.step===1?'20001':'10000';}
   },
   updateSpot:function(){
     var sp=document.getElementById('rn-tut-spotlight'),lb=document.getElementById('rn-tut-spotlight-label'),lt=document.getElementById('rn-tut-label-text'),sp2=document.getElementById('rn-tut-spotlight2');
@@ -18057,13 +18173,30 @@ var T={
   },
   playAudio:function(){
     var s=this,a=document.getElementById('rn-tut-audio');if(!a)return;
-    var _lf=this.lang==='hi'?'hindi':'english';var _lc=this.lang==='hi'?'hi':'en';a.src='/audio/'+_lf+'/step'+(this.step+1)+'-'+_lc+'.mp3';a.load();
+    var _lf=s.lang==='hi'?'hindi':'english';
+    var _lc=s.lang==='hi'?'hi':'en';
+    a.src='/audio/'+_lf+'/step'+(s.step+1)+'-'+_lc+'.mp3';
+    a.load();
     var p=a.play();
     if(p&&p.then)p.then(function(){s.isPlaying=true;s.updPB();}).catch(function(){s.isPlaying=false;s.updPB();if(s.step===0){var nx=document.getElementById('rn-tut-next');if(nx)nx.classList.add('rn-show');}});
     a.onended=function(){s.isPlaying=false;s.updPB();if(s.step===0)setTimeout(function(){s.setStep(1);},600);};
   },
   stopAudio:function(){var a=document.getElementById('rn-tut-audio');if(a){try{a.pause();a.currentTime=0;}catch(e){}}this.isPlaying=false;this.updPB();},
-  toggleAudio:function(){var s=this,a=document.getElementById('rn-tut-audio');if(!a)return;if(this.isPlaying){a.pause();this.isPlaying=false;}else{a.play().then(function(){s.isPlaying=true;s.updPB();}).catch(function(){});}this.updPB();},
+  toggleAudio:function(){
+    var s=this,a=document.getElementById('rn-tut-audio');if(!a)return;
+    if(s.isPlaying){
+      a.pause();s.isPlaying=false;s.updPB();
+    }else{
+      // Ensure correct src is set before playing
+      var _lf=s.lang==='hi'?'hindi':'english';
+      var _lc=s.lang==='hi'?'hi':'en';
+      var expectedSrc='/audio/'+_lf+'/step'+(s.step+1)+'-'+_lc+'.mp3';
+      if(!a.src||a.src.indexOf('step'+(s.step+1)+'-%s'.replace('%s',_lc))<0){
+        a.src=expectedSrc;a.load();
+      }
+      a.play().then(function(){s.isPlaying=true;s.updPB();}).catch(function(){s.isPlaying=false;s.updPB();});
+    }
+  },
   updPB:function(){var b=document.getElementById('rn-tut-play-btn');if(!b)return;b.innerHTML=this.isPlaying?'<span class="rn-audio-bars"><span></span><span></span><span></span></span><span>Playing</span>':'<svg width="12" height="12" viewBox="0 0 24 24" fill="#1E3A5F"><path d="M8 5v14l11-7z"/></svg><span>Play</span>';},
   setLang:function(l){
     this.lang=l;this.updateText();this.stopAudio();this.playAudio();
@@ -18077,8 +18210,6 @@ var T={
     if(this.step===8){if(typeof window.showSection==='function')window.showSection('add');this.setStep(9);return;}
     if(FORCE_CONTINUE[this.step]){this.setStep(this.step+1);return;}
   },
-  // Fires whenever the app navigates between full pages (landing, signup,
-  // login, role-page, host-dashboard, rent-page, etc.)
   onPageChange:function(p){
     if(this.done)return;
     if(p==='signup-page'&&this.step<=1){this.setStep(2);return;}
@@ -18087,15 +18218,10 @@ var T={
     if(p==='host-dashboard'&&this.step<=6){this.setStep(6);return;}
     if(p==='rent-page'&&this.step<=6){this.setStep(10);return;}
   },
-  // Fires whenever the host dashboard switches internal sections
-  // (Dashboard / My Listings / Add New Listing / Analytics / etc.)
   onSectionChange:function(id){
     if(this.done)return;
     if(id==='add'&&this.step===8){this.setStep(9);return;}
   },
-  // Hides the support-chat bubble on mobile only while the tutorial is
-  // actively running, so it never overlaps the guide's text. Restored the
-  // moment the tutorial is skipped or finished.
   applyChat:function(){
     var hide=!this.done&&this.step>=0;
     window._rnTutHideChat=hide;
@@ -18113,34 +18239,24 @@ var T={
     this.done=true;
     this.stopAudio();
     this.applyChat();
+    // Show welcome popup now that tutorial is done (if not shown yet this session)
+    if(typeof window._rnOpenWelcomePopup==='function'){
+      setTimeout(window._rnOpenWelcomePopup,400);
+    }
   },
   skip:function(){this.finish();}
 };
 window._RNTut=T;
-// Restarts the tutorial from the post-login step (host=step 6, renter=step 10).
-// Called from the "View Tutorial" button on each profile page.
+// Restarts the tutorial: 'landing'=step 0, 'host'=step 6, 'rent'=step 10
 window.startViewTutorial=function(role){
   var T=window._RNTut;if(!T)return;
-  // Reset tutorial state
   localStorage.removeItem('rn-tutorial-done');
   T.done=false;T.step=-1;
-  // Show overlay
   var ov=document.getElementById('rn-tutorial');
   if(ov)ov.classList.remove('rn-hidden');
   document.body.classList.add('rn-tut-open');
-  // Patch navigation hooks if not already done
-  if(typeof window.showPage==='function'&&!window._rnTutPagePatched){
-    window._rnTutPagePatched=true;
-    var origPage=window.showPage;
-    window.showPage=function(p){origPage.apply(this,arguments);setTimeout(function(){T.onPageChange(p);},250);};
-  }
-  if(typeof window.showSection==='function'&&!window._rnTutSectionPatched){
-    window._rnTutSectionPatched=true;
-    var origSection=window.showSection;
-    window.showSection=function(id){origSection.apply(this,arguments);setTimeout(function(){T.onSectionChange(id);},250);};
-  }
-  // Start at the right post-login step
-  var startStep=role==='rent'?10:6;
+  T._patchNav();
+  var startStep=role==='rent'?10:role==='host'?6:0;
   setTimeout(function(){T.setStep(startStep);},200);
 };
 if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',function(){setTimeout(function(){T.init();},400);});}else{setTimeout(function(){T.init();},400);}
