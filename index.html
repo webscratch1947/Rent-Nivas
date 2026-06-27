@@ -8544,6 +8544,9 @@
         style="background:rgba(194,113,79,.18);border-radius:12px;">
         <span class="mob-nav-icon">✨</span> Create Account
       </button>
+      <button class="mob-nav-item" onclick="closeMobSidebar();if(typeof startViewTutorial==='function')startViewTutorial('landing')">
+        <span class="mob-nav-icon">🎓</span> Watch Tutorial
+      </button>
       <button class="mob-nav-item" onclick="closeMobSidebar();window.open('/language.html','_blank')">
         <span class="mob-nav-icon">🌐</span> Language <span id="mob-lang-badge-lo"
           style="margin-left:4px;font-size:10px;background:rgba(201,106,59,0.22);color:#e88a5a;border-radius:5px;padding:1px 6px;font-weight:600;"></span>
@@ -8578,6 +8581,9 @@
       <button class="mob-nav-item"
         onclick="closeMobSidebar();showPage('purchased-page');if(typeof loadPurchasedPage==='function')loadPurchasedPage()">
         <span class="mob-nav-icon">🔓</span> Unlocked
+      </button>
+      <button class="mob-nav-item" onclick="closeMobSidebar();if(typeof _rnStartUserTutorial==='function')_rnStartUserTutorial()">
+        <span class="mob-nav-icon">🎓</span> Watch Tutorial
       </button>
       <button class="mob-nav-item" onclick="closeMobSidebar();window.open('/language.html','_blank')">
         <span class="mob-nav-icon">🌐</span> Language <span id="mob-lang-badge"
@@ -9101,6 +9107,7 @@
           <button class="nav-btn" id="rnb-partner" onclick="goToPartnerArea()">
             <span class="icon">🤝</span><span class="label">Partner Panel</span><span class="nav-badge partner-nav-badge" style="display:none;"></span>
           </button>
+          <button class="nav-btn" onclick="_rnStartUserTutorial()"><span class="icon">🎓</span><span class="label">Watch Tutorial</span></button>
           <button class="nav-btn" onclick="window.open('/language.html','_blank')"><span class="icon">🌐</span><span class="label" data-i18n="rent_nav_language">Language</span></button>
           <button class="nav-btn" onclick="window.open('https://wa.me/919303322445','_blank')"><span class="icon">💬</span><span class="label" data-i18n="rent_nav_whatsapp">WhatsApp Support</span></button>
           <button class="nav-btn" onclick="showPage('landing-page');setTimeout(function(){var el=document.getElementById('support');if(el){window.scrollTo({top:el.offsetTop-20,behavior:'smooth'});}},400)"><span class="icon">🛟</span><span class="label" data-i18n="rent_nav_support">Support</span></button>
@@ -9290,6 +9297,8 @@
               class="label" data-i18n="dash_nav_settings">Settings</span></button>
           <button class="nav-btn" id="nb-partner" onclick="goToPartnerArea()"><span class="icon">🤝</span><span
               class="label">Partner Panel</span><span class="nav-badge partner-nav-badge" style="display:none;"></span></button>
+          <button class="nav-btn" onclick="_rnStartUserTutorial()"><span class="icon">🎓</span><span
+              class="label">Watch Tutorial</span></button>
           <button class="nav-btn" onclick="window.open('/language.html','_blank')"><span class="icon">🌐</span><span
               class="label" data-i18n="dash_nav_language">Language<span id="ds-lang-badge"
                 style="margin-left:6px;font-size:10px;background:rgba(201,106,59,0.18);color:#e88a5a;border-radius:5px;padding:1px 6px;font-weight:600;"></span></span></button>
@@ -17618,12 +17627,18 @@
         var isGuest = !(function(){
           try{var raw=localStorage.getItem('rentnivas-auth');if(!raw)return false;var s=JSON.parse(raw),t=s.id_token||s.access_token;if(!t||!s.refresh_token)return false;var p=JSON.parse(atob(t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/')));var exp=p.exp?p.exp*1000:0;return !(exp>0&&exp<Date.now()-600000);}catch(_){return false;}
         })();
-        if(!isGuest && !localStorage.getItem('rn-credits-popup-shown')){
-          localStorage.setItem('rn-credits-popup-shown','1');
-          setTimeout(_rnOpenCreditsPopup, 350);
-        } else {
-          if (window.maybeShowStreakPopup) window.maybeShowStreakPopup();
-        }
+        // User-specific key so each account sees the credits popup once (not tied to browser)
+        (function(){
+          var uid=null;
+          try{var raw=localStorage.getItem('rentnivas-auth');if(raw){var s=JSON.parse(raw),t=s.id_token||s.access_token;if(t){var p=JSON.parse(atob(t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/')));uid=p.sub||p.user_id||p.email||null;}}}catch(_){}
+          var cpKey=uid?('rn-credits-shown-'+uid):'rn-credits-popup-shown';
+          if(!isGuest && !localStorage.getItem(cpKey)){
+            localStorage.setItem(cpKey,'1');
+            setTimeout(_rnOpenCreditsPopup,350);
+          } else {
+            if(window.maybeShowStreakPopup)window.maybeShowStreakPopup();
+          }
+        })();
       }, 300);
     }
     function _rnOpenCreditsPopup(){
@@ -17668,6 +17683,15 @@
     </div>
   </div>
   <script>
+    // Helper: start tutorial from right step for current user role
+    window._rnStartUserTutorial = function() {
+      var role = 'host';
+      try {
+        var rp = document.getElementById('rent-page');
+        if (rp && rp.style.display !== 'none' && rp.style.display !== '') role = 'rent';
+      } catch(e) {}
+      if (typeof window.startViewTutorial === 'function') window.startViewTutorial(role);
+    };
     // State machine: idle → playing → played (once, never again)
     window._rnCoinAnimPlayed = false;
     function _rnPlayCoinAnim() {
