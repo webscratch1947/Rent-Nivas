@@ -17542,19 +17542,27 @@
     </div>
   </div>
 
-  <!-- ══ CREDITS REVEAL POPUP (coins animation + count-up, shown after first-login video closes) ══ -->
-  <div id="rn-coins-popup" style="display:none;position:fixed;inset:0;z-index:200001;background:rgba(0,0,0,.72);backdrop-filter:blur(6px);align-items:center;justify-content:center;" onclick="document.getElementById('rn-coins-popup').style.display='none';if(typeof _unlockScroll==='function')_unlockScroll();">
-    <div style="background:#fff;border-radius:28px;padding:40px 36px 32px;max-width:380px;width:92%;text-align:center;box-shadow:0 24px 72px rgba(0,0,0,.35);animation:fadeUp .4s cubic-bezier(.22,1,.36,1);" onclick="event.stopPropagation()">
-      <object data="/coins-animation.svg" type="image/svg+xml" style="width:200px;height:200px;display:block;margin:0 auto 20px;pointer-events:none;"></object>
-      <div style="font-size:13px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#c2714f;margin-bottom:8px;">You Earned Free Credits!</div>
-      <div style="font-size:52px;font-weight:900;color:#18150f;line-height:1;margin-bottom:10px;"><span id="rn-coins-count">0</span> 🪙</div>
-      <div style="font-size:14px;color:#7a7068;line-height:1.6;margin-bottom:24px;">Welcome to Rent Nivas! Use these credits to unlock property contact details instantly.</div>
-      <button style="background:#c2714f;color:#fff;border:none;border-radius:14px;padding:15px 32px;font-size:16px;font-weight:700;cursor:pointer;width:100%;font-family:inherit;" onclick="document.getElementById('rn-coins-popup').style.display='none';if(typeof _unlockScroll==='function')_unlockScroll();">Start Exploring →</button>
+  <!-- ══ COINS ANIMATION (centered popup, no card, dimmed backdrop) ══ -->
+  <div id="rn-coins-overlay" style="display:none;position:fixed;inset:0;z-index:200001;background:rgba(0,0,0,0.55);backdrop-filter:blur(3px);align-items:center;justify-content:center;cursor:pointer;flex-direction:column;" onclick="window._rnCloseCoinsOverlay && window._rnCloseCoinsOverlay()">
+    <div id="rn-coins-svg-wrap" style="width:min(420px,85vw);height:min(420px,85vw);display:flex;align-items:center;justify-content:center;pointer-events:none;"></div>
+    <div id="rn-coins-hint" style="display:none;margin-top:16px;color:#fff;font-size:17px;font-weight:500;letter-spacing:.5px;text-align:center;opacity:0;transition:opacity .6s ease;pointer-events:none;white-space:nowrap;text-shadow:0 2px 12px rgba(0,0,0,.9);">
+      Click anywhere to close
     </div>
   </div>
 
   <script>
     (function() {
+      var _rnCoinsSvgText = null;
+
+      // Pre-fetch the SVG so it's ready instantly when needed
+      fetch('/coins-animation.svg')
+        .then(function(r){ return r.text(); })
+        .then(function(txt){
+          // Replace indefinite loop with play-once
+          _rnCoinsSvgText = txt.replace(/repeatCount="indefinite"/g, 'repeatCount="1"');
+        })
+        .catch(function(){});
+
       window._rnShowFirstLoginVideo = function() {
         var overlay = document.getElementById('rn-flv-overlay');
         var video   = document.getElementById('rn-flv-video');
@@ -17571,6 +17579,7 @@
           requestAnimationFrame(function() { hint.style.opacity = '1'; });
         };
       };
+
       window._rnCloseFirstLoginVideo = function() {
         var overlay = document.getElementById('rn-flv-overlay');
         var video   = document.getElementById('rn-flv-video');
@@ -17579,40 +17588,72 @@
         if (video) { try { video.pause(); } catch(e){} }
         overlay.style.display = 'none';
         if (hint) { hint.style.display = 'none'; hint.style.opacity = '0'; }
-        // Show coins popup with animated count-up
+        // Show coins animation fullscreen overlay
+        setTimeout(function() {
+          var coinsOverlay = document.getElementById('rn-coins-overlay');
+          var wrap = document.getElementById('rn-coins-svg-wrap');
+          if (!coinsOverlay || !wrap) return;
+          // Inject inline SVG (play-once version)
+          if (_rnCoinsSvgText) {
+            wrap.innerHTML = _rnCoinsSvgText;
+            var svg = wrap.querySelector('svg');
+            if (svg) { svg.style.width='100%'; svg.style.height='100%'; }
+          } else {
+            // Fallback: fetch now if pre-fetch didn't finish
+            fetch('/coins-animation.svg')
+              .then(function(r){ return r.text(); })
+              .then(function(txt){
+                var once = txt.replace(/repeatCount="indefinite"/g, 'repeatCount="1"');
+                wrap.innerHTML = once;
+                var svg = wrap.querySelector('svg');
+                if (svg) { svg.style.width='100%'; svg.style.height='100%'; }
+              });
+          }
+          coinsOverlay.style.display = 'flex';
+          if (typeof _lockScroll === 'function') _lockScroll();
+          // Show "click to close" after animation finishes (2.64 s)
+          setTimeout(function() {
+            var h = document.getElementById('rn-coins-hint');
+            if (!h) return;
+            h.style.display = 'block';
+            requestAnimationFrame(function() { h.style.opacity = '1'; });
+          }, 2800);
+        }, 150);
+      };
+
+      window._rnCloseCoinsOverlay = function() {
+        var overlay = document.getElementById('rn-coins-overlay');
+        var hint    = document.getElementById('rn-coins-hint');
+        if (!overlay) return;
+        overlay.style.display = 'none';
+        if (hint) { hint.style.display = 'none'; hint.style.opacity = '0'; }
+        if (typeof _unlockScroll === 'function') _unlockScroll();
+        // Animate credit badges from 0 → actual value
         setTimeout(function() {
           var actualCredits = 0;
           try {
             var raw = localStorage.getItem('nestly-credits');
             if (raw !== null) actualCredits = Math.max(0, parseInt(raw, 10) || 0);
           } catch(e) {}
-          // Reset all credit badges to 0
           var ids = ['host-credits-count','rent-credits-count','pur-credits-count','detail-credits-count','sett-credits-count'];
           ids.forEach(function(id) {
             var el = document.getElementById(id); if (el) el.textContent = '0';
           });
-          // Show coins popup
-          var popup = document.getElementById('rn-coins-popup');
-          var countEl = document.getElementById('rn-coins-count');
-          if (popup) { popup.style.display = 'flex'; }
-          if (typeof _lockScroll === 'function') _lockScroll();
-          if (actualCredits === 0) { if (countEl) countEl.textContent = '0'; return; }
-          // Animate count-up in popup AND in badges simultaneously
+          if (actualCredits === 0) return;
           var start = null;
-          var duration = 1400;
+          var duration = 1200;
           function step(ts) {
             if (!start) start = ts;
             var progress = Math.min((ts - start) / duration, 1);
             var eased = 1 - Math.pow(1 - progress, 3);
             var current = Math.round(eased * actualCredits);
-            if (countEl) countEl.textContent = current;
             ids.forEach(function(id) {
               var el = document.getElementById(id); if (el) el.textContent = current;
             });
             if (progress < 1) requestAnimationFrame(step);
           }
           requestAnimationFrame(step);
-        }, 200);
+        }, 100);
       };
     })();
   </script>
