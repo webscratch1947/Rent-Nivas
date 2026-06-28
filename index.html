@@ -17528,7 +17528,7 @@
     <div class="fp-modal-box">
       <button class="fp-modal-close" onclick="closeForgotPasswordModal()">✕</button>
       <!-- Send Reset Link State -->
-      <div id="fp-send-state">
+      <div id="fp-send-state" style="display:block;">
         <div class="fp-modal-icon">🔑</div>
         <div class="fp-modal-title">Reset Password</div>
         <div class="fp-modal-sub" id="fp-modal-sub">Enter your email address and we'll send you a reset code.</div>
@@ -18234,17 +18234,8 @@
       // encodes exactly that "ready now?" check, so it's the single source
       // of truth here instead of a session flag.
       window.maybeShowStreakPopup = function () {
-        // Only show for logged-in users (user object exists)
-        if (!window.user) return;
-        // Always show the streak popup for logged-in users.
-        // Guard against firing twice on the SAME page load (e.g. both the
-        // welcome-popup-close path and the startup timer calling this in
-        // quick succession) — but this is an in-memory flag, not
-        // sessionStorage, so it resets on every reload/navigation.
-        if (window._streakShownThisLoad) return;
-        window._streakShownThisLoad = true;
-        // Small delay so it doesn't stack with other popups
-        setTimeout(window.openStreakPopup, 600);
+        // Daily streak popup disabled — removed per admin request.
+        return;
       };
     })();
   </script>
@@ -18746,12 +18737,12 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
 /* Crown sits centered above the avatar */
 .rn-lb-hero-crown {
   position: absolute;
-  top: -28px;
+  top: -40px;
   left: 50%;
   transform: translateX(-50%);
-  width: 38px;
-  height: 38px;
-  filter: drop-shadow(0 2px 8px rgba(200,160,0,.6));
+  width: 56px;
+  height: 56px;
+  filter: drop-shadow(0 3px 10px rgba(200,160,0,.75));
   animation: rn-crown-float 2.4s ease-in-out infinite;
   pointer-events: none;
 }
@@ -18855,12 +18846,12 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
 /* Crown above list avatar (only for rank 1) */
 .rn-lb-crown-over {
   position: absolute;
-  top: -14px;
+  top: -20px;
   left: 50%;
   transform: translateX(-50%);
-  width: 20px;
-  height: 20px;
-  filter: drop-shadow(0 1px 4px rgba(200,160,0,.5));
+  width: 32px;
+  height: 32px;
+  filter: drop-shadow(0 2px 6px rgba(200,160,0,.7));
   animation: rn-crown-float 2.4s ease-in-out infinite;
   pointer-events: none;
 }
@@ -19186,7 +19177,7 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
 
       /* Rank display */
       var rankDisplay;
-      if (rank === 1)      rankDisplay = '<img src="/crown.svg" style="width:20px;height:20px;vertical-align:middle;filter:drop-shadow(0 1px 3px rgba(200,160,0,.5));" alt="👑">';
+      if (rank === 1)      rankDisplay = '<img src="/crown.svg" style="width:36px;height:36px;vertical-align:middle;filter:drop-shadow(0 2px 6px rgba(200,160,0,.7));" alt="👑">';
       else if (rank === 2) rankDisplay = '<span style="font-size:18px;">🥈</span>';
       else if (rank === 3) rankDisplay = '<span style="font-size:18px;">🥉</span>';
       else                 rankDisplay = '<span style="color:#888;font-size:14px;font-weight:700;">' + rank + '</span>';
