@@ -18501,13 +18501,10 @@ function makeAvatarEl(item,size,fontSize){
 }
 
 function _rnGetLocalCredits(){
-  // Read current user's credits from the dashboard badge (most accurate local value)
-  // Use replace(/[^0-9]/g,'') to strip emojis/text (e.g. "🪙 12" → "12")
+  // Read from localStorage — always up to date, no DOM race condition
   try{
-    var badge=document.querySelector('.credits-badge span:last-child,.credits-badge');
-    if(badge){var n=parseInt((badge.textContent||'').replace(/[^0-9]/g,''),10);if(!isNaN(n)&&n>0)return n;}
-    var badge2=document.querySelector('.rent-credits-badge');
-    if(badge2){var m=parseInt((badge2.textContent||'').replace(/[^0-9]/g,''),10);if(!isNaN(m)&&m>0)return m;}
+    var v=localStorage.getItem('nestly-credits');
+    if(v!==null){var n=parseFloat(v);if(!isNaN(n)&&n>=0)return n;}
   }catch(e){}
   return null;
 }
@@ -18534,7 +18531,7 @@ function renderLeaderboard(){
   // Inject current user's local credits so leaderboard matches dashboard
   var _myId=_rnGetCurrentUserId();
   var _myCredits=_rnGetLocalCredits();
-  if(_myId&&_myCredits){
+  if(_myId&&_myCredits!==null){
     _lbData=_lbData.map(function(item){
       // Always apply local credits for current user — DB may be stale
       if(item.id===_myId){
