@@ -10998,15 +10998,37 @@
       try { return JSON.parse(localStorage.getItem('nestly-notifs') || '[]'); } catch { return []; }
     }
     function saveNotifs(arr) { localStorage.setItem('nestly-notifs', JSON.stringify(arr)); }
-    function pushNotif(icon, text) {
+    function pushNotif(icon, text, ann_id) {
       const arr = getNotifs();
       // Dedup: skip if the exact same notification text was added in the last 2 minutes
       const TWO_MIN = 2 * 60 * 1000;
       const isDup = arr.some(n => n.text === text && (Date.now() - n.time) < TWO_MIN);
       if (isDup) return;
-      arr.unshift({ icon, text, time: Date.now(), read: false });
+      const entry = { icon, text, time: Date.now(), read: false };
+      // Tag announcement notifications with their DB id so we can scrub them
+      // if the admin later deletes the announcement from the admin panel.
+      if (ann_id) entry.ann_id = ann_id;
+      arr.unshift(entry);
       saveNotifs(arr.slice(0, 30)); // max 30 notifs
       renderNotifBadge();
+    }
+    // Scrub notifications whose source announcement has since been deleted.
+    // Call this after fetching current admin_announcements so localStorage stays
+    // in sync with what the admin has actually published.
+    function scrubDeletedAnnouncementNotifs(activeAnnIds) {
+      const activeSet = new Set((activeAnnIds || []).map(String));
+      const arr = getNotifs();
+      const filtered = arr.filter(n => {
+        // Keep if no ann_id tag (not an announcement notification)
+        if (!n.ann_id) return true;
+        // Keep only if its source announcement still exists
+        return activeSet.has(String(n.ann_id));
+      });
+      if (filtered.length !== arr.length) {
+        saveNotifs(filtered);
+        renderNotifBadge();
+        renderNotifList();
+      }
     }
     function renderNotifBadge() {
       const unread = getNotifs().filter(n => !n.read).length;
@@ -12325,11 +12347,18 @@
           // ignore
         }
 
+        // Scrub any localStorage notifications whose announcement was deleted.
+        // This runs BEFORE pushing new ones so deleted-then-re-created announcements
+        // with the same text don't get incorrectly removed.
+        const activeIds = anns.map(a => a.id).filter(Boolean);
+        scrubDeletedAnnouncementNotifs(activeIds);
+
         filtered.forEach(a => {
           if (seenSet.has(a.id)) { _markAnnSeenLocal(a.id); return; }
           if (!_isAnnSeenLocal(a.id)) {
             showAnnounceBanner(a.id, a.message);
-            pushNotif('📢', a.message);
+            // Pass a.id so the notification can be scrubbed if admin later deletes it
+            pushNotif('📢', a.message, a.id);
           }
         });
       } catch (e) {
