@@ -19108,6 +19108,7 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
     setTimeout(function () {
       overlay.classList.add('lb-fade-out');
       if (typeof window.showPage === 'function') window.showPage('leaderboard-page');
+      _lbLoading = false; /* ensure clean state before load */
       loadLeaderboardPage();
       setTimeout(function () { overlay.remove(); }, 700);
     }, 3900);
@@ -19115,6 +19116,7 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
 
   window.goBackFromLeaderboard = function () {
     if (_lbTickerInterval) { clearInterval(_lbTickerInterval); _lbTickerInterval = null; }
+    _lbLoading = false; /* reset so re-opening the leaderboard always fetches fresh */
     var target = _lbPrevPage || 'host-dashboard';
     if (typeof window.showPage === 'function') window.showPage(target);
     try {
@@ -19283,12 +19285,13 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
       return n || e; /* keep if either name or email exists */
     });
     var html = '';
-    filtered.forEach(function (r, idx) {
-      var rank    = idx + 1;
+    var listRank = 1; /* track actual rank including skipped hero */
+    filtered.forEach(function (r) {
+      var rank    = listRank++;
       var isMe    = uid && (r.id === uid || r.userId === uid || r.email === (window.user && window.user.email));
       var isHero  = (r === top); /* already shown in hero section above */
 
-      /* Hero user is shown above — skip from list */
+      /* Hero user is shown above — skip from list but rank was already incremented */
       if (isHero) return;
 
       var name    = displayName(r);
