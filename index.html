@@ -10,6 +10,7 @@
   <link rel="icon" type="image/png" sizes="16x16" href="/favicon.png?v=2">
   <link rel="apple-touch-icon" href="/favicon.png?v=2">
   <meta name="theme-color" content="#c2714f">
+  <script src="/cache-buster.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link
@@ -8501,15 +8502,12 @@
     <div id="mob-sidebar-userinfo" style="display:none;padding:14px 18px 10px;border-bottom:1px solid rgba(255,255,255,.08);"></div>
     <!-- LOGGED-OUT sidebar items -->
     <div class="mob-sidebar-nav" id="mob-nav-loggedout">
-      <button class="mob-nav-item" onclick="closeMobSidebar();showPage('login-page')">
-        <span class="mob-nav-icon">🔑</span> Sign In
+      <button class="mob-nav-item" onclick="closeMobSidebar();if(typeof startViewTutorial==='function')startViewTutorial('landing')">
+        <span class="mob-nav-icon">🎓</span> Watch Tutorial
       </button>
       <button class="mob-nav-item" onclick="closeMobSidebar();showPage('signup-page')"
         style="background:rgba(194,113,79,.18);border-radius:12px;">
         <span class="mob-nav-icon">✨</span> Create Account
-      </button>
-      <button class="mob-nav-item" onclick="closeMobSidebar();if(typeof startViewTutorial==='function')startViewTutorial('landing')">
-        <span class="mob-nav-icon">🎓</span> Watch Tutorial
       </button>
       <button class="mob-nav-item" onclick="closeMobSidebar();window.open('/language.html','_blank')">
         <span class="mob-nav-icon">🌐</span> Language <span id="mob-lang-badge-lo"
@@ -10075,6 +10073,9 @@
                 href="/cdn-cgi/l/email-protection" class="__cf_email__"
                 data-cfemail="7d0a181f0e1e0f1c091e1544443d1a101c1411531e1210">[email&#160;protected]</a>
               only</p>
+            <button class="btn btn-outline-dark btn-sm" id="adm-force-refresh-btn" onclick="adminForceRefreshAllUsers()"
+              style="margin-top:14px;">🔄 Force-Refresh Everyone (clear cache for all users)</button>
+            <div id="adm-force-refresh-status" style="font-size:13px;color:var(--muted);margin-top:6px;"></div>
           </div>
           <div class="admin-kpi-grid">
             <div class="admin-kpi">
@@ -15239,6 +15240,28 @@
       }
       loadAdminUsers();
       loadAdminAnnouncements();
+    }
+
+    async function adminForceRefreshAllUsers() {
+      const btn = document.getElementById('adm-force-refresh-btn');
+      const statusEl = document.getElementById('adm-force-refresh-status');
+      if (!confirm('This will force EVERY visitor (new and returning) to hard-refresh and clear their cache on their next page load or tab focus. Continue?')) return;
+      if (btn) { btn.disabled = true; btn.textContent = '🔄 Refreshing everyone…'; }
+      if (statusEl) statusEl.textContent = '';
+      try {
+        const { data: { session } } = await sb.auth.getSession();
+        const res = await fetch(RN_API_BASE + '/site-version', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (session.id_token || session.access_token) }
+        });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error || 'Request failed');
+        if (statusEl) statusEl.textContent = '✅ Done. Every user will auto-refresh within ~5 minutes (or as soon as they switch back to the tab).';
+      } catch (e) {
+        if (statusEl) statusEl.textContent = '❌ Failed: ' + (e.message || 'Unknown error');
+      } finally {
+        if (btn) { btn.disabled = false; btn.textContent = '🔄 Force-Refresh Everyone (clear cache for all users)'; }
+      }
     }
 
     async function loadAdminUsers() {
