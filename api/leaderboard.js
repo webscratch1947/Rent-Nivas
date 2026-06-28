@@ -78,10 +78,25 @@ module.exports = async function handler(req, res) {
     }
 
     const merged = Object.values(byId);
-    merged.sort((a, b) => (parseFloat(b.credits) || 0) - (parseFloat(a.credits) || 0));
+
+    // ── FILTER OUT GHOST ROWS ──────────────────────────────────────────────
+    // Ghost rows are created when signup-verify.js used cognitoUser.Username
+    // (the email string) as the DynamoDB key instead of the real Cognito sub UUID.
+    // These rows have userId = "user@example.com" — detectable because a valid
+    // Cognito sub is always a UUID (no @ symbol).
+    // Also filter rows with zero credits that have no name and no email since
+    // those are partial rows created by race conditions and have no display data.
+    const realUsers = merged.filter(row => {
+      const uid = String(row.id || '');
+      // If the key looks like an email address, it's a ghost row
+      if (uid.includes('@')) return false;
+      // If it's clearly a UUID-ish string or short ID, it's a real user
+      return true;
+    });
+    realUsers.sort((a, b) => (parseFloat(b.credits) || 0) - (parseFloat(a.credits) || 0));
 
     const limit = 300;
-    const top = merged.slice(0, limit);
+    const top = realUsers.slice(0, limit);
 
     const result = top.map((row, idx) => {
       // Derive a display name server-side so users with blank names are not
