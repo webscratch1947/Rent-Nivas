@@ -8719,6 +8719,7 @@
         </button>
       </div>
       <div class="lp-nav-right" id="lp-nav-right">
+        <button class="btn btn-nav-outline btn-sm" id="lp-nav-signin-btn" onclick="showPage('login-page')">Sign In</button>
         <button class="btn btn-terra btn-sm" id="rn-get-started-btn" onclick="showPage('signup-page')">Get Started</button>
         <button class="btn btn-terra btn-sm" id="lp-nav-dashboard" style="display:none;" onclick="goToDashboard()">Dashboard →</button>
       </div>
@@ -17126,7 +17127,9 @@
       if (footIn) footIn.style.display = loggedIn ? 'block' : 'none';
       // Desktop landing page nav: show Get Started when logged out, Dashboard when logged in
       const rnGetStartedBtn = document.getElementById('rn-get-started-btn');
+      const rnSignInBtn = document.getElementById('lp-nav-signin-btn');
       const lpDashboard = document.getElementById('lp-nav-dashboard');
+      if (rnSignInBtn) rnSignInBtn.style.display = loggedIn ? 'none' : 'inline-flex';
       if (rnGetStartedBtn) rnGetStartedBtn.style.display = loggedIn ? 'none' : 'inline-flex';
       if (lpDashboard) lpDashboard.style.display = loggedIn ? '' : 'none';
       // Re-apply mobile Watch Tutorial ↔ Sign In swap after every auth update
