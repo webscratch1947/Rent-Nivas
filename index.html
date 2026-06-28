@@ -18603,26 +18603,42 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
 
 <!-- ══ LEADERBOARD PAGE ══ -->
 <div class="page" id="leaderboard-page">
-  <div style="min-height:100vh;background:var(--bg,#FEFDF4);padding:0;">
-    <div style="max-width:720px;margin:0 auto;padding:0 16px 48px;">
-      <!-- Topbar -->
-      <div style="display:flex;align-items:center;gap:12px;padding:24px 0 20px;">
-        <button onclick="goBackFromLeaderboard()" style="background:var(--bg2,#f3f0e8);border:none;border-radius:10px;padding:8px 16px;font-size:14px;font-weight:600;color:var(--ink,#1E3A5F);cursor:pointer;display:flex;align-items:center;gap:6px;">← Back</button>
-        <div>
-          <div style="font-size:22px;font-weight:800;color:var(--ink,#1E3A5F);">🏆 Leaderboard</div>
-          <div style="font-size:13px;color:var(--soft,#7a8e9e);margin-top:1px;">Top renters ranked by credits</div>
-        </div>
+  <div style="min-height:100vh;background:#EEEADE;padding:0;">
+    <div style="max-width:680px;margin:0 auto;padding:0 16px 64px;">
+
+      <!-- Back button -->
+      <div style="padding:20px 0 0;">
+        <button onclick="goBackFromLeaderboard()" style="background:none;border:none;cursor:pointer;display:flex;align-items:center;gap:6px;color:var(--ink,#1E3A5F);font-size:14px;font-weight:600;opacity:.7;">
+          <span style="font-size:18px;">←</span>
+        </button>
       </div>
-      <!-- Leaderboard content -->
-      <div id="lb-page-content" style="min-height:200px;">
-        <div style="text-align:center;padding:64px 0;color:var(--soft,#7a8e9e);font-size:15px;">Loading leaderboard…</div>
+
+      <!-- Hero: current user -->
+      <div id="lb-hero" style="text-align:center;padding:24px 0 32px;"></div>
+
+      <!-- Rankings label -->
+      <div style="font-size:11px;font-weight:700;letter-spacing:1.2px;color:#888;text-transform:uppercase;margin-bottom:12px;">Rankings</div>
+
+      <!-- List -->
+      <div id="lb-page-content" style="display:flex;flex-direction:column;gap:10px;">
+        <div style="text-align:center;padding:64px 0;color:#aaa;font-size:15px;">Loading…</div>
+      </div>
+
+      <!-- Auto-refresh ticker -->
+      <div id="lb-ticker" style="text-align:center;margin-top:24px;font-size:13px;color:#aaa;display:none;">
+        Leaderboard will update in <strong id="lb-ticker-secs">0:30</strong>
       </div>
     </div>
   </div>
 </div>
 
+<!-- Crown teleport overlay (fixed, full-screen) -->
+<div id="rn-crown-teleport" style="display:none;position:fixed;inset:0;pointer-events:none;z-index:99999;">
+  <img id="rn-crown-fly" src="/crown.svg" style="position:absolute;width:40px;height:40px;filter:drop-shadow(0 4px 12px rgba(0,0,0,.5));will-change:transform,opacity;">
+</div>
+
 <style>
-/* ─── CROWN BADGE ─── */
+/* ─── CROWN BADGE (sidebar avatars) ─── */
 .rn-crown-badge {
   position: absolute;
   top: -14px;
@@ -18635,9 +18651,103 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
   animation: rn-crown-float 2.4s ease-in-out infinite;
 }
 @keyframes rn-crown-float {
-  0%,100% { transform: translateY(0) rotate(-5deg); }
-  50%      { transform: translateY(-5px) rotate(5deg); }
+  0%,100% { transform: translateY(0) rotate(-6deg) scale(1); }
+  50%      { transform: translateY(-6px) rotate(6deg) scale(1.08); }
 }
+
+/* ─── LEADERBOARD CARDS ─── */
+.rn-lb-card {
+  background: #fff;
+  border-radius: 16px;
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  box-shadow: 0 1px 4px rgba(0,0,0,.06);
+  transition: transform .15s ease, box-shadow .15s ease;
+}
+.rn-lb-card:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(0,0,0,.10); }
+.rn-lb-card.is-me {
+  background: linear-gradient(135deg,rgba(201,106,59,.10),rgba(232,138,90,.06));
+  border: 1.5px solid rgba(201,106,59,.25);
+}
+.rn-lb-rank-num {
+  font-size: 15px;
+  font-weight: 800;
+  color: #bbb;
+  width: 28px;
+  text-align: center;
+  flex-shrink: 0;
+}
+.rn-lb-rank-num.top3 { color: var(--ink,#1E3A5F); }
+.rn-lb-av2 {
+  width: 46px; height: 46px;
+  border-radius: 50%;
+  background: linear-gradient(135deg,#1E3A5F,#2d5a8e);
+  color: #fff;
+  font-weight: 800;
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  position: relative;
+}
+.rn-lb-av2.is-me-av { background: linear-gradient(135deg,var(--terra,#C96A3B),var(--terra2,#e88a5a)); }
+.rn-lb-av-crown {
+  position: absolute;
+  top: -14px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 26px;
+  height: 26px;
+  filter: drop-shadow(0 2px 6px rgba(0,0,0,.4));
+  animation: rn-crown-float 2.4s ease-in-out infinite;
+  pointer-events: none;
+}
+.rn-lb-name { font-size: 15px; font-weight: 700; color: var(--ink,#1E3A5F); }
+.rn-lb-sub  { font-size: 12px; color: #9aabb8; margin-top: 1px; }
+.rn-lb-credits-pill {
+  margin-left: auto;
+  background: #1E3A5F;
+  color: #fff;
+  border-radius: 50px;
+  padding: 6px 14px;
+  font-size: 14px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+}
+.rn-lb-credits-pill.is-me { background: var(--terra,#C96A3B); }
+
+/* ─── HERO (top user card on leaderboard) ─── */
+.rn-lb-hero-av {
+  width: 90px; height: 90px;
+  border-radius: 50%;
+  background: #fff;
+  border: 3px solid rgba(201,106,59,.2);
+  margin: 0 auto 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 900;
+  font-size: 36px;
+  color: var(--ink,#1E3A5F);
+  position: relative;
+}
+.rn-lb-hero-crown {
+  position: absolute;
+  top: -24px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 44px;
+  height: 44px;
+  filter: drop-shadow(0 3px 10px rgba(0,0,0,.4));
+  animation: rn-crown-float 2.4s ease-in-out infinite;
+}
+
 /* ─── CREDITS PROMPT ─── */
 @keyframes rn-prompt-bounce {
   from { transform: scale(0.7); opacity: 0; }
@@ -18647,58 +18757,20 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
   0%,100% { transform: scale(1) rotate(-3deg); }
   50%     { transform: scale(1.12) rotate(3deg); }
 }
-/* ─── LEADERBOARD TABLE ─── */
-.rn-lb-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 15px;
+
+/* ─── CROWN TELEPORT ─── */
+@keyframes rn-crown-teleport-out {
+  0%   { opacity:1; transform: scale(1) rotate(0deg); }
+  40%  { opacity:.6; transform: scale(1.4) rotate(-20deg) translateY(-20px); }
+  100% { opacity:0; transform: scale(0.2) rotate(40deg) translateY(-60px); }
 }
-.rn-lb-table th {
-  text-align: left;
-  padding: 10px 14px;
-  color: var(--soft, #7a8e9e);
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: .6px;
-  text-transform: uppercase;
-  border-bottom: 1.5px solid var(--border, #e8e3d4);
+@keyframes rn-crown-teleport-in {
+  0%   { opacity:0; transform: scale(0.1) rotate(-40deg) translateY(60px); }
+  60%  { opacity:.8; transform: scale(1.2) rotate(10deg) translateY(-8px); }
+  100% { opacity:1; transform: scale(1) rotate(0deg) translateY(0); }
 }
-.rn-lb-table td {
-  padding: 14px 14px;
-  border-bottom: 1px solid var(--border, #e8e3d4);
-  color: var(--ink, #1E3A5F);
-  vertical-align: middle;
-}
-.rn-lb-table tr:last-child td { border-bottom: none; }
-.rn-lb-table tr:hover td { background: rgba(30,58,95,0.04); }
-.rn-lb-row-me td { background: rgba(201,106,59,0.08) !important; }
-.rn-lb-rank-1 td { background: rgba(249,199,79,0.10) !important; font-weight: 700; }
-.rn-lb-av {
-  width: 38px; height: 38px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, var(--terra,#C96A3B), var(--terra2,#e88a5a));
-  color: #fff;
-  font-weight: 800;
-  font-size: 15px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  overflow: hidden;
-  position: relative;
-}
-.rn-lb-medal { font-size: 20px; }
-.rn-lb-crown-wrap { position: relative; display: inline-block; }
-.rn-lb-crown-wrap .rn-lb-crown-img {
-  position: absolute;
-  top: -14px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 22px;
-  height: 22px;
-  filter: drop-shadow(0 1px 4px rgba(0,0,0,.3));
-  animation: rn-crown-float 2.4s ease-in-out infinite;
-}
+.rn-crown-tp-out { animation: rn-crown-teleport-out .5s ease-in forwards; }
+.rn-crown-tp-in  { animation: rn-crown-teleport-in .6s cubic-bezier(.22,1,.36,1) forwards; }
 </style>
 
 <script>
@@ -18706,11 +18778,9 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
   'use strict';
 
   /* ── CREDITS CLAIM PROMPT ── */
-  var _promptEl = null;
   window._rnShowCreditsPrompt = function() {
     var el = document.getElementById('rn-credits-prompt');
     if (!el) return;
-    _promptEl = el;
     el.style.display = 'flex';
     if (typeof _lockScroll === 'function') _lockScroll();
   };
@@ -18718,57 +18788,76 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
     var el = document.getElementById('rn-credits-prompt');
     if (el) el.style.display = 'none';
     if (typeof _unlockScroll === 'function') _unlockScroll();
-    // Now play the actual coins animation
-    if (typeof window._rnShowCoinsOverlayDirect === 'function') {
-      window._rnShowCoinsOverlayDirect();
-    }
+    if (typeof window._rnShowCoinsOverlayDirect === 'function') window._rnShowCoinsOverlayDirect();
   };
 
-  /* ── LEADERBOARD ── */
+  /* ── LEADERBOARD STATE ── */
   var _lbPrevPage = null;
-  var _lbData = null;
-  var _lbLoading = false;
+  var _lbLoading  = false;
+  var _lbTimer    = null;
+  var _lbPrevTopId = null; // track who was #1 last render
 
   window.showLeaderboard = function() {
-    // Save current page to go back
     var pages = document.querySelectorAll('.page.active');
     _lbPrevPage = pages.length ? pages[0].id : 'host-dashboard';
     if (typeof window.showPage === 'function') window.showPage('leaderboard-page');
     loadLeaderboardPage();
+    startLbTimer();
   };
 
   window.goBackFromLeaderboard = function() {
+    stopLbTimer();
     var target = _lbPrevPage || 'host-dashboard';
     if (typeof window.showPage === 'function') window.showPage(target);
-    // Re-init the appropriate page
     try {
       if (target === 'host-dashboard' && typeof window.showSection === 'function') window.showSection('home');
       if (target === 'rent-page' && typeof window.rentShowSection === 'function') window.rentShowSection('browse');
     } catch(e) {}
   };
 
-  function loadLeaderboardPage() {
+  /* ── AUTO-REFRESH TIMER ── */
+  var _tickSecs = 30;
+  function startLbTimer() {
+    stopLbTimer();
+    _tickSecs = 30;
+    updateTicker();
+    _lbTimer = setInterval(function() {
+      _tickSecs--;
+      updateTicker();
+      if (_tickSecs <= 0) { _tickSecs = 30; loadLeaderboardPage(true); }
+    }, 1000);
+  }
+  function stopLbTimer() { if (_lbTimer) { clearInterval(_lbTimer); _lbTimer = null; } }
+  function updateTicker() {
+    var el = document.getElementById('lb-ticker-secs');
+    var wrap = document.getElementById('lb-ticker');
+    if (el) el.textContent = '0:' + (_tickSecs < 10 ? '0' : '') + _tickSecs;
+    if (wrap) wrap.style.display = 'block';
+  }
+
+  /* ── LOAD ── */
+  function loadLeaderboardPage(silent) {
     if (_lbLoading) return;
     _lbLoading = true;
     var container = document.getElementById('lb-page-content');
+    var hero      = document.getElementById('lb-hero');
     if (!container) { _lbLoading = false; return; }
-    container.innerHTML = '<div style="text-align:center;padding:64px 0;color:var(--soft,#7a8e9e);font-size:15px;">Loading leaderboard…</div>';
+    if (!silent) container.innerHTML = '<div style="text-align:center;padding:64px 0;color:#aaa;font-size:15px;">Loading…</div>';
     var currentUserId = (window.user && (window.user.id || window.user.sub)) || null;
     fetch('/api/leaderboard?limit=50', { headers: window.user ? getAuthHeaders() : {} })
       .then(function(r) { return r.json(); })
       .then(function(json) {
         _lbLoading = false;
         var rows = (json && json.leaderboard) ? json.leaderboard : (Array.isArray(json) ? json : []);
-        _lbData = rows;
-        renderLeaderboard(rows, container, currentUserId);
-        // Apply crown to #1 user on sidebars
-        if (rows.length > 0) {
-          _rnApplyCrownToTopUser(rows[0].id || rows[0].userId, currentUserId);
-        }
+        var newTopId = rows.length ? (rows[0].id || rows[0].userId) : null;
+        var crownChanged = _lbPrevTopId !== null && newTopId !== _lbPrevTopId;
+        renderLeaderboard(rows, container, hero, currentUserId, crownChanged, newTopId);
+        _lbPrevTopId = newTopId;
+        if (rows.length > 0) _rnApplyCrownToTopUser(newTopId, currentUserId);
       })
-      .catch(function(err) {
+      .catch(function() {
         _lbLoading = false;
-        if (container) container.innerHTML = '<div style="text-align:center;padding:64px 0;color:rgba(220,38,38,.7);font-size:15px;">Could not load leaderboard. Please try again.<br><br><button onclick="loadLeaderboardPage()" style="background:var(--terra);color:#fff;border:none;border-radius:8px;padding:10px 20px;font-size:14px;cursor:pointer;">Retry</button></div>';
+        if (!silent && container) container.innerHTML = '<div style="text-align:center;padding:64px 0;color:rgba(220,38,38,.7);font-size:15px;">Could not load leaderboard.<br><br><button onclick="loadLeaderboardPage()" style="background:var(--terra);color:#fff;border:none;border-radius:8px;padding:10px 20px;font-size:14px;cursor:pointer;">Retry</button></div>';
       });
   }
 
@@ -18782,102 +18871,157 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
     return {};
   }
 
-  function renderLeaderboard(rows, container, currentUserId) {
+  /* ── RENDER ── */
+  function renderLeaderboard(rows, container, hero, currentUserId, crownChanged, newTopId) {
     if (!rows || !rows.length) {
-      container.innerHTML = '<div style="text-align:center;padding:64px 0;color:var(--soft,#7a8e9e);font-size:15px;">No leaderboard data yet. Start using Rent Nivas to earn credits!</div>';
+      if (hero) hero.innerHTML = '';
+      container.innerHTML = '<div style="text-align:center;padding:64px 0;color:#aaa;font-size:15px;">No leaderboard data yet.</div>';
       return;
     }
-    var html = '<div style="background:#fff;border:1.5px solid var(--border,#e8e3d4);border-radius:16px;overflow:hidden;">';
-    // Top 3 podium cards
-    if (rows.length >= 1) {
-      html += '<div style="background:linear-gradient(135deg,#1E3A5F,#2d5a8e);padding:28px 20px 20px;display:flex;gap:12px;flex-wrap:wrap;justify-content:center;">';
-      var podiumOrder = rows.length >= 3 ? [1,0,2] : rows.length === 2 ? [0,1] : [0];
-      var podiumStyles = [
-        { height:'110px', label:'🥇 1st', badge:'gold', fontSize:'18px' },
-        { height:'80px',  label:'🥈 2nd', badge:'silver', fontSize:'16px' },
-        { height:'70px',  label:'🥉 3rd', badge:'bronze', fontSize:'15px' }
-      ];
-      podiumOrder.forEach(function(i) {
-        var r = rows[i];
-        if (!r) return;
-        var st = podiumStyles[i];
-        var isMe = currentUserId && (r.id === currentUserId || r.userId === currentUserId);
-        var name = r.name || r.email || 'User';
-        var initial = (name[0] || 'U').toUpperCase();
-        var crownHtml = (i === 0) ? '<img src="/crown.svg" style="width:28px;height:28px;display:block;margin:0 auto 4px;filter:drop-shadow(0 1px 4px rgba(0,0,0,.4));animation:rn-crown-float 2.4s ease-in-out infinite;" alt="Crown">' : '';
-        html += '<div style="text-align:center;flex:1;min-width:100px;max-width:160px;">';
-        html += crownHtml;
-        html += '<div style="width:50px;height:50px;border-radius:50%;background:rgba(255,255,255,0.15);border:2px solid rgba(255,255,255,.3);margin:0 auto 6px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:' + st.fontSize + ';color:#fff;">' + initial + '</div>';
-        html += '<div style="color:#fff;font-weight:700;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="' + esc(name) + '">' + esc(name.split(' ')[0]) + (isMe ? ' (You)' : '') + '</div>';
-        html += '<div style="color:rgba(255,255,255,.75);font-size:12px;margin-top:2px;">🪙 ' + (r.credits || 0) + ' credits</div>';
-        html += '<div style="margin-top:4px;font-size:11px;font-weight:700;padding:2px 8px;border-radius:6px;background:rgba(255,255,255,.15);color:#fff;display:inline-block;">' + st.label + '</div>';
-        html += '</div>';
-      });
-      html += '</div>';
+
+    /* Hero section — show current user's stat */
+    if (hero) {
+      var myRow = null;
+      rows.forEach(function(r,i){ if (currentUserId && (r.id===currentUserId||r.userId===currentUserId)) myRow={r:r,rank:i+1}; });
+      if (myRow) {
+        var isTop = myRow.rank === 1;
+        var mName = myRow.r.name || myRow.r.email || 'You';
+        var mInit = (mName[0]||'U').toUpperCase();
+        hero.innerHTML =
+          '<div class="rn-lb-hero-av">' +
+          (isTop ? '<img src="/crown.svg" class="rn-lb-hero-crown" alt="Crown" id="lb-hero-crown">' : '') +
+          mInit + '</div>' +
+          '<div style="font-size:20px;font-weight:800;color:var(--ink,#1E3A5F);">' + esc(mName) + '</div>' +
+          '<div style="margin-top:8px;display:inline-flex;align-items:center;gap:6px;background:#1E3A5F;color:#fff;border-radius:50px;padding:8px 20px;font-weight:700;font-size:15px;">🪙 ' + (myRow.r.credits||0) + ' credits</div>';
+      } else {
+        hero.innerHTML = '';
+      }
     }
-    // Full table
-    html += '<table class="rn-lb-table"><thead><tr><th style="width:52px;">Rank</th><th>User</th><th style="text-align:right;">Credits</th></tr></thead><tbody>';
+
+    /* Row cards */
+    var html = '';
     rows.forEach(function(r, idx) {
-      var rank = idx + 1;
-      var isMe = currentUserId && (r.id === currentUserId || r.userId === currentUserId);
-      var isFirst = rank === 1;
-      var rowCls = isMe ? 'rn-lb-row-me' : (isFirst ? 'rn-lb-rank-1' : '');
-      var name = r.name || r.email || 'User';
-      var initial = (name[0] || 'U').toUpperCase();
-      var medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : rank;
-      var crownWrap = isFirst
-        ? '<div class="rn-lb-crown-wrap"><img src="/crown.svg" class="rn-lb-crown-img" alt="Crown"><div class="rn-lb-av">' + esc(initial) + '</div></div>'
-        : '<div class="rn-lb-av">' + esc(initial) + '</div>';
-      html += '<tr class="' + rowCls + '">';
-      html += '<td><span class="rn-lb-medal">' + medal + '</span></td>';
-      html += '<td><div style="display:flex;align-items:center;gap:10px;">' + crownWrap + '<div><div style="font-weight:' + (isMe ? '700' : '600') + ';">' + esc(name) + (isMe ? ' <span style="font-size:11px;background:var(--terra,#C96A3B);color:#fff;border-radius:6px;padding:1px 7px;font-weight:700;">You</span>' : '') + '</div></div></div></td>';
-      html += '<td style="text-align:right;font-weight:700;color:var(--terra,#C96A3B);">🪙 ' + (r.credits || 0) + '</td>';
-      html += '</tr>';
+      var rank   = idx + 1;
+      var isMe   = currentUserId && (r.id===currentUserId||r.userId===currentUserId);
+      var isFirst= rank === 1;
+      var name   = r.name || r.email || 'User';
+      var initial= (name[0]||'U').toUpperCase();
+      var medal  = rank===1 ? '🥇' : rank===2 ? '🥈' : rank===3 ? '🥉' : rank;
+      var avClass= 'rn-lb-av2' + (isMe ? ' is-me-av' : '');
+      var crownEl= isFirst ? '<img src="/crown.svg" class="rn-lb-av-crown" id="lb-list-crown" alt="Crown">' : '';
+      var pillCls= 'rn-lb-credits-pill' + (isMe ? ' is-me' : '');
+      html +=
+        '<div class="rn-lb-card' + (isMe ? ' is-me' : '') + '">' +
+          '<div class="rn-lb-rank-num' + (rank<=3?' top3':'') + '">' + medal + '</div>' +
+          '<div class="' + avClass + '">' + crownEl + esc(initial) + '</div>' +
+          '<div>' +
+            '<div class="rn-lb-name">' + esc(name) + (isMe ? ' <span style="font-size:10px;background:var(--terra,#C96A3B);color:#fff;border-radius:6px;padding:1px 6px;font-weight:700;vertical-align:middle;">You</span>' : '') + '</div>' +
+            '<div class="rn-lb-sub">Rank #' + rank + '</div>' +
+          '</div>' +
+          '<div class="' + pillCls + '"><span>🪙</span>' + (r.credits||0) + '</div>' +
+        '</div>';
     });
-    html += '</tbody></table></div>';
     container.innerHTML = html;
+
+    /* Crown teleport animation when #1 changes */
+    if (crownChanged) animateCrownTeleport(newTopId, currentUserId);
   }
 
   function esc(str) {
-    return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    return String(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  /* ── CROWN TELEPORT ANIMATION ── */
+  function animateCrownTeleport(newTopId, currentUserId) {
+    // Find old crown target (sidebar crowns are visible for old #1)
+    var oldCrowns = [
+      document.getElementById('host-crown-badge'),
+      document.getElementById('rent-crown-badge')
+    ].filter(function(el){ return el && el.style.display !== 'none'; });
+    var newCrown = document.getElementById('lb-list-crown') || document.getElementById('lb-hero-crown');
+    var overlay  = document.getElementById('rn-crown-teleport');
+    var flyEl    = document.getElementById('rn-crown-fly');
+    if (!flyEl || !overlay) return;
+
+    function getCenter(el) {
+      var r = el.getBoundingClientRect();
+      return { x: r.left + r.width/2, y: r.top + r.height/2 };
+    }
+
+    var fromEl = oldCrowns[0] || null;
+    var toEl   = newCrown || null;
+    if (!fromEl && !toEl) return;
+
+    var from = fromEl ? getCenter(fromEl) : { x: window.innerWidth/2, y: -40 };
+    var to   = toEl   ? getCenter(toEl)   : { x: window.innerWidth/2, y: window.innerHeight/2 };
+
+    // Position fly el at source
+    flyEl.style.left    = (from.x - 20) + 'px';
+    flyEl.style.top     = (from.y - 20) + 'px';
+    flyEl.style.opacity = '1';
+    flyEl.style.transform = 'scale(1) rotate(0deg)';
+    flyEl.style.transition = 'none';
+    flyEl.style.animation  = 'none';
+
+    overlay.style.display = 'block';
+    if (fromEl) fromEl.style.opacity = '0';
+    if (toEl)   toEl.style.opacity   = '0';
+
+    // Phase 1: fly out
+    setTimeout(function() {
+      flyEl.style.transition = 'left .5s cubic-bezier(.4,0,.2,1), top .5s cubic-bezier(.4,0,.2,1), opacity .5s, transform .5s';
+      flyEl.style.left      = (to.x - 20) + 'px';
+      flyEl.style.top       = (to.y - 80) + 'px'; // arc midpoint
+      flyEl.style.opacity   = '0.3';
+      flyEl.style.transform = 'scale(1.6) rotate(-30deg)';
+    }, 30);
+
+    // Phase 2: land at target
+    setTimeout(function() {
+      flyEl.style.transition = 'left .4s cubic-bezier(.22,1,.36,1), top .4s cubic-bezier(.22,1,.36,1), opacity .3s, transform .4s';
+      flyEl.style.left      = (to.x - 20) + 'px';
+      flyEl.style.top       = (to.y - 20) + 'px';
+      flyEl.style.opacity   = '1';
+      flyEl.style.transform = 'scale(1) rotate(0deg)';
+    }, 520);
+
+    // Phase 3: hide overlay, show real crowns
+    setTimeout(function() {
+      overlay.style.display = 'none';
+      if (toEl) { toEl.style.opacity = '1'; toEl.style.animation = 'rn-crown-float 2.4s ease-in-out infinite'; }
+      // Update sidebar crowns
+      _rnApplyCrownToTopUser(newTopId, currentUserId);
+    }, 950);
   }
 
   /* ── CROWN ON SIDEBAR AVATARS ── */
   function _rnApplyCrownToTopUser(topUserId, currentUserId) {
-    var isTopUser = topUserId && currentUserId && (topUserId === currentUserId);
-    var hostCrown = document.getElementById('host-crown-badge');
-    var rentCrown = document.getElementById('rent-crown-badge');
-    if (hostCrown) hostCrown.style.display = isTopUser ? 'block' : 'none';
-    if (rentCrown) rentCrown.style.display = isTopUser ? 'block' : 'none';
+    var isTop = topUserId && currentUserId && (topUserId === currentUserId);
+    ['host-crown-badge','rent-crown-badge'].forEach(function(id) {
+      var el = document.getElementById(id);
+      if (el) { el.style.display = isTop ? 'block' : 'none'; el.style.opacity = '1'; }
+    });
   }
   window._rnApplyCrownToTopUser = _rnApplyCrownToTopUser;
 
   /* ── AUTO-LOAD CROWN ON DASHBOARD INIT ── */
-  // Fetch leaderboard in background to show crown if user is #1
   function _rnCheckCrownStatus() {
     var currentUserId = (window.user && (window.user.id || window.user.sub)) || null;
     if (!currentUserId) return;
     fetch('/api/leaderboard?limit=1', { headers: getAuthHeaders() })
-      .then(function(r) { return r.json(); })
+      .then(function(r){ return r.json(); })
       .then(function(json) {
         var rows = (json && json.leaderboard) ? json.leaderboard : (Array.isArray(json) ? json : []);
-        if (rows.length > 0) {
-          _rnApplyCrownToTopUser(rows[0].id || rows[0].userId, currentUserId);
-        }
+        if (rows.length > 0) _rnApplyCrownToTopUser(rows[0].id||rows[0].userId, currentUserId);
       })
-      .catch(function() {});
+      .catch(function(){});
   }
-  // Check crown status after login (wait for user to be set)
   setTimeout(function() {
     if (window.user) { _rnCheckCrownStatus(); }
     else {
-      // Poll until user is available
       var attempts = 0;
       var iv = setInterval(function() {
-        if (window.user || ++attempts > 20) {
-          clearInterval(iv);
-          if (window.user) _rnCheckCrownStatus();
-        }
+        if (window.user || ++attempts > 20) { clearInterval(iv); if (window.user) _rnCheckCrownStatus(); }
       }, 500);
     }
   }, 2000);
