@@ -19,7 +19,7 @@ const ddb = new DynamoDBClient({ region: REGION });
 function send(res, status, payload) {
   res.statusCode = status;
   res.setHeader('Content-Type', 'application/json');
-  res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=120');
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.end(JSON.stringify(payload));
 }
