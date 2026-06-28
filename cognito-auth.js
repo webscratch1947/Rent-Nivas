@@ -25,7 +25,7 @@
     if (/CodeMismatchException/i.test(msg)) return 'The verification code is incorrect.';
     if (/ExpiredCodeException/i.test(msg)) return 'The verification code has expired. Please request a new one.';
     if (/LimitExceededException|TooManyRequestsException/i.test(msg)) return 'Too many attempts. Please wait and try again.';
-    if (/InvalidPasswordException/i.test(msg)) return 'Password does not meet the security requirements.';
+    if (/InvalidPasswordException/i.test(msg)) return 'Password must be at least 8 characters and include uppercase, lowercase, and a number. Special symbols are not required.';
     if (/UserNotFoundException/i.test(msg)) return 'No account exists for that email address.';
     return msg.replace(/^.*Exception:\s*/, '');
   }
