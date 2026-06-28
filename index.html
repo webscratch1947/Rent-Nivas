@@ -8371,6 +8371,8 @@
   </style>
 <style id="rn-tut-styles">
   #rn-tutorial{position:fixed;inset:0;z-index:9999;pointer-events:none;}
+  /* Toast above tutorial during tutorial, back to bottom after */
+  body.rn-tut-open #toast-wrap{top:16px!important;bottom:auto!important;z-index:25000!important;}
   #rn-tutorial.rn-hidden{display:none!important;}
   .rn-tut-backdrop{position:absolute;inset:0;background:rgba(0,0,0,0.72);pointer-events:auto;transition:opacity .4s;opacity:0;pointer-events:none;}
   .rn-tut-backdrop.rn-active{opacity:1;pointer-events:auto;}
@@ -14490,10 +14492,8 @@
           }
         }
         loadUserPurchases().then(() => updateCreditsBadges()).catch(() => {});
-        // Using profiles!inner ensures houses with deleted owner accounts are excluded
-        // (Supabase inner join — only returns rows that have a matching profiles entry)
         const listResult = await withTimeout(
-          sb.from('houses').select(RENT_BROWSE_COLS + ',profiles!inner(id)').eq('status', 'published').order('created_at', { ascending: false }),
+          sb.from('houses').select(RENT_BROWSE_COLS).eq('status', 'published').order('created_at', { ascending: false }),
           10000,
           'Browse listings timed out. Please try again.'
         );
@@ -14521,9 +14521,8 @@
           failBrowse('No published listings yet. Check back soon or switch to Host to list a property.', false);
           return;
         }
-        // Strip the profiles join field — it was only used as a filter
-        rentAllHouses = (data || []).map(h => { const c = Object.assign({}, h); delete c.profiles; return c; });
-        try { localStorage.setItem('rn_listings_cache', JSON.stringify(rentAllHouses)); } catch (_) {}
+        rentAllHouses = data;
+        try { localStorage.setItem('rn_listings_cache', JSON.stringify(data)); } catch (_) {}
         rentPropFilter = 'all';
         document.querySelectorAll('.prop-filter-chip').forEach(c => c.classList.remove('active'));
         const allChip = document.querySelector('.prop-filter-chip');
@@ -15554,6 +15553,20 @@
             });
             if (res.ok) { const j = await res.json(); if (j.error) throw new Error(j.error); }
           } catch(e) { if (e.message && !e.message.includes('fetch') && !e.message.includes('Failed')) throw e; }
+          // ── Cascade: delete all houses + their storage images ──
+          try {
+            const { data: userHouses } = await sb.from('houses').select('id').eq('owner_id', userId);
+            if (userHouses && userHouses.length) {
+              for (const h of userHouses) {
+                await purgeHouseStorage(h.id).catch(() => {});
+                await sb.from('houses').delete().eq('id', h.id).catch(() => {});
+                purgeHouseFromLocalCache(h.id);
+                rentAllHouses = rentAllHouses.filter(x => x.id !== h.id);
+                allHouses = allHouses.filter(x => x.id !== h.id);
+              }
+            }
+          } catch (_) { /* house cleanup best-effort — continue with profile delete */ }
+          // ── Delete profile + bans ──
           await sb.from('profiles').delete().eq('id', userId).catch(()=>{});
           await sb.from('admin_bans').update({ active: false }).eq('user_id', userId).catch(()=>{});
           toast('🗑️ User deleted: ' + userName, 'success');
@@ -18693,9 +18706,13 @@ var T={
         LBL[8]={en:'Tap here to Add Listing!',hi:'यहाँ क्लिक करें'};
       }
     }
+    // Remove any previous scroll-tracking listener
+    if(window._rnTutScrollFn){window.removeEventListener('scroll',window._rnTutScrollFn,true);window._rnTutScrollFn=null;}
+    this._spotEl1=null;this._spotEl2=null;
     if(id1){
       var btn=document.getElementById(id1);
       if(btn){
+        this._spotEl1=btn;
         var r=btn.getBoundingClientRect();
         if(sp){sp.style.cssText='top:'+(r.top-7)+'px;left:'+(r.left-7)+'px;width:'+(r.width+14)+'px;height:'+(r.height+14)+'px;';sp.classList.add('rn-show');}
         var lbl=LBL[this.step];
@@ -18705,7 +18722,24 @@ var T={
     var id2=SPOT2[this.step];
     if(id2){
       var el2=document.getElementById(id2);
-      if(el2&&sp2){var r2=el2.getBoundingClientRect();sp2.style.cssText='display:block;top:'+(r2.top-6)+'px;left:'+(r2.left-6)+'px;width:'+(r2.width+12)+'px;height:'+(r2.height+12)+'px;';}
+      if(el2&&sp2){this._spotEl2=el2;var r2=el2.getBoundingClientRect();sp2.style.cssText='display:block;top:'+(r2.top-6)+'px;left:'+(r2.left-6)+'px;width:'+(r2.width+12)+'px;height:'+(r2.height+12)+'px;';}
+    }
+    // Live-track spotlight on scroll so yellow box follows the element
+    if(this._spotEl1||this._spotEl2){
+      var _T=this;
+      window._rnTutScrollFn=function(){
+        var _sp=document.getElementById('rn-tut-spotlight'),_lb=document.getElementById('rn-tut-spotlight-label'),_sp2=document.getElementById('rn-tut-spotlight2');
+        if(_T._spotEl1&&_sp&&_sp.classList.contains('rn-show')){
+          var _r=_T._spotEl1.getBoundingClientRect();
+          _sp.style.top=(_r.top-7)+'px';_sp.style.left=(_r.left-7)+'px';_sp.style.width=(_r.width+14)+'px';_sp.style.height=(_r.height+14)+'px';
+          if(_lb&&_lb.classList.contains('rn-show')){_lb.style.top=(_r.top-50)+'px';_lb.style.left=(_r.left+_r.width/2)+'px';}
+        }
+        if(_T._spotEl2&&_sp2&&_sp2.style.display!=='none'){
+          var _r2=_T._spotEl2.getBoundingClientRect();
+          _sp2.style.top=(_r2.top-6)+'px';_sp2.style.left=(_r2.left-6)+'px';_sp2.style.width=(_r2.width+12)+'px';_sp2.style.height=(_r2.height+12)+'px';
+        }
+      };
+      window.addEventListener('scroll',window._rnTutScrollFn,true);
     }
   },
   playAudio:function(){
@@ -18768,6 +18802,8 @@ var T={
     var o=document.getElementById('rn-tutorial');if(o)o.classList.add('rn-hidden');
     document.body.classList.remove('rn-tut-open');
     this.done=true;
+    if(window._rnTutScrollFn){window.removeEventListener('scroll',window._rnTutScrollFn,true);window._rnTutScrollFn=null;}
+    this._spotEl1=null;this._spotEl2=null;
     this.stopAudio();
     this.applyChat();
     if(window._rnTutScrollLocked){window._rnTutScrollLocked=false;try{if(typeof window._unlockScroll==='function')window._unlockScroll();}catch(e){document.body.style.overflow='';}}
