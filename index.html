@@ -19103,11 +19103,19 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
       return;
     }
 
-    /* ── HERO: show the #1 user always ── */
-    var top    = rows[0];
+    /* ── HERO: show the first real (non-anonymous) user ── */
+    var top = null;
+    for (var hi = 0; hi < rows.length; hi++) {
+      if (displayName(rows[hi]) !== 'Anonymous') { top = rows[hi]; break; }
+    }
+    if (!top) {
+      if (hero) hero.innerHTML = '';
+      container.innerHTML = '<div style="text-align:center;padding:64px 0;color:var(--soft);font-size:15px;">No leaderboard data yet.</div>';
+      return;
+    }
     var topName = displayName(top);
     var topInitial = (topName[0] || '?').toUpperCase();
-    var topIsMe = uid && (top.id === uid || top.userId === uid);
+    var topIsMe = uid && (top.id === uid || top.userId === uid || top.email === (window.user && window.user.email));
 
     var heroHtml = '<div class="rn-lb-hero-av-wrap">';
     heroHtml += '<img src="/crown.svg" class="rn-lb-hero-crown" alt="Crown">';
@@ -19132,15 +19140,17 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
     if (hero) hero.innerHTML = heroHtml;
     if (rankLabel) rankLabel.style.display = 'block';
 
-    /* ── FULL LIST: skip rank #1 if they are the logged-in user ── */
+    /* ── FULL LIST: skip anonymous entries and the hero user ── */
+    /* Re-rank after filtering anonymous so numbers stay sequential */
+    var filtered = rows.filter(function(r) { return displayName(r) !== 'Anonymous'; });
     var html = '';
-    rows.forEach(function (r, idx) {
+    filtered.forEach(function (r, idx) {
       var rank    = idx + 1;
-      var isMe    = uid && (r.id === uid || r.userId === uid);
-      var isFirst = rank === 1;
+      var isMe    = uid && (r.id === uid || r.userId === uid || r.email === (window.user && window.user.email));
+      var isHero  = (r === top); /* already shown in hero section above */
 
-      /* Rank 1 is always shown in the hero section only — never in the list below */
-      if (isFirst) return;
+      /* Hero user is shown above — skip from list */
+      if (isHero) return;
 
       var name    = displayName(r);
       var initial = (name[0] || '?').toUpperCase();
@@ -19198,9 +19208,9 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
           .then(function (r) { return r.json(); })
           .then(function (json) {
             var rows2 = json.data || json.leaderboard || (Array.isArray(json) ? json : []);
-            var uid2  = (window.user && (window.user.id || window.user.sub)) || null;
+            var uid2  = (window.user && (window.user.id || window.user.sub || window.user.email)) || null;
             renderLeaderboard(rows2, container, uid2);
-            if (rows2.length > 0) _rnApplyCrownToTopUser(rows2[0].id || rows2[0].userId, uid2);
+            _checkCrown();
           })
           .catch(function () {});
         return;
@@ -19211,7 +19221,8 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
 
   /* ── CROWN ON SIDEBAR AVATARS ── */
   function _rnApplyCrownToTopUser(topId, uid) {
-    var isTop = !!(topId && uid && (topId === uid));
+    var userEmail = (window.user && window.user.email) || '';
+    var isTop = !!(topId && uid && (topId === uid || (userEmail && topId === userEmail)));
     var hc = document.getElementById('host-crown-badge');
     var rc = document.getElementById('rent-crown-badge');
     if (hc) hc.style.display = isTop ? 'block' : 'none';
@@ -19221,13 +19232,21 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
 
   /* ── AUTO CHECK CROWN ON LOGIN ── */
   function _checkCrown() {
-    var uid = (window.user && (window.user.id || window.user.sub)) || null;
+    var uid = (window.user && (window.user.id || window.user.sub || window.user.email)) || null;
     if (!uid) return;
-    fetch('/api/leaderboard?limit=1', { headers: _getHeaders() })
+    fetch('/api/leaderboard?limit=50', { headers: _getHeaders() })
       .then(function (r) { return r.json(); })
       .then(function (json) {
         var rows = json.data || json.leaderboard || (Array.isArray(json) ? json : []);
-        if (rows.length > 0) _rnApplyCrownToTopUser(rows[0].id || rows[0].userId, uid);
+        /* Find first non-anonymous entry — that is the real #1 */
+        var topRow = null;
+        for (var i = 0; i < rows.length; i++) {
+          if (displayName(rows[i]) !== 'Anonymous') { topRow = rows[i]; break; }
+        }
+        if (topRow) {
+          var topId = topRow.id || topRow.userId || topRow.email || '';
+          _rnApplyCrownToTopUser(topId, uid);
+        }
       })
       .catch(function () {});
   }
