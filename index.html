@@ -8427,6 +8427,64 @@
 
 
 </style>
+<style id="rn-leaderboard-styles">
+/* ══ LEADERBOARD FULL PAGE ══ */
+#rn-leaderboard-modal{position:fixed;inset:0;z-index:88888;display:none;flex-direction:column;background:linear-gradient(160deg,#faf7f2 0%,#f0ebe0 60%,#e8dfd0 100%);}
+#rn-leaderboard-modal.lb-open{display:flex;}
+
+/* ── Opening animation screen ── */
+.lb-anim-screen{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px;z-index:10;background:linear-gradient(160deg,#faf7f2 0%,#f0ebe0 60%,#e8dfd0 100%);transition:opacity .5s ease,transform .5s ease;}
+.lb-anim-screen.lb-anim-done{opacity:0;pointer-events:none;transform:scale(1.05);}
+.lb-anim-svg{width:160px;height:160px;}
+.lb-anim-title{font-size:26px;font-weight:900;color:#1E3A5F;letter-spacing:-.5px;}
+
+/* ── Page layout ── */
+.lb-page{display:flex;flex-direction:column;flex:1;overflow:hidden;position:relative;z-index:3;}
+
+/* ── Top bar ── */
+.lb-topbar{display:flex;align-items:center;padding:16px 20px 10px;gap:12px;flex-shrink:0;}
+.lb-back-btn{width:38px;height:38px;border-radius:50%;background:#fff;border:1.5px solid rgba(30,58,95,.12);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:18px;color:#1E3A5F;box-shadow:0 2px 8px rgba(30,58,95,.08);flex-shrink:0;}
+.lb-back-btn:hover{background:#f0ebe0;}
+.lb-topbar-title{flex:1;text-align:center;font-size:20px;font-weight:900;color:#1E3A5F;letter-spacing:-.3px;}
+.lb-topbar-spacer{width:38px;flex-shrink:0;}
+
+/* ── Hero (#1 person) ── */
+.lb-hero{text-align:center;padding:14px 20px 20px;flex-shrink:0;}
+.lb-hero-avatar-wrap{position:relative;display:inline-block;margin-bottom:12px;}
+.lb-hero-avatar{width:90px;height:90px;border-radius:50%;background:linear-gradient(135deg,#1E3A5F 0%,#2b5fa8 100%);display:flex;align-items:center;justify-content:center;font-size:34px;font-weight:900;color:#fff;overflow:hidden;border:4px solid #fff;box-shadow:0 8px 30px rgba(30,58,95,.2);}
+.lb-hero-avatar img.av-img{width:100%;height:100%;object-fit:cover;border-radius:50%;}
+.lb-hero-crown{position:absolute;top:-44px;left:50%;transform:translateX(-50%);width:80px;height:80px;object-fit:contain;filter:drop-shadow(0 4px 14px rgba(200,150,0,.7));animation:lb-crown-float 2.2s ease-in-out infinite;}
+@keyframes lb-crown-float{0%,100%{transform:translateX(-50%) translateY(0) rotate(-4deg)}50%{transform:translateX(-50%) translateY(-7px) rotate(4deg)}}
+.lb-rank1-badge{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;background:#FFD232;color:#1E3A5F;font-size:13px;font-weight:900;border-radius:50%;position:absolute;bottom:0;right:-2px;border:2px solid #fff;}
+.lb-hero-name{font-size:20px;font-weight:900;color:#1E3A5F;margin-bottom:6px;}
+.lb-hero-badge{display:inline-flex;align-items:center;gap:6px;background:linear-gradient(135deg,#1E3A5F 0%,#2b5fa8 100%);color:#fff;font-size:13px;font-weight:800;padding:6px 18px;border-radius:20px;box-shadow:0 4px 14px rgba(30,58,95,.25);}
+
+/* ── List section ── */
+.lb-list-wrap{flex:1;overflow-y:auto;padding:4px 16px 4px;}
+.lb-list-wrap::-webkit-scrollbar{width:0;}
+.lb-list-label{font-size:11px;font-weight:700;color:#9a8f82;letter-spacing:.8px;text-transform:uppercase;padding:0 4px 8px;}
+.lb-item{display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:16px;margin-bottom:7px;background:#fff;border:1px solid rgba(30,58,95,.07);box-shadow:0 2px 8px rgba(30,58,95,.04);}
+.lb-item:hover{background:#f7f4ef;}
+.lb-item-rank{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;flex-shrink:0;}
+.lb-rank-2{background:linear-gradient(135deg,#ececec 0%,#b8b8b8 100%);color:#555;}
+.lb-rank-3{background:linear-gradient(135deg,#f7dfc2 0%,#cd7f32 100%);color:#fff;}
+.lb-rank-n{background:rgba(30,58,95,.08);color:#1E3A5F;}
+.lb-item-avatar{width:42px;height:42px;border-radius:50%;background:linear-gradient(135deg,#1E3A5F 0%,#2b5fa8 100%);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:#fff;flex-shrink:0;overflow:hidden;}
+.lb-item-avatar img.av-img{width:100%;height:100%;object-fit:cover;border-radius:50%;}
+.lb-item-info{flex:1;min-width:0;}
+.lb-item-name{font-size:14px;font-weight:700;color:#1E3A5F;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.lb-item-sub{font-size:11px;color:#9a8f82;font-weight:500;}
+.lb-credits-pill{background:linear-gradient(135deg,#1E3A5F 0%,#2b5fa8 100%);color:#fff;font-size:12px;font-weight:800;padding:5px 12px;border-radius:20px;white-space:nowrap;}
+
+/* ── Footer timer ── */
+.lb-footer{padding:8px 20px 14px;text-align:center;font-size:11px;color:#9a8f82;font-weight:500;flex-shrink:0;}
+.lb-timer-bold{font-weight:800;color:#1E3A5F;}
+
+/* ── Crown overlay for dashboard/bottom nav ── */
+.sb-crown-wrap{position:relative;display:inline-block;}
+.sb-crown-icon{position:absolute;top:-24px;left:50%;transform:translateX(-50%);width:38px;height:38px;object-fit:contain;filter:drop-shadow(0 2px 8px rgba(200,150,0,.9));animation:lb-crown-float 2.2s ease-in-out infinite;pointer-events:none;z-index:10;}
+.mbn-crown{position:absolute;top:-18px;left:50%;transform:translateX(-50%);width:32px;height:32px;object-fit:contain;filter:drop-shadow(0 2px 6px rgba(200,150,0,.9));animation:lb-crown-float 2.2s ease-in-out infinite;pointer-events:none;z-index:10;}
+</style>
 </head>
 
 <body>
@@ -18601,437 +18659,290 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
   </div>
 </div>
 
-<!-- ══ LEADERBOARD PAGE ══ -->
-<div class="page" id="leaderboard-page">
-  <div style="min-height:100vh;background:#EEEADE;padding:0;">
-    <div style="max-width:680px;margin:0 auto;padding:0 16px 64px;">
-
-      <!-- Back button -->
-      <div style="padding:20px 0 0;">
-        <button onclick="goBackFromLeaderboard()" style="background:none;border:none;cursor:pointer;display:flex;align-items:center;gap:6px;color:var(--ink,#1E3A5F);font-size:14px;font-weight:600;opacity:.7;">
-          <span style="font-size:18px;">←</span>
-        </button>
-      </div>
-
-      <!-- Hero: current user -->
-      <div id="lb-hero" style="text-align:center;padding:24px 0 32px;"></div>
-
-      <!-- Rankings label -->
-      <div style="font-size:11px;font-weight:700;letter-spacing:1.2px;color:#888;text-transform:uppercase;margin-bottom:12px;">Rankings</div>
-
-      <!-- List -->
-      <div id="lb-page-content" style="display:flex;flex-direction:column;gap:10px;">
-        <div style="text-align:center;padding:64px 0;color:#aaa;font-size:15px;">Loading…</div>
-      </div>
-
-      <!-- Auto-refresh ticker -->
-      <div id="lb-ticker" style="text-align:center;margin-top:24px;font-size:13px;color:#aaa;display:none;">
-        Leaderboard will update in <strong id="lb-ticker-secs">0:30</strong>
-      </div>
+<!-- ══ LEADERBOARD FULL PAGE ══ -->
+<div id="rn-leaderboard-modal">
+  <!-- Opening animation screen -->
+  <div class="lb-anim-screen" id="lb-anim-screen">
+    <img class="lb-anim-svg" src="/leaderboard.svg" alt="" onerror="this.style.display='none'">
+    <div class="lb-anim-title">🏆 Leaderboard</div>
+  </div>
+  <!-- Full page content -->
+  <div class="lb-page" id="lb-page" style="opacity:0;transition:opacity .4s ease;">
+    <!-- Top bar -->
+    <div class="lb-topbar">
+      <button class="lb-back-btn" onclick="closeLeaderboard()">←</button>
+      <div class="lb-topbar-title"></div>
+      <div class="lb-topbar-spacer"></div>
+    </div>
+    <!-- Hero: rank 1 -->
+    <div class="lb-hero" id="lb-hero">
+      <div style="color:#9a8f82;font-size:13px;padding:24px 0;">Loading…</div>
+    </div>
+    <!-- List: rank 2+ -->
+    <div class="lb-list-wrap">
+      <div class="lb-list-label">Rankings</div>
+      <div id="lb-list"></div>
+    </div>
+    <!-- Footer timer -->
+    <div class="lb-footer">
+      Leaderboard will update in <span class="lb-timer-bold" id="lb-countdown">0:30</span>
     </div>
   </div>
 </div>
 
-<!-- Crown teleport overlay (fixed, full-screen) -->
-<div id="rn-crown-teleport" style="display:none;position:fixed;inset:0;pointer-events:none;z-index:99999;">
-  <img id="rn-crown-fly" src="/crown.svg" style="position:absolute;width:40px;height:40px;filter:drop-shadow(0 4px 12px rgba(0,0,0,.5));will-change:transform,opacity;">
-</div>
-
-<style>
-/* ─── CROWN BADGE (sidebar avatars) ─── */
-.rn-crown-badge {
-  position: absolute;
-  top: -14px;
-  left: -8px;
-  width: 30px;
-  height: 30px;
-  z-index: 10;
-  pointer-events: none;
-  filter: drop-shadow(0 2px 6px rgba(0,0,0,.35));
-  animation: rn-crown-float 2.4s ease-in-out infinite;
-}
-@keyframes rn-crown-float {
-  0%,100% { transform: translateY(0) rotate(-6deg) scale(1); }
-  50%      { transform: translateY(-6px) rotate(6deg) scale(1.08); }
-}
-
-/* ─── LEADERBOARD CARDS ─── */
-.rn-lb-card {
-  background: #fff;
-  border-radius: 16px;
-  padding: 16px 20px;
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  box-shadow: 0 1px 4px rgba(0,0,0,.06);
-  transition: transform .15s ease, box-shadow .15s ease;
-}
-.rn-lb-card:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(0,0,0,.10); }
-.rn-lb-card.is-me {
-  background: linear-gradient(135deg,rgba(201,106,59,.10),rgba(232,138,90,.06));
-  border: 1.5px solid rgba(201,106,59,.25);
-}
-.rn-lb-rank-num {
-  font-size: 15px;
-  font-weight: 800;
-  color: #bbb;
-  width: 28px;
-  text-align: center;
-  flex-shrink: 0;
-}
-.rn-lb-rank-num.top3 { color: var(--ink,#1E3A5F); }
-.rn-lb-av2 {
-  width: 46px; height: 46px;
-  border-radius: 50%;
-  background: linear-gradient(135deg,#1E3A5F,#2d5a8e);
-  color: #fff;
-  font-weight: 800;
-  font-size: 18px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  position: relative;
-}
-.rn-lb-av2.is-me-av { background: linear-gradient(135deg,var(--terra,#C96A3B),var(--terra2,#e88a5a)); }
-.rn-lb-av-crown {
-  position: absolute;
-  top: -14px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 26px;
-  height: 26px;
-  filter: drop-shadow(0 2px 6px rgba(0,0,0,.4));
-  animation: rn-crown-float 2.4s ease-in-out infinite;
-  pointer-events: none;
-}
-.rn-lb-name { font-size: 15px; font-weight: 700; color: var(--ink,#1E3A5F); }
-.rn-lb-sub  { font-size: 12px; color: #9aabb8; margin-top: 1px; }
-.rn-lb-credits-pill {
-  margin-left: auto;
-  background: #1E3A5F;
-  color: #fff;
-  border-radius: 50px;
-  padding: 6px 14px;
-  font-size: 14px;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  flex-shrink: 0;
-}
-.rn-lb-credits-pill.is-me { background: var(--terra,#C96A3B); }
-
-/* ─── HERO (top user card on leaderboard) ─── */
-.rn-lb-hero-av {
-  width: 90px; height: 90px;
-  border-radius: 50%;
-  background: #fff;
-  border: 3px solid rgba(201,106,59,.2);
-  margin: 0 auto 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 900;
-  font-size: 36px;
-  color: var(--ink,#1E3A5F);
-  position: relative;
-}
-.rn-lb-hero-crown {
-  position: absolute;
-  top: -24px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 44px;
-  height: 44px;
-  filter: drop-shadow(0 3px 10px rgba(0,0,0,.4));
-  animation: rn-crown-float 2.4s ease-in-out infinite;
-}
-
-/* ─── CREDITS PROMPT ─── */
-@keyframes rn-prompt-bounce {
-  from { transform: scale(0.7); opacity: 0; }
-  to   { transform: scale(1);   opacity: 1; }
-}
-@keyframes rn-chest-pulse {
-  0%,100% { transform: scale(1) rotate(-3deg); }
-  50%     { transform: scale(1.12) rotate(3deg); }
-}
-
-/* ─── CROWN TELEPORT ─── */
-@keyframes rn-crown-teleport-out {
-  0%   { opacity:1; transform: scale(1) rotate(0deg); }
-  40%  { opacity:.6; transform: scale(1.4) rotate(-20deg) translateY(-20px); }
-  100% { opacity:0; transform: scale(0.2) rotate(40deg) translateY(-60px); }
-}
-@keyframes rn-crown-teleport-in {
-  0%   { opacity:0; transform: scale(0.1) rotate(-40deg) translateY(60px); }
-  60%  { opacity:.8; transform: scale(1.2) rotate(10deg) translateY(-8px); }
-  100% { opacity:1; transform: scale(1) rotate(0deg) translateY(0); }
-}
-.rn-crown-tp-out { animation: rn-crown-teleport-out .5s ease-in forwards; }
-.rn-crown-tp-in  { animation: rn-crown-teleport-in .6s cubic-bezier(.22,1,.36,1) forwards; }
-</style>
-
 <script>
-(function() {
-  'use strict';
+// ══ LEADERBOARD SYSTEM ══
+(function(){
+'use strict';
 
-  /* ── CREDITS CLAIM PROMPT ── */
-  window._rnShowCreditsPrompt = function() {
-    var el = document.getElementById('rn-credits-prompt');
-    if (!el) return;
-    el.style.display = 'flex';
-    if (typeof _lockScroll === 'function') _lockScroll();
-  };
-  window._rnClaimCreditsPrompt = function() {
-    var el = document.getElementById('rn-credits-prompt');
-    if (el) el.style.display = 'none';
-    if (typeof _unlockScroll === 'function') _unlockScroll();
-    if (typeof window._rnShowCoinsOverlayDirect === 'function') window._rnShowCoinsOverlayDirect();
-  };
+var LB_KEY='rn-lb-last-fetch';
+var LB_DATA_KEY='rn-lb-data';
+var LB_INTERVAL=30*1000;
+var _lbData=null;
+var _lbCountdownTimer=null;
+var _lbFetchTimer=null;
+var _lbAnimPlayed=false;
+try{var _c=localStorage.getItem(LB_DATA_KEY);if(_c){var _raw=JSON.parse(_c);var _s={};_lbData=_raw.filter(function(x){if(!x.id||_s[x.id])return false;_s[x.id]=true;return !!(x.name&&x.name.trim());});}}catch(e){}
 
-  /* ── LEADERBOARD STATE ── */
-  var _lbPrevPage = null;
-  var _lbLoading  = false;
-  var _lbTimer    = null;
-  var _lbPrevTopId = null; // track who was #1 last render
-
-  window.showLeaderboard = function() {
-    var pages = document.querySelectorAll('.page.active');
-    _lbPrevPage = pages.length ? pages[0].id : 'host-dashboard';
-    if (typeof window.showPage === 'function') window.showPage('leaderboard-page');
-    loadLeaderboardPage();
-    startLbTimer();
-  };
-
-  window.goBackFromLeaderboard = function() {
-    stopLbTimer();
-    var target = _lbPrevPage || 'host-dashboard';
-    if (typeof window.showPage === 'function') window.showPage(target);
-    try {
-      if (target === 'host-dashboard' && typeof window.showSection === 'function') window.showSection('home');
-      if (target === 'rent-page' && typeof window.rentShowSection === 'function') window.rentShowSection('browse');
-    } catch(e) {}
-  };
-
-  /* ── AUTO-REFRESH TIMER ── */
-  var _tickSecs = 30;
-  function startLbTimer() {
-    stopLbTimer();
-    _tickSecs = 30;
-    updateTicker();
-    _lbTimer = setInterval(function() {
-      _tickSecs--;
-      updateTicker();
-      if (_tickSecs <= 0) { _tickSecs = 30; loadLeaderboardPage(true); }
-    }, 1000);
+function openLeaderboard(){
+  var modal=document.getElementById('rn-leaderboard-modal');
+  if(!modal)return;
+  modal.classList.add('lb-open');
+  var animScreen=document.getElementById('lb-anim-screen');
+  var page=document.getElementById('lb-page');
+  if(!_lbAnimPlayed){
+    _lbAnimPlayed=true;
+    if(animScreen){animScreen.style.transition='none';animScreen.classList.remove('lb-anim-done');requestAnimationFrame(function(){animScreen.style.transition='';});}
+    var _svg=animScreen?animScreen.querySelector('.lb-anim-svg'):null;
+    if(_svg&&_svg.parentNode){var _clone=_svg.cloneNode(true);_svg.parentNode.replaceChild(_clone,_svg);}
+    if(page)page.style.opacity='0';
+    setTimeout(function(){
+      scheduleNextFetch();
+      renderLeaderboard();
+      if(animScreen)animScreen.classList.add('lb-anim-done');
+      if(page)page.style.opacity='1';
+    },2000);
+  } else {
+    if(animScreen){animScreen.style.transition='none';animScreen.classList.add('lb-anim-done');requestAnimationFrame(function(){animScreen.style.transition='';});}
+    if(page)page.style.opacity='1';
+    scheduleNextFetch();
+    renderLeaderboard();
   }
-  function stopLbTimer() { if (_lbTimer) { clearInterval(_lbTimer); _lbTimer = null; } }
-  function updateTicker() {
-    var el = document.getElementById('lb-ticker-secs');
-    var wrap = document.getElementById('lb-ticker');
-    if (el) el.textContent = '0:' + (_tickSecs < 10 ? '0' : '') + _tickSecs;
-    if (wrap) wrap.style.display = 'block';
-  }
+  startCountdown();
+}
+window.openLeaderboard=openLeaderboard;
+window.showLeaderboard=openLeaderboard;
 
-  /* ── LOAD ── */
-  function loadLeaderboardPage(silent) {
-    if (_lbLoading) return;
-    _lbLoading = true;
-    var container = document.getElementById('lb-page-content');
-    var hero      = document.getElementById('lb-hero');
-    if (!container) { _lbLoading = false; return; }
-    if (!silent) container.innerHTML = '<div style="text-align:center;padding:64px 0;color:#aaa;font-size:15px;">Loading…</div>';
-    var currentUserId = (window.user && (window.user.id || window.user.sub)) || null;
-    fetch('/api/leaderboard?limit=50', { headers: window.user ? getAuthHeaders() : {} })
-      .then(function(r) { return r.json(); })
-      .then(function(json) {
-        _lbLoading = false;
-        var rows = (json && json.data) ? json.data : (json && json.leaderboard) ? json.leaderboard : (Array.isArray(json) ? json : []);
-        var newTopId = rows.length ? (rows[0].id || rows[0].userId) : null;
-        var crownChanged = _lbPrevTopId !== null && newTopId !== _lbPrevTopId;
-        renderLeaderboard(rows, container, hero, currentUserId, crownChanged, newTopId);
-        _lbPrevTopId = newTopId;
-        if (rows.length > 0) _rnApplyCrownToTopUser(newTopId, currentUserId);
-      })
-      .catch(function() {
-        _lbLoading = false;
-        if (!silent && container) container.innerHTML = '<div style="text-align:center;padding:64px 0;color:rgba(220,38,38,.7);font-size:15px;">Could not load leaderboard.<br><br><button onclick="loadLeaderboardPage()" style="background:var(--terra);color:#fff;border:none;border-radius:8px;padding:10px 20px;font-size:14px;cursor:pointer;">Retry</button></div>';
+function closeLeaderboard(){
+  var modal=document.getElementById('rn-leaderboard-modal');
+  if(modal)modal.classList.remove('lb-open');
+  if(_lbCountdownTimer){clearInterval(_lbCountdownTimer);_lbCountdownTimer=null;}
+  _lbAnimPlayed=false;
+}
+window.closeLeaderboard=closeLeaderboard;
+
+function getMsUntilNextFetch(){
+  var last=parseInt(localStorage.getItem(LB_KEY)||'0',10);
+  if(!last)return 0;
+  var elapsed=Date.now()-last;
+  return Math.max(0,LB_INTERVAL-elapsed);
+}
+
+function scheduleNextFetch(){
+  if(_lbFetchTimer){clearTimeout(_lbFetchTimer);_lbFetchTimer=null;}
+  var wait=getMsUntilNextFetch();
+  if(wait===0){fetchLeaderboard();}
+  else{_lbFetchTimer=setTimeout(function(){fetchLeaderboard();},wait);}
+}
+
+async function fetchLeaderboard(){
+  try{
+    try{localStorage.removeItem(LB_DATA_KEY);localStorage.removeItem(LB_KEY);}catch(e){}
+    var resp=await fetch('/api/leaderboard?limit=50');
+    var json=await resp.json().catch(function(){return{};});
+    var rows=null;
+    if(resp.ok&&json.data){rows=json.data;}
+    else if(resp.ok&&json.leaderboard){rows=json.leaderboard;}
+    if(rows){
+      var _seen={};
+      _lbData=rows.filter(function(item){
+        if(!item.id||_seen[item.id])return false;
+        _seen[item.id]=true;
+        return !!(item.name&&item.name.trim());
       });
-  }
-
-  function getAuthHeaders() {
-    try {
-      var raw = localStorage.getItem('rentnivas-auth');
-      if (!raw) return {};
-      var s = JSON.parse(raw);
-      if (s.id_token || s.access_token) return { 'Authorization': 'Bearer ' + (s.id_token || s.access_token) };
-    } catch(e) {}
-    return {};
-  }
-
-  /* ── RENDER ── */
-  function renderLeaderboard(rows, container, hero, currentUserId, crownChanged, newTopId) {
-    if (!rows || !rows.length) {
-      if (hero) hero.innerHTML = '';
-      container.innerHTML = '<div style="text-align:center;padding:64px 0;color:#aaa;font-size:15px;">No leaderboard data yet.</div>';
-      return;
+      try{localStorage.setItem(LB_DATA_KEY,JSON.stringify(_lbData));}catch(e){}
+      localStorage.setItem(LB_KEY,Date.now().toString());
+      renderLeaderboard();
+      updateDashboardCrown(_lbData);
     }
+  }catch(e){
+    console.error('[Leaderboard] fetch error:',e);
+  }
+  if(_lbFetchTimer){clearTimeout(_lbFetchTimer);_lbFetchTimer=null;}
+  _lbFetchTimer=setTimeout(function(){fetchLeaderboard();},LB_INTERVAL);
+}
 
-    /* ── HERO: always shows the #1 user ── */
-    var top = rows[0];
-    var topName = top.name || top.email || 'User';
-    var topInit = (topName[0]||'U').toUpperCase();
-    var topIsMe = currentUserId && (top.id===currentUserId||top.userId===currentUserId);
-    if (hero) {
-      hero.innerHTML =
-        '<div class="rn-lb-hero-av" id="lb-hero-av">' +
-          '<img src="/crown.svg" class="rn-lb-hero-crown" alt="Crown" id="lb-hero-crown">' +
-          topInit +
-        '</div>' +
-        '<div style="font-size:20px;font-weight:800;color:var(--ink,#1E3A5F);margin-top:4px;">' +
-          esc(topName) + (topIsMe ? ' <span style="font-size:11px;background:var(--terra,#C96A3B);color:#fff;border-radius:6px;padding:1px 7px;font-weight:700;vertical-align:middle;">You</span>' : '') +
-        '</div>' +
-        '<div style="margin-top:10px;display:inline-flex;align-items:center;gap:6px;background:#1E3A5F;color:#fff;border-radius:50px;padding:8px 22px;font-weight:700;font-size:15px;">' +
-          '<span style="font-size:16px;">🪙</span> ' + (top.credits||0) + ' credits' +
-        '</div>';
-    }
-
-    /* ── LIST: rank 2 onwards ── */
-    var html = '';
-    rows.forEach(function(r, idx) {
-      var rank   = idx + 1;
-      if (rank === 1) return; // #1 is in hero
-      var isMe   = currentUserId && (r.id===currentUserId||r.userId===currentUserId);
-      var name   = r.name || r.email || 'User';
-      var initial= (name[0]||'U').toUpperCase();
-      var medal  = rank===2 ? '🥈' : rank===3 ? '🥉' : rank;
-      var avClass= 'rn-lb-av2' + (isMe ? ' is-me-av' : '');
-      var pillCls= 'rn-lb-credits-pill' + (isMe ? ' is-me' : '');
-      html +=
-        '<div class="rn-lb-card' + (isMe ? ' is-me' : '') + '">' +
-          '<div class="rn-lb-rank-num' + (rank<=3?' top3':'') + '">' + medal + '</div>' +
-          '<div class="' + avClass + '">' + esc(initial) + '</div>' +
-          '<div>' +
-            '<div class="rn-lb-name' + (isMe ? ' rn-lb-name-me' : '') + '">' +
-              esc(name) +
-              (isMe ? ' <span style="font-size:10px;background:var(--terra,#C96A3B);color:#fff;border-radius:6px;padding:1px 6px;font-weight:700;vertical-align:middle;">You</span>' : '') +
-            '</div>' +
-            '<div class="rn-lb-sub">Rank #' + rank + '</div>' +
-          '</div>' +
-          '<div class="' + pillCls + '">' +
-            '<span style="font-size:15px;">🪙</span>' + (r.credits||0) +
-          '</div>' +
-        '</div>';
+function updateDashboardCrown(data){
+  try{
+    if(!data||!data.length)return;
+    var top=data[0];
+    var auth=JSON.parse(localStorage.getItem('rentnivas-auth')||'{}');
+    var token=auth.id_token||auth.access_token;
+    if(!token)return;
+    var parts=token.split('.');
+    if(parts.length<2)return;
+    var payload=JSON.parse(atob(parts[1].replace(/-/g,'+').replace(/_/g,'/')));
+    var myId=payload.sub;
+    var isTop=(top.id===myId);
+    ['sb-av','rent-user-av','mob-sb-av'].forEach(function(id){
+      var el=document.getElementById(id);
+      if(!el)return;
+      var existing=el.querySelector('.sb-crown-icon');
+      if(isTop){
+        if(!existing){
+          var img=document.createElement('img');
+          img.src='/crown.svg';
+          img.className='sb-crown-icon';
+          img.alt='crown';
+          img.onerror=function(){this.style.display='none';};
+          if(getComputedStyle(el).position==='static')el.style.position='relative';
+          el.appendChild(img);
+        }
+      }else{
+        if(existing)existing.remove();
+      }
     });
-    container.innerHTML = html || '<div style="text-align:center;padding:32px 0;color:#aaa;">Only one user so far!</div>';
-
-    /* Crown teleport animation when #1 changes */
-    if (crownChanged) animateCrownTeleport(newTopId, currentUserId);
-  }
-  function esc(str) {
-    return String(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-  }
-
-  /* ── CROWN TELEPORT ANIMATION ── */
-  function animateCrownTeleport(newTopId, currentUserId) {
-    // Find old crown target (sidebar crowns are visible for old #1)
-    var oldCrowns = [
-      document.getElementById('host-crown-badge'),
-      document.getElementById('rent-crown-badge')
-    ].filter(function(el){ return el && el.style.display !== 'none'; });
-    var newCrown = document.getElementById('lb-list-crown') || document.getElementById('lb-hero-crown');
-    var overlay  = document.getElementById('rn-crown-teleport');
-    var flyEl    = document.getElementById('rn-crown-fly');
-    if (!flyEl || !overlay) return;
-
-    function getCenter(el) {
-      var r = el.getBoundingClientRect();
-      return { x: r.left + r.width/2, y: r.top + r.height/2 };
+    var mbnProfile=document.getElementById('mbn-profile');
+    if(mbnProfile){
+      var mbnIcon=mbnProfile.querySelector('.mbn-icon');
+      if(mbnIcon){
+        var existingMbn=mbnIcon.querySelector('.mbn-crown');
+        if(isTop){
+          if(!existingMbn){
+            var mbnImg=document.createElement('img');
+            mbnImg.src='/crown.svg';
+            mbnImg.className='mbn-crown';
+            mbnImg.alt='crown';
+            mbnImg.onerror=function(){this.style.display='none';};
+            mbnIcon.style.position='relative';
+            mbnIcon.appendChild(mbnImg);
+          }
+        }else{
+          if(existingMbn)existingMbn.remove();
+        }
+      }
     }
+  }catch(e){}
+}
 
-    var fromEl = oldCrowns[0] || null;
-    var toEl   = newCrown || null;
-    if (!fromEl && !toEl) return;
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 
-    var from = fromEl ? getCenter(fromEl) : { x: window.innerWidth/2, y: -40 };
-    var to   = toEl   ? getCenter(toEl)   : { x: window.innerWidth/2, y: window.innerHeight/2 };
+function makeAvatarEl(item){
+  var init=(item.name||'?')[0].toUpperCase();
+  if(item.avatar_url){return '<img class="av-img" src="'+esc(item.avatar_url)+'" alt="'+esc(item.name)+'">';}
+  return esc(init);
+}
 
-    // Position fly el at source
-    flyEl.style.left    = (from.x - 20) + 'px';
-    flyEl.style.top     = (from.y - 20) + 'px';
-    flyEl.style.opacity = '1';
-    flyEl.style.transform = 'scale(1) rotate(0deg)';
-    flyEl.style.transition = 'none';
-    flyEl.style.animation  = 'none';
+function _rnGetCurrentUserId(){
+  try{
+    var raw=localStorage.getItem('rentnivas-auth');
+    if(!raw)return null;
+    var p=JSON.parse(raw);
+    var token=p.access_token||p.id_token;
+    if(!token)return null;
+    var parts=token.split('.');
+    if(parts.length<2)return null;
+    var pay=JSON.parse(atob(parts[1].replace(/-/g,'+').replace(/_/g,'/')));
+    return pay.sub||null;
+  }catch(e){return null;}
+}
 
-    overlay.style.display = 'block';
-    if (fromEl) fromEl.style.opacity = '0';
-    if (toEl)   toEl.style.opacity   = '0';
-
-    // Phase 1: fly out
-    setTimeout(function() {
-      flyEl.style.transition = 'left .5s cubic-bezier(.4,0,.2,1), top .5s cubic-bezier(.4,0,.2,1), opacity .5s, transform .5s';
-      flyEl.style.left      = (to.x - 20) + 'px';
-      flyEl.style.top       = (to.y - 80) + 'px'; // arc midpoint
-      flyEl.style.opacity   = '0.3';
-      flyEl.style.transform = 'scale(1.6) rotate(-30deg)';
-    }, 30);
-
-    // Phase 2: land at target
-    setTimeout(function() {
-      flyEl.style.transition = 'left .4s cubic-bezier(.22,1,.36,1), top .4s cubic-bezier(.22,1,.36,1), opacity .3s, transform .4s';
-      flyEl.style.left      = (to.x - 20) + 'px';
-      flyEl.style.top       = (to.y - 20) + 'px';
-      flyEl.style.opacity   = '1';
-      flyEl.style.transform = 'scale(1) rotate(0deg)';
-    }, 520);
-
-    // Phase 3: hide overlay, show real crowns
-    setTimeout(function() {
-      overlay.style.display = 'none';
-      if (toEl) { toEl.style.opacity = '1'; toEl.style.animation = 'rn-crown-float 2.4s ease-in-out infinite'; }
-      // Update sidebar crowns
-      _rnApplyCrownToTopUser(newTopId, currentUserId);
-    }, 950);
+function renderLeaderboard(){
+  if(!_lbData){
+    var last=parseInt(localStorage.getItem(LB_KEY)||'0',10);
+    if(!last){fetchLeaderboard();}
+    return;
   }
-
-  /* ── CROWN ON SIDEBAR AVATARS ── */
-  function _rnApplyCrownToTopUser(topUserId, currentUserId) {
-    var isTop = topUserId && currentUserId && (topUserId === currentUserId);
-    ['host-crown-badge','rent-crown-badge'].forEach(function(id) {
-      var el = document.getElementById(id);
-      if (el) { el.style.display = isTop ? 'block' : 'none'; el.style.opacity = '1'; }
-    });
-  }
-  window._rnApplyCrownToTopUser = _rnApplyCrownToTopUser;
-
-  /* ── AUTO-LOAD CROWN ON DASHBOARD INIT ── */
-  function _rnCheckCrownStatus() {
-    var currentUserId = (window.user && (window.user.id || window.user.sub)) || null;
-    if (!currentUserId) return;
-    fetch('/api/leaderboard?limit=1', { headers: getAuthHeaders() })
-      .then(function(r){ return r.json(); })
-      .then(function(json) {
-        var rows = (json && json.data) ? json.data : (json && json.leaderboard) ? json.leaderboard : (Array.isArray(json) ? json : []);
-        if (rows.length > 0) _rnApplyCrownToTopUser(rows[0].id||rows[0].userId, currentUserId);
-      })
-      .catch(function(){});
-  }
-  setTimeout(function() {
-    if (window.user) { _rnCheckCrownStatus(); }
-    else {
-      var attempts = 0;
-      var iv = setInterval(function() {
-        if (window.user || ++attempts > 20) { clearInterval(iv); if (window.user) _rnCheckCrownStatus(); }
-      }, 500);
+  var _myId=_rnGetCurrentUserId();
+  var _rs={};
+  var data=_lbData.filter(function(item){
+    if(!item.id||_rs[item.id])return false;
+    _rs[item.id]=true;
+    return !!(item.name&&item.name.trim());
+  });
+  // ── Hero (rank 1) ──
+  var hero=document.getElementById('lb-hero');
+  if(hero){
+    if(!data.length){
+      hero.innerHTML='<div style="color:#9a8f82;font-size:13px;padding:8px 0;">No data yet</div>';
+    }else{
+      var top=data[0];
+      var topIsMe=_myId&&(top.id===_myId);
+      hero.innerHTML=
+        '<div class="lb-hero-avatar-wrap">'+
+          '<img class="lb-hero-crown" src="/crown.svg" alt="crown" onerror="this.style.display=\'none\'">'+
+          '<div class="lb-hero-avatar">'+makeAvatarEl(top)+'</div>'+
+          '<span class="lb-rank1-badge">1</span>'+
+        '</div>'+
+        '<div class="lb-hero-name">'+esc(top.name||'Anonymous')+(topIsMe?' <span style="font-size:11px;background:#C96A3B;color:#fff;border-radius:6px;padding:1px 7px;font-weight:700;vertical-align:middle;">You</span>':'')+'</div>'+
+        '<div style="margin-top:8px;"><span class="lb-hero-badge">🪙 '+(top.credits||0)+' credits</span></div>';
     }
-  }, 2000);
+  }
+  // ── List (rank 2+) ──
+  var list=document.getElementById('lb-list');
+  if(list){
+    var html='';
+    for(var i=1;i<data.length;i++){
+      var item=data[i];
+      var rank=i+1;
+      var isMe=_myId&&(item.id===_myId);
+      var rankClass=rank===2?'lb-rank-2':rank===3?'lb-rank-3':'lb-rank-n';
+      html+='<div class="lb-item">'+
+        '<div class="lb-item-rank '+rankClass+'">'+rank+'</div>'+
+        '<div class="lb-item-avatar">'+makeAvatarEl(item)+'</div>'+
+        '<div class="lb-item-info">'+
+          '<div class="lb-item-name">'+esc(item.name||'Anonymous')+(isMe?' <span style="font-size:10px;background:#C96A3B;color:#fff;border-radius:6px;padding:1px 6px;font-weight:700;vertical-align:middle;">You</span>':'')+'</div>'+
+          '<div class="lb-item-sub">Rank #'+rank+'</div>'+
+        '</div>'+
+        '<div class="lb-credits-pill">🪙 '+(item.credits||0)+'</div>'+
+      '</div>';
+    }
+    list.innerHTML=html||'<div style="padding:16px;text-align:center;color:#9a8f82;font-size:13px;">No other users yet</div>';
+  }
+}
+
+function startCountdown(){
+  if(_lbCountdownTimer){clearInterval(_lbCountdownTimer);_lbCountdownTimer=null;}
+  function tick(){
+    var ms=getMsUntilNextFetch();
+    var mins=Math.floor(ms/60000);
+    var secs=Math.floor((ms%60000)/1000);
+    var el=document.getElementById('lb-countdown');
+    if(el)el.textContent=mins+':'+(secs<10?'0':'')+secs;
+  }
+  tick();
+  _lbCountdownTimer=setInterval(tick,1000);
+}
+
+function _lbInitLoad(){
+  var wait=getMsUntilNextFetch();
+  if(wait===0){fetchLeaderboard();}
+  else{
+    _lbFetchTimer=setTimeout(function(){fetchLeaderboard();},wait);
+    if(_lbData){try{updateDashboardCrown(_lbData);}catch(e){}}
+    else{fetchLeaderboard();}
+  }
+}
+if(document.readyState==='loading'){
+  document.addEventListener('DOMContentLoaded',function(){setTimeout(_lbInitLoad,2000);});
+}else{
+  setTimeout(_lbInitLoad,2000);
+}
 
 })();
 </script>
 
+</body>
 </body>
 
 </html>
