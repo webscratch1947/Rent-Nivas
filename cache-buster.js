@@ -1,11 +1,11 @@
 /* ══ RentNivas cache buster ══
-   Loads first on every page. Checks a tiny serverless endpoint (never
-   edge-cached) for the current site version. If this device's stored
-   version doesn't match, it wipes Cache Storage / Service Workers and
-   force-reloads with a cache-busting query param.
+   Loads on every page. Polls /api/env-inject.js?json=1 (never edge-cached,
+   already used by every page anyway) for the current site version. If this
+   device's stored version doesn't match, it wipes Cache Storage / Service
+   Workers and force-reloads with a cache-busting query param.
    Works for brand-new visitors AND returning users — no login required. */
 (function () {
-  var ENDPOINT = '/api/site-version';
+  var ENDPOINT = '/api/env-inject.js?json=1';
   var KEY = 'rn_site_version';
   var CHECK_INTERVAL_MS = 5 * 60 * 1000; // re-check every 5 minutes while the tab is open
 
