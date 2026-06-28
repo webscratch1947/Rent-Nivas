@@ -53,23 +53,21 @@ module.exports = async function handler(req, res) {
         byId[uid] = row;
       } else {
         const prev = byId[uid];
-        let credits;
+        // Always take the HIGHEST credits value across all duplicate rows —
+        // avoids picking a stale/older row just because it has a newer timestamp.
+        const prevCredits = parseFloat(prev.credits) || 0;
+        const currCredits = parseFloat(row.credits) || 0;
+        const credits = Math.max(prevCredits, currCredits);
+        // For the rest of the fields, prefer the non-legacy (userId-keyed) row,
+        // falling back to the most-recently-updated row for name/avatar.
         const prevIsLegacy = prev._isLegacy;
         const currIsLegacy = row._isLegacy;
-        if (!currIsLegacy && prevIsLegacy) {
-          credits = parseFloat(row.credits) || 0;
-        } else if (currIsLegacy && !prevIsLegacy) {
-          credits = parseFloat(prev.credits) || 0;
-        } else {
-          const prevTime = prev.updated_at || prev.created_at || '';
-          const currTime = row.updated_at || row.created_at || '';
-          credits = currTime > prevTime
-            ? parseFloat(row.credits) || 0
-            : parseFloat(prev.credits) || 0;
-        }
+        const baseRow = (!currIsLegacy && prevIsLegacy) ? row
+                      : (currIsLegacy && !prevIsLegacy) ? prev
+                      : ((row.updated_at || row.created_at || '') > (prev.updated_at || prev.created_at || '') ? row : prev);
         byId[uid] = {
           ...prev,
-          ...row,
+          ...baseRow,
           id: uid,
           credits,
           name: (prev.name && prev.name.trim()) ? prev.name : (row.name || ''),
