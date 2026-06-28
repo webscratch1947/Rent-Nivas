@@ -10168,6 +10168,7 @@
               <button class="btn btn-terra btn-sm" onclick="loadAdminUsers()">🔄 Refresh</button>
               <button class="btn btn-sm" id="adm-backfill-btn" style="background:var(--blue-bg);color:var(--blue);" onclick="adminBackfillProfiles()" title="One-time fix for accounts created before the credits bug was fixed — safe to run repeatedly, never overwrites real data">🔧 Fix Existing Accounts (credits/referral)</button>
               <button class="btn btn-sm" id="adm-find-dupes-btn" style="background:var(--red-bg);color:var(--red);" onclick="adminFindDuplicateAccounts()" title="Read-only scan — finds accounts sharing the same email. Does not delete or change anything automatically.">🔍 Find Duplicate Accounts</button>
+              <button class="btn btn-sm" id="adm-purge-ghosts-btn" style="background:#7c3aed;color:#fff;" onclick="adminPurgeGhostRows()" title="Deletes ghost DynamoDB rows where userId looks like an email address — caused by old signup bug">🧹 Purge Ghost Rows</button>
             </div>
             <div id="adm-dupes-banner" style="display:none;background:var(--red-bg);color:var(--red);padding:14px 16px;border-radius:var(--r);margin-bottom:14px;font-size:13px;border:1.5px solid #fecaca;line-height:1.6;"></div>
             <div id="adm-ghost-banner"
@@ -15742,6 +15743,29 @@
       });
     }
 
+    async function adminPurgeGhostRows() {
+      const btn = document.getElementById('adm-purge-ghosts-btn');
+      if (btn) { btn.disabled = true; btn.textContent = '⏳ Scanning...'; }
+      try {
+        // Call backend to scan Users table and delete rows where userId contains '@'
+        const { data: { session } } = await sb.auth.getSession();
+        const res = await fetch('/api/data', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (session.id_token || session.access_token) },
+          body: JSON.stringify({ op: 'rpc', name: 'admin_purge_ghost_rows' })
+        });
+        const json = await res.json();
+        if (json.error) throw new Error(json.error.message || json.error);
+        const { deleted, scanned } = json.data || {};
+        toast('🧹 Purged ' + (deleted || 0) + ' ghost rows (scanned ' + (scanned || 0) + ' total)', deleted > 0 ? 'success' : 'info');
+        setTimeout(loadAdminUsers, 600);
+      } catch (err) {
+        toast('Ghost purge failed: ' + (err.message || err), 'error');
+      } finally {
+        if (btn) { btn.disabled = false; btn.textContent = '🧹 Purge Ghost Rows'; }
+      }
+    }
+
     async function adminDeleteUser(userId, userName) {
       openAdminModal({
         title: '🗑️ Permanently Delete User',
@@ -19235,17 +19259,19 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
     var _myId    = (_wu.id    || '').toLowerCase().trim();
     var _mySub   = (_wu.sub   || '').toLowerCase().trim();
     var _myEmail = (_wu.email || '').toLowerCase().trim();
-    var _myName  = (_wu.name  || _wu.given_name || '').toLowerCase().trim();
+    var _myName  = (_wu.name  || (_wu.user_metadata && _wu.user_metadata.name) || _wu.given_name || '').toLowerCase().trim();
     var _topId   = (top.id     || '').toLowerCase().trim();
     var _topUid  = (top.userId || '').toLowerCase().trim();
     var _topEmail= (top.email  || '').toLowerCase().trim();
     var _topName = (top.name   || '').toLowerCase().trim();
+    /* Priority: id/sub match first (most reliable), then email, then name */
     var topIsMe  = !!(uid && (
       (_myId    && (_myId  === _topId || _myId  === _topUid)) ||
       (_mySub   && (_mySub === _topId || _mySub === _topUid)) ||
-      (_myEmail && (_myEmail === _topEmail || _myEmail === _topUid)) ||
-      (_myName  && _topName && _myName === _topName)
+      (_myEmail && _topEmail && _myEmail === _topEmail)        ||
+      (_myName  && _topName && _myName === _topName && _myName.length > 2)
     ));
+    console.log('[Crown/render] _mySub=' + _mySub + ' _topId=' + _topId + ' _myEmail=' + _myEmail + ' _topEmail=' + _topEmail + ' => topIsMe=' + topIsMe);
 
     /* ── Show/hide sidebar crowns immediately while we have full context ── */
     var _hc = document.getElementById('host-crown-badge');
@@ -19375,7 +19401,8 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
   function _checkCrown() {
     if (!window.user) return;
     var myEmail = (window.user.email || '').toLowerCase().trim();
-    var mySub   = (window.user.sub   || window.user.id || '').toLowerCase().trim();
+    var mySub   = (window.user.sub || window.user.id || '').toLowerCase().trim();
+    var myName  = ((window.user.name || (window.user.user_metadata && window.user.user_metadata.name) || window.user.given_name) || '').toLowerCase().trim();
     if (!myEmail && !mySub) return;
 
     fetch('/api/leaderboard?limit=50', { headers: _getHeaders() })
@@ -19384,40 +19411,36 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
         var rows = json.data || json.leaderboard || (Array.isArray(json) ? json : []);
         if (!rows || !rows.length) return;
 
-        /* Rank 1 is simply rows[0] — the API already sorts by credits desc.
-           Do NOT filter by displayName here: that can exclude valid users with
-           blank name fields, causing the crown never to show. */
         var topRow = rows[0];
-
-        /* Multi-field match: email OR id/sub match counts */
-        var topEmail = (topRow.email  || topRow.userId || topRow.id || '').toLowerCase().trim();
-        var topId    = (topRow.id     || topRow.userId || '').toLowerCase().trim();
-        var topName  = (topRow.name   || '').toLowerCase().trim();
-        var myName   = ((window.user.name || window.user.given_name) || '').toLowerCase().trim();
+        var topId    = (topRow.id    || topRow.userId || '').toLowerCase().trim();
+        var topEmail = (topRow.email || '').toLowerCase().trim();
+        var topName  = (topRow.name  || '').toLowerCase().trim();
 
         var isTop = !!(
-          (myEmail && topEmail && myEmail === topEmail) ||
           (mySub   && topId    && mySub   === topId)   ||
+          (myEmail && topEmail && myEmail === topEmail) ||
           (myName  && topName  && myName  === topName  && myName.length > 2)
         );
+
+        console.log('[Crown] mySub=' + mySub + ' topId=' + topId + ' myEmail=' + myEmail + ' topEmail=' + topEmail + ' => isTop=' + isTop);
 
         var hc = document.getElementById('host-crown-badge');
         var rc = document.getElementById('rent-crown-badge');
         if (hc) hc.style.display = isTop ? 'block' : 'none';
         if (rc) rc.style.display = isTop ? 'block' : 'none';
 
-        /* Also update the renderLeaderboard crown logic in case it already ran */
         if (window._rnApplyCrownToTopUser) window._rnApplyCrownToTopUser(topId || topEmail, mySub || myEmail);
       })
       .catch(function () {});
   }
 
+  /* Start checking immediately, retry every 500ms until user is ready (up to 20s) */
   setTimeout(function () {
     if (window.user) { _checkCrown(); return; }
     var n = 0, iv = setInterval(function () {
-      if (window.user || ++n > 20) { clearInterval(iv); if (window.user) _checkCrown(); }
+      if (window.user || ++n > 40) { clearInterval(iv); if (window.user) _checkCrown(); }
     }, 500);
-  }, 2000);
+  }, 500);
 
 })();
 </script>
