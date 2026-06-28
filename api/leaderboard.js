@@ -83,14 +83,27 @@ module.exports = async function handler(req, res) {
     const limit = 300;
     const top = merged.slice(0, limit);
 
-    const result = top.map((row, idx) => ({
-      rank: idx + 1,
-      id: row.id || '',
-      name: row.name || '',
-      avatar_url: row.avatar_url || null,
-      credits: parseFloat(row.credits) || 0,
-      xp: parseInt(row.xp || '0', 10),
-    }));
+    const result = top.map((row, idx) => {
+      // Derive a display name server-side so users with blank names are not
+      // filtered out as "Anonymous" on the frontend. If name is blank/missing,
+      // fall back to the email prefix (part before @). This matches exactly
+      // what the frontend displayName() function does, but done here so the
+      // email field is available for the fallback even though the API response
+      // doesn't expose the raw email address for privacy.
+      const rawName = (row.name || '').trim();
+      const effectiveName = (rawName && rawName.toLowerCase() !== 'user')
+        ? rawName
+        : (row.email ? row.email.split('@')[0] : '');
+      return {
+        rank: idx + 1,
+        id: row.id || '',
+        name: effectiveName,
+        avatar_url: row.avatar_url || null,
+        credits: parseFloat(row.credits) || 0,
+        xp: parseInt(row.xp || '0', 10),
+        email: row.email || '',
+      };
+    });
 
     return send(res, 200, { data: result, error: null });
   } catch (err) {
