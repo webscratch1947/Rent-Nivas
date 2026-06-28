@@ -18712,19 +18712,19 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
 /* ─── CROWN BADGE (sidebar avatars) ─── */
 .rn-crown-badge {
   position: absolute;
-  top: -14px;
+  top: -22px;
   left: 50%;
-  margin-left: -15px;
-  width: 30px;
-  height: 30px;
+  transform: translateX(-50%);
+  width: 42px;
+  height: 42px;
   z-index: 10;
   pointer-events: none;
-  filter: drop-shadow(0 2px 6px rgba(0,0,0,.35));
+  filter: drop-shadow(0 2px 8px rgba(200,150,0,.6));
   animation: rn-crown-float 2.4s ease-in-out infinite;
 }
 @keyframes rn-crown-float {
-  0%,100% { transform: translateY(0) rotate(-5deg); }
-  50%      { transform: translateY(-5px) rotate(5deg); }
+  0%,100% { transform: translateX(-50%) translateY(0px); }
+  50%      { transform: translateX(-50%) translateY(-4px); }
 }
 
 /* ─── HERO AVATAR ─── */
@@ -19165,7 +19165,6 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
       html += '<div class="rn-lb-card">';
       html += '<div class="rn-lb-rank-num">' + rankDisplay + '</div>';
       html += '<div class="rn-lb-av-wrap">';
-      if (isFirst) html += '<img src="/crown.svg" class="rn-lb-crown-over" alt="Crown">';
       html += '<div class="rn-lb-av" style="background:' + avColor(rank) + ';">';
       if (r.avatar_url) {
         html += '<img src="' + esc(r.avatar_url) + '" alt="' + esc(initial) + '" ' +
@@ -19232,21 +19231,32 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
 
   /* ── AUTO CHECK CROWN ON LOGIN ── */
   function _checkCrown() {
-    var uid = (window.user && (window.user.id || window.user.sub || window.user.email)) || null;
-    if (!uid) return;
+    if (!window.user) return;
+    var myEmail = (window.user.email || '').toLowerCase().trim();
+    var mySub   = window.user.sub || window.user.id || '';
+    if (!myEmail && !mySub) return;
+
     fetch('/api/leaderboard?limit=50', { headers: _getHeaders() })
       .then(function (r) { return r.json(); })
       .then(function (json) {
         var rows = json.data || json.leaderboard || (Array.isArray(json) ? json : []);
-        /* Find first non-anonymous entry — that is the real #1 */
+        /* Find first real (non-anonymous) user */
         var topRow = null;
         for (var i = 0; i < rows.length; i++) {
           if (displayName(rows[i]) !== 'Anonymous') { topRow = rows[i]; break; }
         }
+        /* Am I the #1? Compare by email (leaderboard uses email as userId) AND by sub/id */
+        var isTop = false;
         if (topRow) {
-          var topId = topRow.id || topRow.userId || topRow.email || '';
-          _rnApplyCrownToTopUser(topId, uid);
+          var topEmail  = (topRow.email  || topRow.userId || '').toLowerCase().trim();
+          var topSub    = topRow.id || topRow.sub || '';
+          isTop = (myEmail && topEmail && myEmail === topEmail) ||
+                  (mySub   && topSub   && mySub   === topSub);
         }
+        var hc = document.getElementById('host-crown-badge');
+        var rc = document.getElementById('rent-crown-badge');
+        if (hc) hc.style.display = isTop ? 'block' : 'none';
+        if (rc) rc.style.display = isTop ? 'block' : 'none';
       })
       .catch(function () {});
   }
