@@ -18528,20 +18528,6 @@ function renderLeaderboard(){
     if(!last){fetchLeaderboard();}
     return;
   }
-  // Inject current user's local credits so leaderboard matches dashboard
-  var _myId=_rnGetCurrentUserId();
-  var _myCredits=_rnGetLocalCredits();
-  if(_myId&&_myCredits!==null){
-    _lbData=_lbData.map(function(item){
-      // Always apply local credits for current user — DB may be stale
-      if(item.id===_myId){
-        return Object.assign({},item,{credits:_myCredits});
-      }
-      return item;
-    });
-    // Re-sort after potential credits change
-    _lbData.sort(function(a,b){return (b.credits||0)-(a.credits||0);});
-  }
   // Always deduplicate and filter anonymous at render time — covers cached and fresh data
   var _rs={};
   var data=_lbData.filter(function(item){
