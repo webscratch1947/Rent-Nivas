@@ -230,7 +230,6 @@
             th_rent: 'Rent', th_valid: 'Valid Till', th_date: 'Date',
             dash_home_title: 'Dashboard', dash_home_sub: 'Overview of your portfolio',
             g_good: 'Good', g_morning: 'morning', g_afternoon: 'afternoon', g_evening: 'evening',
-        },
             // PROFILE SECTION
             prof_title: 'Profile', prof_sub: 'Your account details and statistics',
             prof_member_since: 'Member since', prof_avg_price: 'Avg. price:', prof_edit: 'Edit Profile',
@@ -249,6 +248,7 @@
             an_avg_price: 'Avg. Price', an_chart1: '📈 Listings Over Time',
             an_chart2: '💰 Price Distribution', an_chart3: '📊 Status Mix',
             an_th_title: 'Title', an_th_baths: 'Baths', an_th_photos: 'Photos',
+        },
 
         // ─── HINDI ───────────────────────────────────────────────────────────────
         hi: {
