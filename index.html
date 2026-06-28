@@ -9115,9 +9115,11 @@
       <!-- ── RENT SIDEBAR (mirrors host sidebar exactly) ── -->
       <nav class="ds-sidebar" id="rent-ds-sidebar">
         <div class="ds-sidebar-head">
-          <div class="sidebar-user" style="position:relative;">
-            <div class="sidebar-avatar" id="rent-user-av">R</div>
-            <img src="/crown.svg" id="rent-crown-badge" class="rn-crown-badge" style="display:none;" alt="Crown">
+          <div class="sidebar-user">
+            <div style="position:relative;display:inline-block;flex-shrink:0;">
+              <div class="sidebar-avatar" id="rent-user-av">R</div>
+              <img src="/crown.svg" id="rent-crown-badge" class="rn-crown-badge" style="display:none;" alt="Crown">
+            </div>
             <div class="sidebar-user-info">
               <div class="sidebar-user-name" id="rent-user-nm">Renter</div>
               <div class="sidebar-user-email" id="rent-sb-em">—</div>
@@ -9301,9 +9303,11 @@
     <div class="ds-wrap">
       <nav class="ds-sidebar" id="ds-sidebar">
         <div class="ds-sidebar-head">
-          <div class="sidebar-user" style="position:relative;">
-            <div class="sidebar-avatar" id="sb-av">H</div>
-            <img src="/crown.svg" id="host-crown-badge" class="rn-crown-badge" style="display:none;" alt="Crown">
+          <div class="sidebar-user">
+            <div style="position:relative;display:inline-block;flex-shrink:0;">
+              <div class="sidebar-avatar" id="sb-av">H</div>
+              <img src="/crown.svg" id="host-crown-badge" class="rn-crown-badge" style="display:none;" alt="Crown">
+            </div>
             <div class="sidebar-user-info">
               <div class="sidebar-user-name" id="sb-nm">Host</div>
               <div class="sidebar-user-email" id="sb-em">—</div>
@@ -18709,7 +18713,8 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
 .rn-crown-badge {
   position: absolute;
   top: -14px;
-  left: -8px;
+  left: 50%;
+  margin-left: -15px;
   width: 30px;
   height: 30px;
   z-index: 10;
@@ -19134,8 +19139,8 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
       var isMe    = uid && (r.id === uid || r.userId === uid);
       var isFirst = rank === 1;
 
-      /* If this is the current user AND they are rank 1, skip — already in hero */
-      if (isFirst && isMe) return;
+      /* Rank 1 is always shown in the hero section only — never in the list below */
+      if (isFirst) return;
 
       var name    = displayName(r);
       var initial = (name[0] || '?').toUpperCase();
