@@ -18879,54 +18879,57 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
       return;
     }
 
-    /* Hero section — show current user's stat */
+    /* ── HERO: always shows the #1 user ── */
+    var top = rows[0];
+    var topName = top.name || top.email || 'User';
+    var topInit = (topName[0]||'U').toUpperCase();
+    var topIsMe = currentUserId && (top.id===currentUserId||top.userId===currentUserId);
     if (hero) {
-      var myRow = null;
-      rows.forEach(function(r,i){ if (currentUserId && (r.id===currentUserId||r.userId===currentUserId)) myRow={r:r,rank:i+1}; });
-      if (myRow) {
-        var isTop = myRow.rank === 1;
-        var mName = myRow.r.name || myRow.r.email || 'You';
-        var mInit = (mName[0]||'U').toUpperCase();
-        hero.innerHTML =
-          '<div class="rn-lb-hero-av">' +
-          (isTop ? '<img src="/crown.svg" class="rn-lb-hero-crown" alt="Crown" id="lb-hero-crown">' : '') +
-          mInit + '</div>' +
-          '<div style="font-size:20px;font-weight:800;color:var(--ink,#1E3A5F);">' + esc(mName) + '</div>' +
-          '<div style="margin-top:8px;display:inline-flex;align-items:center;gap:6px;background:#1E3A5F;color:#fff;border-radius:50px;padding:8px 20px;font-weight:700;font-size:15px;">🪙 ' + (myRow.r.credits||0) + ' credits</div>';
-      } else {
-        hero.innerHTML = '';
-      }
+      hero.innerHTML =
+        '<div class="rn-lb-hero-av" id="lb-hero-av">' +
+          '<img src="/crown.svg" class="rn-lb-hero-crown" alt="Crown" id="lb-hero-crown">' +
+          topInit +
+        '</div>' +
+        '<div style="font-size:20px;font-weight:800;color:var(--ink,#1E3A5F);margin-top:4px;">' +
+          esc(topName) + (topIsMe ? ' <span style="font-size:11px;background:var(--terra,#C96A3B);color:#fff;border-radius:6px;padding:1px 7px;font-weight:700;vertical-align:middle;">You</span>' : '') +
+        '</div>' +
+        '<div style="margin-top:10px;display:inline-flex;align-items:center;gap:6px;background:#1E3A5F;color:#fff;border-radius:50px;padding:8px 22px;font-weight:700;font-size:15px;">' +
+          '<span style="font-size:16px;">🪙</span> ' + (top.credits||0) + ' credits' +
+        '</div>';
     }
 
-    /* Row cards */
+    /* ── LIST: rank 2 onwards ── */
     var html = '';
     rows.forEach(function(r, idx) {
       var rank   = idx + 1;
+      if (rank === 1) return; // #1 is in hero
       var isMe   = currentUserId && (r.id===currentUserId||r.userId===currentUserId);
-      var isFirst= rank === 1;
       var name   = r.name || r.email || 'User';
       var initial= (name[0]||'U').toUpperCase();
-      var medal  = rank===1 ? '🥇' : rank===2 ? '🥈' : rank===3 ? '🥉' : rank;
+      var medal  = rank===2 ? '🥈' : rank===3 ? '🥉' : rank;
       var avClass= 'rn-lb-av2' + (isMe ? ' is-me-av' : '');
-      var crownEl= isFirst ? '<img src="/crown.svg" class="rn-lb-av-crown" id="lb-list-crown" alt="Crown">' : '';
       var pillCls= 'rn-lb-credits-pill' + (isMe ? ' is-me' : '');
       html +=
         '<div class="rn-lb-card' + (isMe ? ' is-me' : '') + '">' +
           '<div class="rn-lb-rank-num' + (rank<=3?' top3':'') + '">' + medal + '</div>' +
-          '<div class="' + avClass + '">' + crownEl + esc(initial) + '</div>' +
+          '<div class="' + avClass + '">' + esc(initial) + '</div>' +
           '<div>' +
-            '<div class="rn-lb-name">' + esc(name) + (isMe ? ' <span style="font-size:10px;background:var(--terra,#C96A3B);color:#fff;border-radius:6px;padding:1px 6px;font-weight:700;vertical-align:middle;">You</span>' : '') + '</div>' +
+            '<div class="rn-lb-name' + (isMe ? ' rn-lb-name-me' : '') + '">' +
+              esc(name) +
+              (isMe ? ' <span style="font-size:10px;background:var(--terra,#C96A3B);color:#fff;border-radius:6px;padding:1px 6px;font-weight:700;vertical-align:middle;">You</span>' : '') +
+            '</div>' +
             '<div class="rn-lb-sub">Rank #' + rank + '</div>' +
           '</div>' +
-          '<div class="' + pillCls + '"><span>🪙</span>' + (r.credits||0) + '</div>' +
+          '<div class="' + pillCls + '">' +
+            '<span style="font-size:15px;">🪙</span>' + (r.credits||0) +
+          '</div>' +
         '</div>';
     });
-    container.innerHTML = html;
+    container.innerHTML = html || '<div style="text-align:center;padding:32px 0;color:#aaa;">Only one user so far!</div>';
 
     /* Crown teleport animation when #1 changes */
     if (crownChanged) animateCrownTeleport(newTopId, currentUserId);
   }
-
   function esc(str) {
     return String(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
