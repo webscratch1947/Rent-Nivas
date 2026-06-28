@@ -1,3 +1,4 @@
+
 <!-- VERSION: FIXED - tutorial skip persists, mobile Watch Tutorial btn, crown on avatar, leaderboard dedup+anon filter, coins-animation.svg -->
 <!DOCTYPE html>
 <html lang="en">
@@ -18786,8 +18787,13 @@ function updateDashboardCrown(data){
   try{
     if(!data||!data.length)return;
     var top=data[0];
-    var myId=(window.user&&(window.user.id||window.user.sub))||null;
-    if(!myId)return;
+    var auth=JSON.parse(localStorage.getItem('rentnivas-auth')||'{}');
+    var token=auth.id_token||auth.access_token;
+    if(!token)return;
+    var parts=token.split('.');
+    if(parts.length<2)return;
+    var payload=JSON.parse(atob(parts[1].replace(/-/g,'+').replace(/_/g,'/')));
+    var myId=payload.sub;
     var isTop=(top.id===myId);
     ['sb-av','rent-user-av','mob-sb-av'].forEach(function(id){
       var el=document.getElementById(id);
@@ -18840,7 +18846,6 @@ function makeAvatarEl(item){
 
 function _rnGetCurrentUserId(){
   try{
-    if(window.user&&(window.user.id||window.user.sub))return window.user.id||window.user.sub;
     var raw=localStorage.getItem('rentnivas-auth');
     if(!raw)return null;
     var p=JSON.parse(raw);
