@@ -18685,34 +18685,25 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
 </div>
 
 <!-- ══ LEADERBOARD PAGE ══ -->
-<div class="page" id="leaderboard-page">
-  <!-- Opening animation overlay -->
-  <div id="lb-open-anim" style="position:fixed;inset:0;z-index:9999;background:#0d1b2e;display:flex;align-items:center;justify-content:center;flex-direction:column;pointer-events:none;transition:opacity 0.5s;">
-    <img src="/leaderboard.svg" style="width:180px;height:180px;" alt="">
-    <div style="color:#fff;font-size:22px;font-weight:800;margin-top:18px;letter-spacing:1px;opacity:0;transition:opacity 0.4s;" id="lb-anim-title">Leaderboard</div>
-  </div>
+<div class="page" id="leaderboard-page" style="min-height:100vh;background:var(--bg);font-family:var(--font);">
+  <div style="max-width:680px;margin:0 auto;padding:0 16px 60px;">
 
-  <!-- Main content -->
-  <div id="lb-main-content" style="min-height:100vh;background:linear-gradient(160deg,#0d1b2e 0%,#1a2e4a 60%,#0d1b2e 100%);padding:0;opacity:0;transition:opacity 0.5s;">
-    <div style="max-width:680px;margin:0 auto;padding:0 16px 60px;">
-
-      <!-- Topbar -->
-      <div style="display:flex;align-items:center;gap:12px;padding:20px 0 10px;">
-        <button onclick="goBackFromLeaderboard()" style="background:rgba(255,255,255,0.1);border:none;border-radius:50%;width:40px;height:40px;font-size:18px;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;">←</button>
-        <div>
-          <div style="font-size:20px;font-weight:800;color:#fff;">Leaderboard 🏆</div>
-          <div style="font-size:12px;color:rgba(255,255,255,.5);margin-top:1px;">Top users ranked by credits</div>
-        </div>
+    <!-- Topbar -->
+    <div style="display:flex;align-items:center;gap:12px;padding:24px 0 20px;">
+      <button onclick="goBackFromLeaderboard()" style="background:var(--bg2);border:none;border-radius:50%;width:40px;height:40px;font-size:18px;color:var(--ink);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-family:var(--font);">←</button>
+      <div>
+        <div style="font-size:22px;font-weight:800;color:var(--ink);font-family:var(--font);">Leaderboard 🏆</div>
+        <div style="font-size:13px;color:var(--soft);margin-top:1px;">Top users ranked by credits</div>
       </div>
-
-      <!-- Leaderboard content injected here -->
-      <div id="lb-page-content" style="min-height:200px;"></div>
     </div>
+
+    <!-- Content injected here -->
+    <div id="lb-page-content" style="min-height:200px;"></div>
   </div>
 </div>
 
 <style>
-/* ─── CROWN BADGE (sidebar) ─── */
+/* ─── CROWN BADGE (sidebar avatars) ─── */
 .rn-crown-badge {
   position: absolute;
   top: -14px;
@@ -18731,26 +18722,29 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
 
 /* ─── LEADERBOARD CARDS ─── */
 .rn-lb-card {
-  background: rgba(255,255,255,0.06);
-  border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 18px;
+  background: #fff;
+  border: 1.5px solid var(--border);
+  border-radius: 16px;
   display: flex;
   align-items: center;
   gap: 14px;
   padding: 14px 18px;
   margin-bottom: 10px;
-  transition: background 0.2s;
-  cursor: default;
+  transition: box-shadow 0.2s, border-color 0.2s;
+  font-family: var(--font);
 }
-.rn-lb-card:hover { background: rgba(255,255,255,0.10); }
+.rn-lb-card:hover {
+  box-shadow: 0 4px 16px rgba(0,0,0,.07);
+  border-color: var(--border2);
+}
 .rn-lb-card-me {
-  background: rgba(201,106,59,0.18) !important;
-  border-color: rgba(201,106,59,0.45) !important;
+  background: var(--terra-lt) !important;
+  border-color: var(--terra) !important;
 }
 .rn-lb-av {
   width: 46px; height: 46px;
   border-radius: 50%;
-  background: linear-gradient(135deg,#C96A3B,#e88a5a);
+  background: linear-gradient(135deg, var(--terra,#c2714f), #e8926a);
   color: #fff;
   font-weight: 800;
   font-size: 18px;
@@ -18758,17 +18752,21 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  position: relative;
+  font-family: var(--font);
 }
-.rn-lb-av-wrap { position: relative; display: inline-flex; }
+.rn-lb-av-wrap {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+}
 .rn-lb-crown-over {
   position: absolute;
   top: -16px;
   left: 50%;
   transform: translateX(-50%);
-  width: 28px;
-  height: 28px;
-  filter: drop-shadow(0 1px 6px rgba(255,200,0,.6));
+  width: 26px;
+  height: 26px;
+  filter: drop-shadow(0 1px 6px rgba(200,160,0,.5));
   animation: rn-crown-float 2.4s ease-in-out infinite;
   pointer-events: none;
 }
@@ -18779,7 +18777,10 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
   justify-content: center;
   align-items: flex-end;
   gap: 10px;
-  margin: 10px 0 28px;
+  margin: 8px 0 28px;
+  background: linear-gradient(135deg, var(--ink,#18150f) 0%, #2c2720 100%);
+  border-radius: 20px;
+  padding: 28px 16px 20px;
 }
 .rn-lb-pod {
   display: flex;
@@ -18791,14 +18792,14 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
 .rn-lb-pod-av {
   border-radius: 50%;
   background: rgba(255,255,255,0.15);
-  border: 2px solid rgba(255,255,255,.25);
+  border: 2px solid rgba(255,255,255,.3);
   display: flex;
   align-items: center;
   justify-content: center;
   color: #fff;
   font-weight: 800;
   margin-bottom: 8px;
-  position: relative;
+  font-family: var(--font);
 }
 .rn-lb-pod-name {
   color: #fff;
@@ -18809,215 +18810,234 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 120px;
+  font-family: var(--font);
 }
 .rn-lb-pod-credits {
-  color: rgba(255,255,255,.65);
+  color: rgba(255,255,255,.7);
   font-size: 12px;
-  margin-top: 2px;
+  margin-top: 3px;
+  font-family: var(--font);
 }
-.rn-lb-pod-label {
+.rn-lb-pod-badge {
   margin-top: 6px;
   font-size: 11px;
   font-weight: 700;
   padding: 2px 10px;
   border-radius: 8px;
-  background: rgba(255,255,255,.12);
+  background: rgba(255,255,255,.13);
   color: #fff;
+  font-family: var(--font);
 }
 
-/* ─── CREDITS PROMPT ANIMATIONS ─── */
+/* ─── OPENING ANIMATION OVERLAY ─── */
+#lb-anim-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  background: var(--bg, #faf8f5);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.6s ease;
+}
+#lb-anim-overlay.lb-fade-out {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* ─── CREDITS PROMPT ─── */
 @keyframes rn-prompt-bounce {
   from { transform: scale(0.7); opacity: 0; }
-  to   { transform: scale(1);   opacity: 1; }
+  to   { transform: scale(1); opacity: 1; }
 }
 @keyframes rn-chest-pulse {
   0%,100% { transform: scale(1) rotate(-3deg); }
-  50%     { transform: scale(1.12) rotate(3deg); }
+  50%      { transform: scale(1.12) rotate(3deg); }
 }
 </style>
 
 <script>
-(function() {
+(function () {
   'use strict';
 
   /* ── CREDITS CLAIM PROMPT ── */
-  window._rnShowCreditsPrompt = function() {
+  window._rnShowCreditsPrompt = function () {
     var el = document.getElementById('rn-credits-prompt');
     if (!el) return;
     el.style.display = 'flex';
     if (typeof _lockScroll === 'function') _lockScroll();
   };
-  window._rnClaimCreditsPrompt = function() {
+  window._rnClaimCreditsPrompt = function () {
     var el = document.getElementById('rn-credits-prompt');
     if (el) el.style.display = 'none';
     if (typeof _unlockScroll === 'function') _unlockScroll();
     if (typeof window._rnShowCoinsOverlayDirect === 'function') window._rnShowCoinsOverlayDirect();
   };
 
-  /* ── LEADERBOARD ── */
+  /* ── STATE ── */
   var _lbPrevPage = null;
-  var _lbLoading = false;
+  var _lbLoading  = false;
 
-  window.showLeaderboard = function() {
+  /* ── SHOW LEADERBOARD: play animation FIRST, then switch page ── */
+  window.showLeaderboard = function () {
     var pages = document.querySelectorAll('.page.active');
     _lbPrevPage = pages.length ? pages[0].id : 'host-dashboard';
-    if (typeof window.showPage === 'function') window.showPage('leaderboard-page');
-    _playOpenAnim();
-    loadLeaderboardPage();
+
+    // Create and show the animation overlay (site bg colour, leaderboard.svg)
+    var existing = document.getElementById('lb-anim-overlay');
+    if (existing) existing.remove();
+
+    var overlay = document.createElement('div');
+    overlay.id = 'lb-anim-overlay';
+    overlay.innerHTML =
+      '<img src="/leaderboard.svg" style="width:180px;height:180px;" alt="">' +
+      '<div style="margin-top:20px;font-size:20px;font-weight:800;color:var(--ink);font-family:var(--font);opacity:0;transition:opacity 0.4s;" id="lb-anim-label">Leaderboard 🏆</div>';
+    document.body.appendChild(overlay);
+
+    // Fade in the label after 0.5s
+    setTimeout(function () {
+      var lbl = document.getElementById('lb-anim-label');
+      if (lbl) lbl.style.opacity = '1';
+    }, 500);
+
+    // The SVG animation is ~3.87s — wait for it to fully finish, then switch page
+    setTimeout(function () {
+      overlay.classList.add('lb-fade-out');
+      // Switch to leaderboard page while overlay fades
+      if (typeof window.showPage === 'function') window.showPage('leaderboard-page');
+      loadLeaderboardPage();
+      // Remove overlay from DOM after fade completes
+      setTimeout(function () { overlay.remove(); }, 700);
+    }, 3900);
   };
 
-  function _playOpenAnim() {
-    var overlay = document.getElementById('lb-open-anim');
-    var main    = document.getElementById('lb-main-content');
-    var title   = document.getElementById('lb-anim-title');
-    if (!overlay) return;
-    // Reset
-    overlay.style.opacity = '1';
-    overlay.style.pointerEvents = 'all';
-    if (main) main.style.opacity = '0';
-    // Show title text after 0.6s
-    setTimeout(function() { if (title) title.style.opacity = '1'; }, 600);
-    // Fade overlay out after 2s, reveal content
-    setTimeout(function() {
-      overlay.style.opacity = '0';
-      overlay.style.pointerEvents = 'none';
-      if (main) main.style.opacity = '1';
-      setTimeout(function() { if (title) title.style.opacity = '0'; }, 500);
-    }, 2000);
-  }
-
-  window.goBackFromLeaderboard = function() {
+  window.goBackFromLeaderboard = function () {
     var target = _lbPrevPage || 'host-dashboard';
     if (typeof window.showPage === 'function') window.showPage(target);
     try {
       if (target === 'host-dashboard' && typeof window.showSection === 'function') window.showSection('home');
       if (target === 'rent-page' && typeof window.rentShowSection === 'function') window.rentShowSection('browse');
-    } catch(e) {}
+    } catch (e) {}
   };
 
-  function getAuthHeaders() {
+  /* ── AUTH HEADERS ── */
+  function _getHeaders() {
+    var h = {};
+    try {
+      if (typeof getAuthHeaders === 'function') return getAuthHeaders();
+    } catch (e) {}
     try {
       var raw = localStorage.getItem('rentnivas-auth');
-      if (!raw) return {};
-      var s = JSON.parse(raw);
-      if (s.id_token || s.access_token) return { 'Authorization': 'Bearer ' + (s.id_token || s.access_token) };
-    } catch(e) {}
-    // Also try Supabase session
-    try {
-      if (window.sb && window.sb.auth) {
-        // handled by getAuthHeaders in main script
+      if (raw) {
+        var s = JSON.parse(raw);
+        if (s.id_token || s.access_token) h['Authorization'] = 'Bearer ' + (s.id_token || s.access_token);
       }
-    } catch(e) {}
-    return {};
+    } catch (e) {}
+    return h;
   }
 
+  /* ── LOAD DATA ── */
   function loadLeaderboardPage() {
     if (_lbLoading) return;
     _lbLoading = true;
     var container = document.getElementById('lb-page-content');
     if (!container) { _lbLoading = false; return; }
-    container.innerHTML = '<div style="text-align:center;padding:64px 0;color:rgba(255,255,255,.4);font-size:15px;">Loading…</div>';
+    container.innerHTML = '<div style="text-align:center;padding:64px 0;color:var(--soft);font-size:15px;font-family:var(--font);">Loading…</div>';
 
-    // Build headers — support both Cognito and Supabase
-    var headers = {};
-    try {
-      var raw = localStorage.getItem('rentnivas-auth');
-      if (raw) {
-        var s = JSON.parse(raw);
-        if (s.id_token || s.access_token) headers['Authorization'] = 'Bearer ' + (s.id_token || s.access_token);
-      }
-    } catch(e) {}
-    // Supabase fallback
-    if (!headers['Authorization'] && window.user) {
-      try {
-        if (typeof getAuthHeaders === 'function') headers = getAuthHeaders();
-      } catch(e) {}
-    }
-
-    fetch('/api/leaderboard?limit=50', { headers: headers })
-      .then(function(r) { return r.json(); })
-      .then(function(json) {
+    fetch('/api/leaderboard?limit=300', { headers: _getHeaders() })
+      .then(function (r) { return r.json(); })
+      .then(function (json) {
         _lbLoading = false;
-        var rows = (json && json.leaderboard) ? json.leaderboard : (Array.isArray(json) ? json : []);
-        var currentUserId = (window.user && (window.user.id || window.user.sub)) || null;
-        renderLeaderboard(rows, container, currentUserId);
-        if (rows.length > 0) _rnApplyCrownToTopUser(rows[0].id || rows[0].userId, currentUserId);
+        /* API returns { data: [...] } */
+        var rows = json.data || json.leaderboard || (Array.isArray(json) ? json : []);
+        var uid  = (window.user && (window.user.id || window.user.sub)) || null;
+        renderLeaderboard(rows, container, uid);
+        if (rows.length > 0) _rnApplyCrownToTopUser(rows[0].id || rows[0].userId, uid);
       })
-      .catch(function() {
+      .catch(function () {
         _lbLoading = false;
-        if (container) container.innerHTML = '<div style="text-align:center;padding:64px 0;color:rgba(255,100,100,.8);font-size:15px;">Could not load leaderboard.<br><br><button onclick="loadLeaderboardPage()" style="background:var(--terra,#C96A3B);color:#fff;border:none;border-radius:10px;padding:10px 24px;font-size:14px;cursor:pointer;font-weight:700;">Retry</button></div>';
+        if (!container) return;
+        container.innerHTML =
+          '<div style="text-align:center;padding:64px 0;color:#c0392b;font-size:15px;font-family:var(--font);">' +
+          'Could not load leaderboard.<br><br>' +
+          '<button onclick="window._lbLoadRetry&&window._lbLoadRetry()" style="background:var(--terra);color:#fff;border:none;border-radius:10px;padding:10px 24px;font-size:14px;cursor:pointer;font-family:var(--font);font-weight:700;">Retry</button>' +
+          '</div>';
       });
   }
   window.loadLeaderboardPage = loadLeaderboardPage;
+  window._lbLoadRetry = function () { _lbLoading = false; loadLeaderboardPage(); };
 
-  function esc(str) {
-    return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  /* ── ESCAPE HTML ── */
+  function esc(s) {
+    return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 
-  function renderLeaderboard(rows, container, currentUserId) {
+  /* ── RENDER ── */
+  function renderLeaderboard(rows, container, uid) {
     if (!rows || !rows.length) {
-      container.innerHTML = '<div style="text-align:center;padding:64px 0;color:rgba(255,255,255,.4);font-size:15px;">No leaderboard data yet.<br><span style="font-size:13px;">Start using Rent Nivas to earn credits!</span></div>';
+      container.innerHTML =
+        '<div style="text-align:center;padding:64px 0;color:var(--soft);font-size:15px;font-family:var(--font);">' +
+        'No leaderboard data yet.<br><span style="font-size:13px;">Start using Rent Nivas to earn credits!</span></div>';
       return;
     }
 
     var html = '';
 
-    /* ── PODIUM (top 3) ── */
+    /* ── TOP 3 PODIUM ── */
     if (rows.length >= 1) {
-      // Reorder: 2nd, 1st, 3rd for visual podium
-      var podOrder = rows.length >= 3 ? [1,0,2] : rows.length === 2 ? [0,1] : [0];
-      var podSizes  = [52, 70, 46]; // avatar sizes: [2nd, 1st, 3rd]
-      var podLabels = ['🥈 2nd','🥇 1st','🥉 3rd'];
+      var podOrder  = rows.length >= 3 ? [1,0,2] : rows.length === 2 ? [0,1] : [0];
+      var podSizes  = [52, 72, 46];   // avatar px: [2nd, 1st, 3rd]
+      var podLabels = ['🥈 2nd', '🥇 1st', '🥉 3rd'];
 
       html += '<div class="rn-lb-podium">';
-      podOrder.forEach(function(origIdx, podPos) {
+      podOrder.forEach(function (origIdx, podPos) {
         var r = rows[origIdx];
         if (!r) return;
-        var name = r.name || r.email || 'User';
+        var name    = r.name || r.email || 'User';
         var initial = (name[0] || 'U').toUpperCase();
-        var isMe = currentUserId && (r.id === currentUserId || r.userId === currentUserId);
-        var avSize = podSizes[podPos];
+        var isMe    = uid && (r.id === uid || r.userId === uid);
+        var avPx    = podSizes[podPos];
         var isFirst = origIdx === 0;
-        var crownHtml = isFirst
-          ? '<img src="/crown.svg" class="rn-lb-crown-over" alt="Crown">'
-          : '';
+        var crown   = isFirst
+          ? '<img src="/crown.svg" style="width:30px;height:30px;display:block;margin:0 auto 6px;filter:drop-shadow(0 1px 6px rgba(255,210,0,.6));animation:rn-crown-float 2.4s ease-in-out infinite;" alt="Crown">'
+          : '<div style="height:36px;"></div>';
+
         html += '<div class="rn-lb-pod">';
-        html += '<div class="rn-lb-av-wrap">';
-        html += crownHtml;
-        html += '<div class="rn-lb-pod-av" style="width:'+avSize+'px;height:'+avSize+'px;font-size:'+(avSize*0.35)+'px;">' + esc(initial) + '</div>';
-        html += '</div>';
-        html += '<div class="rn-lb-pod-name">' + esc(name.split(' ')[0]) + (isMe ? ' <span style="font-size:10px;background:rgba(201,106,59,.8);padding:1px 6px;border-radius:5px;">You</span>' : '') + '</div>';
+        html += crown;
+        html += '<div class="rn-lb-pod-av" style="width:' + avPx + 'px;height:' + avPx + 'px;font-size:' + Math.round(avPx * 0.36) + 'px;">' + esc(initial) + '</div>';
+        html += '<div class="rn-lb-pod-name">' + esc(name.split(' ')[0]) + (isMe ? ' <span style="font-size:10px;background:var(--terra);color:#fff;padding:1px 5px;border-radius:4px;">You</span>' : '') + '</div>';
         html += '<div class="rn-lb-pod-credits">🪙 ' + (r.credits || 0) + '</div>';
-        html += '<div class="rn-lb-pod-label">' + podLabels[podPos] + '</div>';
+        html += '<div class="rn-lb-pod-badge">' + podLabels[podPos] + '</div>';
         html += '</div>';
       });
       html += '</div>';
     }
 
     /* ── FULL LIST ── */
-    rows.forEach(function(r, idx) {
-      var rank = idx + 1;
-      var name = r.name || r.email || 'User';
+    rows.forEach(function (r, idx) {
+      var rank    = idx + 1;
+      var name    = r.name || r.email || 'User';
       var initial = (name[0] || 'U').toUpperCase();
-      var isMe = currentUserId && (r.id === currentUserId || r.userId === currentUserId);
+      var isMe    = uid && (r.id === uid || r.userId === uid);
       var isFirst = rank === 1;
-      var medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : '<span style="color:rgba(255,255,255,.5);font-size:13px;font-weight:700;">' + rank + '</span>';
-      var cardCls = 'rn-lb-card' + (isMe ? ' rn-lb-card-me' : '');
+      var medal   = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉'
+                  : '<span style="color:var(--soft);font-size:13px;font-weight:700;">' + rank + '</span>';
+      var cls = 'rn-lb-card' + (isMe ? ' rn-lb-card-me' : '');
 
-      html += '<div class="' + cardCls + '">';
-      // Rank
+      html += '<div class="' + cls + '">';
       html += '<div style="width:32px;text-align:center;font-size:20px;flex-shrink:0;">' + medal + '</div>';
-      // Avatar with crown for #1
-      html += '<div class="rn-lb-av-wrap" style="flex-shrink:0;">';
-      if (isFirst) html += '<img src="/crown.svg" class="rn-lb-crown-over" alt="Crown" style="width:22px;height:22px;top:-13px;">';
+      html += '<div class="rn-lb-av-wrap">';
+      if (isFirst) html += '<img src="/crown.svg" class="rn-lb-crown-over" alt="Crown">';
       html += '<div class="rn-lb-av">' + esc(initial) + '</div>';
       html += '</div>';
-      // Name
       html += '<div style="flex:1;min-width:0;">';
-      html += '<div style="color:#fff;font-weight:'+(isMe?'800':'600')+';font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + esc(name) + (isMe ? ' <span style="font-size:10px;background:rgba(201,106,59,.8);color:#fff;padding:1px 6px;border-radius:5px;font-weight:700;">You</span>' : '') + '</div>';
+      html += '<div style="color:var(--ink);font-weight:' + (isMe ? '800' : '600') + ';font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">';
+      html += esc(name);
+      if (isMe) html += ' <span style="font-size:10px;background:var(--terra);color:#fff;padding:1px 6px;border-radius:5px;font-weight:700;">You</span>';
       html += '</div>';
-      // Credits
-      html += '<div style="color:#f5c97a;font-weight:800;font-size:15px;flex-shrink:0;">🪙 ' + (r.credits || 0) + '</div>';
+      html += '</div>';
+      html += '<div style="color:var(--terra);font-weight:800;font-size:15px;flex-shrink:0;">🪙 ' + (r.credits || 0) + '</div>';
       html += '</div>';
     });
 
@@ -19025,41 +19045,32 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
   }
 
   /* ── CROWN ON SIDEBAR AVATARS ── */
-  function _rnApplyCrownToTopUser(topUserId, currentUserId) {
-    var isTopUser = topUserId && currentUserId && (topUserId === currentUserId);
-    var hostCrown = document.getElementById('host-crown-badge');
-    var rentCrown = document.getElementById('rent-crown-badge');
-    if (hostCrown) hostCrown.style.display = isTopUser ? 'block' : 'none';
-    if (rentCrown) rentCrown.style.display = isTopUser ? 'block' : 'none';
+  function _rnApplyCrownToTopUser(topId, uid) {
+    var isTop = topId && uid && (topId === uid);
+    var hc = document.getElementById('host-crown-badge');
+    var rc = document.getElementById('rent-crown-badge');
+    if (hc) hc.style.display = isTop ? 'block' : 'none';
+    if (rc) rc.style.display = isTop ? 'block' : 'none';
   }
   window._rnApplyCrownToTopUser = _rnApplyCrownToTopUser;
 
-  /* ── AUTO CHECK CROWN ON DASHBOARD LOAD ── */
-  function _rnCheckCrownStatus() {
-    var currentUserId = (window.user && (window.user.id || window.user.sub)) || null;
-    if (!currentUserId) return;
-    var headers = {};
-    try {
-      if (typeof getAuthHeaders === 'function') headers = getAuthHeaders();
-    } catch(e) {}
-    fetch('/api/leaderboard?limit=1', { headers: headers })
-      .then(function(r) { return r.json(); })
-      .then(function(json) {
-        var rows = (json && json.leaderboard) ? json.leaderboard : (Array.isArray(json) ? json : []);
-        if (rows.length > 0) _rnApplyCrownToTopUser(rows[0].id || rows[0].userId, currentUserId);
+  /* ── AUTO CHECK CROWN ON LOGIN ── */
+  function _checkCrown() {
+    var uid = (window.user && (window.user.id || window.user.sub)) || null;
+    if (!uid) return;
+    fetch('/api/leaderboard?limit=1', { headers: _getHeaders() })
+      .then(function (r) { return r.json(); })
+      .then(function (json) {
+        var rows = json.data || json.leaderboard || (Array.isArray(json) ? json : []);
+        if (rows.length > 0) _rnApplyCrownToTopUser(rows[0].id || rows[0].userId, uid);
       })
-      .catch(function() {});
+      .catch(function () {});
   }
 
-  // Poll until user is set, then check crown
-  setTimeout(function() {
-    if (window.user) { _rnCheckCrownStatus(); return; }
-    var attempts = 0;
-    var iv = setInterval(function() {
-      if (window.user || ++attempts > 20) {
-        clearInterval(iv);
-        if (window.user) _rnCheckCrownStatus();
-      }
+  setTimeout(function () {
+    if (window.user) { _checkCrown(); return; }
+    var n = 0, iv = setInterval(function () {
+      if (window.user || ++n > 20) { clearInterval(iv); if (window.user) _checkCrown(); }
     }, 500);
   }, 2000);
 
