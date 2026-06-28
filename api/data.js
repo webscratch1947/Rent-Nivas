@@ -557,8 +557,48 @@ async function updateRows(spec) {
   } catch (err) {
     const code = err && (err.name || err.__type || '');
     if (/ConditionalCheckFailedException/i.test(code)) {
-      // Row didn't exist — create it properly (with full NEW_ROW_DEFAULTS)
-      // instead of leaving a partial row behind.
+      // Row didn't exist under the userId key — check if it exists under the
+      // LEGACY "id" key (some older accounts were created before the key rename).
+      // If a legacy row exists, update THAT row instead of creating a ghost duplicate.
+      const pkName = partitionKeyName(spec.table);
+      if (pkName === 'userId' && key.userId) {
+        try {
+          const legacyKey = { id: key.userId };
+          const legacyRes = await runDdb('update', spec.table, () =>
+            ddb.send(new GetItemCommand({ TableName, Key: marshall(legacyKey) }))
+          );
+          if (legacyRes && legacyRes.Item) {
+            // Legacy row exists — update it directly (don't touch the userId key)
+            console.log(`[RentNivas API] Found legacy id-keyed row for "${spec.table}" — updating legacy row instead of creating a ghost duplicate.`);
+            const legacySets = [];
+            const legacyNames = {};
+            const legacyValues = {};
+            Object.entries(patch).forEach(([k, v], i) => {
+              if (k === 'id' || typeof v === 'undefined') return;
+              legacyNames[`#lk${i}`] = k;
+              legacyValues[`:lv${i}`] = v;
+              legacySets.push(`#lk${i} = :lv${i}`);
+            });
+            if (legacySets.length) {
+              const legacyResult = await runDdb('update', spec.table, () =>
+                ddb.send(new UpdateItemCommand({
+                  TableName,
+                  Key: marshall(legacyKey),
+                  UpdateExpression: `SET ${legacySets.join(', ')}`,
+                  ExpressionAttributeNames: legacyNames,
+                  ExpressionAttributeValues: marshall(legacyValues, { removeUndefinedValues: true }),
+                  ReturnValues: 'ALL_NEW',
+                }))
+              );
+              const row = legacyResult.Attributes ? fromDbItem(spec.table, unmarshall(legacyResult.Attributes)) : null;
+              return spec.single || spec.maybeSingle ? row : (row ? [row] : []);
+            }
+          }
+        } catch (legacyErr) {
+          console.warn('[RentNivas API] Legacy key lookup failed:', legacyErr.message);
+        }
+      }
+      // No legacy row found — create it properly (with full NEW_ROW_DEFAULTS)
       console.log(`[RentNivas API] update() target row didn't exist for "${spec.table}" — creating via putRows with full defaults instead of a partial row.`);
       const created = await putRows({ table: spec.table, values: Object.assign({}, fromDbItem(spec.table, key), spec.values || {}), single: true }, true);
       return spec.single || spec.maybeSingle ? created : (created ? [created] : []);
