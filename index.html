@@ -10661,20 +10661,26 @@
     }
 
     // ══ FORGOT PASSWORD MODAL ══
+    // ── helper: show only one fp step ──────────────────────────────────────
+    function _fpShow(stepId) {
+      ['fp-step1','fp-step2','fp-step3'].forEach(function(id) {
+        const el = document.getElementById(id);
+        if (el) el.style.display = (id === stepId) ? 'block' : 'none';
+      });
+    }
+
     function openForgotPasswordModal(isChange) {
       const bg = document.getElementById('fp-modal-bg');
       if (!bg) return;
+      // Reset to step 1
+      _fpShow('fp-step1');
       const sub = document.getElementById('fp-modal-sub');
-      if (sub && isChange) sub.textContent = "Enter your email and we will send you a password change link.";
-      else if (sub) sub.textContent = "Enter your email address and we will send you a reset link.";
-      const sendState = document.getElementById('fp-send-state');
-      const successState = document.getElementById('fp-success-state');
-      if (sendState) sendState.style.display = '';
-      if (successState) successState.style.display = 'none';
+      if (sub && isChange) sub.textContent = "Enter your email and we will send you a verification code.";
+      else if (sub) sub.textContent = "Enter your email address and we'll send you a verification code.";
       const emailEl = document.getElementById('fp-email');
-      if (emailEl) { emailEl.value = ''; }
-      const errEl2 = document.getElementById('fp-err');
-      if (errEl2) errEl2.textContent = '';
+      if (emailEl) emailEl.value = '';
+      const errEl = document.getElementById('fp-err');
+      if (errEl) { errEl.textContent = ''; errEl.classList.remove('show'); }
       bg.classList.add('open');
       _lockScroll();
       setTimeout(() => { if (emailEl) emailEl.focus(); }, 100);
@@ -10686,25 +10692,95 @@
       _unlockScroll();
     }
 
+    // STEP 1 → send code
     async function doSendResetLink() {
       const emailEl = document.getElementById('fp-email');
-      const errEl = document.getElementById('fp-err');
-      const btn = document.getElementById('fp-send-btn');
-      const email = emailEl?.value?.trim() || '';
-      if (!email) { if (errEl) errEl.textContent = 'Please enter your email address.'; return; }
-      if (errEl) errEl.textContent = '';
+      const errEl   = document.getElementById('fp-err');
+      const btn     = document.getElementById('fp-send-btn');
+      const email   = emailEl?.value?.trim() || '';
+      if (!email) {
+        if (errEl) { errEl.textContent = 'Please enter your email address.'; errEl.classList.add('show'); }
+        return;
+      }
+      if (errEl) { errEl.textContent = ''; errEl.classList.remove('show'); }
       if (btn) { btn.disabled = true; btn.textContent = 'Sending…'; }
       try {
         const { error } = await sb.auth.resetPasswordForEmail(email);
         if (error) throw error;
+        // Store email for step 2
+        window._fpEmail = email;
         const sentEl = document.getElementById('fp-sent-email');
         if (sentEl) sentEl.textContent = email;
-        document.getElementById('fp-send-state').style.display = 'none';
-        document.getElementById('fp-success-state').style.display = '';
+        // Clear step 2 fields
+        const codeEl = document.getElementById('fp-code');
+        const npEl   = document.getElementById('fp-newpass');
+        const cpEl   = document.getElementById('fp-confpass');
+        const err2El = document.getElementById('fp-err2');
+        if (codeEl) codeEl.value = '';
+        if (npEl)   npEl.value   = '';
+        if (cpEl)   cpEl.value   = '';
+        if (err2El) { err2El.textContent = ''; err2El.classList.remove('show'); }
+        _fpShow('fp-step2');
+        setTimeout(() => { if (codeEl) codeEl.focus(); }, 100);
       } catch (err) {
-        if (errEl) errEl.textContent = err.message || 'Could not send reset code. Try again.';
+        if (errEl) { errEl.textContent = err.message || 'Could not send code. Try again.'; errEl.classList.add('show'); }
       } finally {
-        if (btn) { btn.disabled = false; btn.textContent = 'Send Reset Link →'; }
+        if (btn) { btn.disabled = false; btn.textContent = 'Send Verification Code →'; }
+      }
+    }
+
+    // STEP 2 → verify code + set new password
+    async function doConfirmReset() {
+      const code    = (document.getElementById('fp-code')?.value || '').trim();
+      const np      = document.getElementById('fp-newpass')?.value  || '';
+      const cp      = document.getElementById('fp-confpass')?.value || '';
+      const errEl   = document.getElementById('fp-err2');
+      const btn     = document.getElementById('fp-confirm-btn');
+      const email   = window._fpEmail || '';
+
+      function showErr(msg) {
+        if (errEl) { errEl.textContent = msg; errEl.classList.add('show'); }
+      }
+      if (errEl) { errEl.textContent = ''; errEl.classList.remove('show'); }
+      if (!code)  return showErr('Please enter the verification code from your email.');
+      if (!np)    return showErr('Please enter a new password.');
+      if (np.length < 6) return showErr('Password must be at least 6 characters.');
+      if (np !== cp)     return showErr('Passwords do not match. Try again.');
+      if (!email) return showErr('Session expired — please close and start over.');
+
+      if (btn) { btn.disabled = true; btn.textContent = 'Updating…'; }
+      try {
+        const { error } = await sb.auth.confirmForgotPassword(email, code, np);
+        if (error) throw error;
+        _fpShow('fp-step3');
+      } catch (err) {
+        showErr(err.message || 'Invalid code or expired. Please try again.');
+      } finally {
+        if (btn) { btn.disabled = false; btn.textContent = 'Update Password →'; }
+      }
+    }
+
+    // Resend code from step 2
+    async function doResendCode() {
+      const email   = window._fpEmail || '';
+      const link    = document.getElementById('fp-resend-link');
+      const errEl   = document.getElementById('fp-err2');
+      if (!email) return;
+      if (link) { link.style.pointerEvents = 'none'; link.style.opacity = '0.5'; link.textContent = 'Sending…'; }
+      try {
+        await sb.auth.resetPasswordForEmail(email);
+        if (link) {
+          link.textContent = 'Sent!';
+          let s = 30;
+          const iv = setInterval(() => {
+            s--;
+            if (link) link.textContent = 'Resend in ' + s + 's';
+            if (s <= 0) { clearInterval(iv); if (link) { link.textContent = 'resend code'; link.style.pointerEvents = ''; link.style.opacity = ''; } }
+          }, 1000);
+        }
+      } catch(e) {
+        if (errEl) { errEl.textContent = 'Could not resend. Try again.'; errEl.classList.add('show'); }
+        if (link) { link.textContent = 'resend code'; link.style.pointerEvents = ''; link.style.opacity = ''; }
       }
     }
 
@@ -12647,6 +12723,7 @@
         user = session.user;
         window.user = user;
         syncMobNavAuth();
+        if (typeof _checkCrown === 'function') setTimeout(_checkCrown, 1500);
         const banned = await checkUserBan();
         if (banned) return;
         const savedRole = localStorage.getItem('nestly-role');
@@ -16798,6 +16875,7 @@
           window.user = user;
           await loadCreditsFromDB();
           syncMobNavAuth();
+          if (typeof _checkCrown === 'function') setTimeout(_checkCrown, 1500);
           const banned = await checkUserBan();
           if (banned) return;
           const activePageId = document.querySelector('.page.active')?.id;
@@ -17527,32 +17605,64 @@
   <div id="fp-modal-bg" onclick="if(event.target===this)closeForgotPasswordModal()">
     <div class="fp-modal-box">
       <button class="fp-modal-close" onclick="closeForgotPasswordModal()">✕</button>
-      <!-- Send Reset Link State -->
-      <div id="fp-send-state" style="display:block;">
+
+      <!-- STEP 1: Enter Email -->
+      <div id="fp-step1" style="display:block;">
         <div class="fp-modal-icon">🔑</div>
-        <div class="fp-modal-title">Reset Password</div>
-        <div class="fp-modal-sub" id="fp-modal-sub">Enter your email address and we'll send you a reset code.</div>
+        <div class="fp-modal-title" id="fp-modal-title">Reset Password</div>
+        <div class="fp-modal-sub" id="fp-modal-sub">Enter your email address and we'll send you a verification code.</div>
         <div class="fp-err" id="fp-err"></div>
         <div class="fg">
           <label>Email Address</label>
           <input type="email" id="fp-email" placeholder="you@example.com"
             onkeydown="if(event.key==='Enter')doSendResetLink()">
         </div>
-        <button class="btn btn-terra btn-lg btn-full" id="fp-send-btn" onclick="doSendResetLink()">Send Reset Code
-          →</button>
+        <button class="btn btn-terra btn-lg btn-full" id="fp-send-btn" onclick="doSendResetLink()">Send Verification Code →</button>
       </div>
-      <!-- Success State -->
-      <div class="fp-success-state" id="fp-success-state">
-        <div class="fp-success-icon">📬</div>
-        <div class="fp-success-title">Check your inbox</div>
-        <p class="fp-success-p">We've sent a reset code to <strong id="fp-sent-email"></strong>.</p>
-        <div style="margin:16px 0;padding:14px 16px;background:#fef9c3;border-radius:10px;border:1px solid #fde047;text-align:left;">
-          <div style="font-size:13px;font-weight:700;color:#854d0e;margin-bottom:4px;">&#9888;&#65039; Can't find the email?</div>
-          <div style="font-size:13px;color:#713f12;line-height:1.5;">Check your <strong>Spam</strong> or <strong>Junk</strong> folder. Copy the code, then enter it on the password reset page.</div>
+
+      <!-- STEP 2: Enter Code + New Password -->
+      <div id="fp-step2" style="display:none;">
+        <div class="fp-modal-icon">📬</div>
+        <div class="fp-modal-title">Enter Verification Code</div>
+        <div class="fp-modal-sub">We sent a 6-digit code to <strong id="fp-sent-email" style="color:var(--terra);"></strong>. Enter it below along with your new password.</div>
+        <div class="fp-err" id="fp-err2"></div>
+        <div class="fg">
+          <label>Verification Code</label>
+          <input type="text" id="fp-code" placeholder="6-digit code from email" autocomplete="one-time-code"
+            inputmode="numeric" maxlength="6"
+            onkeydown="if(event.key==='Enter')document.getElementById('fp-newpass').focus()">
         </div>
-        <button class="btn btn-terra btn-sm btn-full" style="margin-top:8px;" onclick="window.location.href='resetpassword.html?email='+encodeURIComponent(document.getElementById('fp-sent-email').textContent||'')">Enter Reset Code</button>
-        <button class="btn btn-soft btn-sm btn-full" style="margin-top:8px;" onclick="closeForgotPasswordModal()">&#10005; Close</button>
+        <div class="fg">
+          <label>New Password</label>
+          <div style="position:relative;">
+            <input type="password" id="fp-newpass" placeholder="Minimum 6 characters" style="padding-right:42px;width:100%;box-sizing:border-box;"
+              onkeydown="if(event.key==='Enter')document.getElementById('fp-confpass').focus()">
+            <button type="button" onclick="var i=document.getElementById('fp-newpass');i.type=i.type==='password'?'text':'password';this.textContent=i.type==='password'?'👁':'🙈';" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:16px;padding:0;line-height:1;">👁</button>
+          </div>
+        </div>
+        <div class="fg">
+          <label>Confirm Password</label>
+          <div style="position:relative;">
+            <input type="password" id="fp-confpass" placeholder="Re-enter your password" style="padding-right:42px;width:100%;box-sizing:border-box;"
+              onkeydown="if(event.key==='Enter')doConfirmReset()">
+            <button type="button" onclick="var i=document.getElementById('fp-confpass');i.type=i.type==='password'?'text':'password';this.textContent=i.type==='password'?'👁':'🙈';" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:16px;padding:0;line-height:1;">👁</button>
+          </div>
+        </div>
+        <button class="btn btn-terra btn-lg btn-full" id="fp-confirm-btn" onclick="doConfirmReset()">Update Password →</button>
+        <div style="margin-top:10px;font-size:13px;text-align:center;color:var(--muted);">
+          Didn't receive it? Check spam, or
+          <a href="javascript:void(0)" id="fp-resend-link" onclick="doResendCode()" style="color:var(--terra);font-weight:600;text-decoration:none;">resend code</a>
+        </div>
       </div>
+
+      <!-- STEP 3: Success -->
+      <div id="fp-step3" style="display:none;text-align:center;padding:8px 0;">
+        <div class="fp-success-icon">✅</div>
+        <div class="fp-success-title">Password Updated!</div>
+        <p class="fp-success-p">Your password has been changed. You can now sign in with your new password.</p>
+        <button class="btn btn-terra btn-sm btn-full" style="margin-top:16px;" onclick="closeForgotPasswordModal()">Go to Sign In</button>
+      </div>
+
     </div>
   </div>
 
@@ -19103,11 +19213,9 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
       return;
     }
 
-    /* ── HERO: show the first real (non-anonymous) user ── */
-    var top = null;
-    for (var hi = 0; hi < rows.length; hi++) {
-      if (displayName(rows[hi]) !== 'Anonymous') { top = rows[hi]; break; }
-    }
+    /* ── HERO: rank 1 is simply rows[0] — API sorts by credits desc ── */
+    /* Do NOT filter by displayName: users with blank names are still real users */
+    var top = rows[0] || null;
     if (!top) {
       if (hero) hero.innerHTML = '';
       container.innerHTML = '<div style="text-align:center;padding:64px 0;color:var(--soft);font-size:15px;">No leaderboard data yet.</div>';
@@ -19160,9 +19268,14 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
     if (hero) hero.innerHTML = heroHtml;
     if (rankLabel) rankLabel.style.display = 'block';
 
-    /* ── FULL LIST: skip anonymous entries and the hero user ── */
-    /* Re-rank after filtering anonymous so numbers stay sequential */
-    var filtered = rows.filter(function(r) { return displayName(r) !== 'Anonymous'; });
+    /* ── FULL LIST: include all users except the hero (already shown above) ── */
+    /* Server now returns derived names so no one should be filtered as Anonymous */
+    var filtered = rows.filter(function(r) {
+      /* Only truly skip if both name AND email are completely empty */
+      var n = (r.name || '').trim();
+      var e = (r.email || '').trim();
+      return n || e; /* keep if either name or email exists */
+    });
     var html = '';
     filtered.forEach(function (r, idx) {
       var rank    = idx + 1;
@@ -19253,30 +19366,39 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
   function _checkCrown() {
     if (!window.user) return;
     var myEmail = (window.user.email || '').toLowerCase().trim();
-    var mySub   = window.user.sub || window.user.id || '';
+    var mySub   = (window.user.sub   || window.user.id || '').toLowerCase().trim();
     if (!myEmail && !mySub) return;
 
     fetch('/api/leaderboard?limit=50', { headers: _getHeaders() })
       .then(function (r) { return r.json(); })
       .then(function (json) {
         var rows = json.data || json.leaderboard || (Array.isArray(json) ? json : []);
-        /* Find first real (non-anonymous) user */
-        var topRow = null;
-        for (var i = 0; i < rows.length; i++) {
-          if (displayName(rows[i]) !== 'Anonymous') { topRow = rows[i]; break; }
-        }
-        /* Am I the #1? Compare by email (leaderboard uses email as userId) AND by sub/id */
-        var isTop = false;
-        if (topRow) {
-          var topEmail  = (topRow.email  || topRow.userId || '').toLowerCase().trim();
-          var topSub    = topRow.id || topRow.sub || '';
-          isTop = (myEmail && topEmail && myEmail === topEmail) ||
-                  (mySub   && topSub   && mySub   === topSub);
-        }
+        if (!rows || !rows.length) return;
+
+        /* Rank 1 is simply rows[0] — the API already sorts by credits desc.
+           Do NOT filter by displayName here: that can exclude valid users with
+           blank name fields, causing the crown never to show. */
+        var topRow = rows[0];
+
+        /* Multi-field match: email OR id/sub match counts */
+        var topEmail = (topRow.email  || topRow.userId || topRow.id || '').toLowerCase().trim();
+        var topId    = (topRow.id     || topRow.userId || '').toLowerCase().trim();
+        var topName  = (topRow.name   || '').toLowerCase().trim();
+        var myName   = ((window.user.name || window.user.given_name) || '').toLowerCase().trim();
+
+        var isTop = !!(
+          (myEmail && topEmail && myEmail === topEmail) ||
+          (mySub   && topId    && mySub   === topId)   ||
+          (myName  && topName  && myName  === topName  && myName.length > 2)
+        );
+
         var hc = document.getElementById('host-crown-badge');
         var rc = document.getElementById('rent-crown-badge');
         if (hc) hc.style.display = isTop ? 'block' : 'none';
         if (rc) rc.style.display = isTop ? 'block' : 'none';
+
+        /* Also update the renderLeaderboard crown logic in case it already ran */
+        if (window._rnApplyCrownToTopUser) window._rnApplyCrownToTopUser(topId || topEmail, mySub || myEmail);
       })
       .catch(function () {});
   }
