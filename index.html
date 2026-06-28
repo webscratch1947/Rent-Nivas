@@ -18293,14 +18293,17 @@ async function fetchLeaderboard(){
   try{
     var sb=window.sb;
     if(!sb)return;
+    // Fetch all profiles and sort client-side (DynamoDB cannot sort by
+    // a non-primary-key attribute without a GSI, so .order() is unreliable)
     var res=await sb.from('profiles')
       .select('id,name,avatar_url,credits')
-      .order('credits',{ascending:false})
-      .limit(20);
+      .limit(300);
     if(res.data){
+      // Sort by credits descending client-side — always correct
+      var _sorted=res.data.slice().sort(function(a,b){return (b.credits||0)-(a.credits||0);});
       // Deduplicate by id and filter out entries with no name
       var _seen={};
-      _lbData=res.data.filter(function(item){
+      _lbData=_sorted.filter(function(item){
         if(!item.id||_seen[item.id])return false;
         _seen[item.id]=true;
         return !!(item.name&&item.name.trim());
