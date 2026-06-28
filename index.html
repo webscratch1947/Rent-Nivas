@@ -8720,7 +8720,6 @@
       </div>
       <div class="lp-nav-right" id="lp-nav-right">
         <button class="btn btn-terra btn-sm" id="rn-get-started-btn" onclick="showPage('signup-page')">Get Started</button>
-        <button class="btn btn-terra btn-sm" id="lp-nav-getstarted" style="display:none;" onclick="showPage('signup-page')">Get Started</button>
         <button class="btn btn-terra btn-sm" id="lp-nav-dashboard" style="display:none;" onclick="goToDashboard()">Dashboard →</button>
       </div>
     </nav>
@@ -8729,7 +8728,6 @@
       window._rnNavMobileSwap=function(){
         if(!window._rnAuthDetermined)return;
         var tut=document.getElementById('lp-nav-mob-tutorial');
-        var gs=document.getElementById('lp-nav-getstarted');
         if(!tut)return;
         /* Detect logged-in state by checking if Dashboard button is visible */
         var dash=document.getElementById('lp-nav-dashboard');
@@ -8740,24 +8738,21 @@
         var mobGsBtn=document.getElementById('lp-mob-getstarted-btn');
         var mobDashBtn=document.getElementById('lp-mob-dashboard-btn');
         if(loggedIn){
-          /* Logged in: hide Watch Tutorial and Get Started (desktop) */
+          /* Logged in: hide Watch Tutorial on desktop */
           tut.style.setProperty('display','none','important');
-          if(gs)gs.style.setProperty('display','none','important');
           /* Mobile: show Dashboard btn, hide Get Started + Tutorial */
           if(mobTutBtn)mobTutBtn.style.setProperty('display','none','important');
           if(mobGsBtn)mobGsBtn.style.setProperty('display','none','important');
           if(mobDashBtn)mobDashBtn.style.removeProperty('display');
         }else if(window.innerWidth<=768){
-          /* Mobile + logged out: show our new mob buttons, hide old ones */
+          /* Mobile + logged out: show mob buttons, hide desktop tutorial */
           tut.style.setProperty('display','none','important');
-          if(gs)gs.style.setProperty('display','none','important');
           if(mobTutBtn)mobTutBtn.style.removeProperty('display');
           if(mobGsBtn)mobGsBtn.style.removeProperty('display');
           if(mobDashBtn)mobDashBtn.style.setProperty('display','none','important');
         }else{
-          /* Desktop + logged out: hide Tutorial, show Get Started */
-          tut.style.setProperty('display','none','important');
-          if(gs)gs.style.removeProperty('display');
+          /* Desktop + logged out: show Watch Tutorial in nav-links */
+          tut.style.removeProperty('display');
           /* Hide mobile-only actions on desktop */
           if(mobActions)mobActions.style.setProperty('display','none','important');
         }
@@ -17130,12 +17125,9 @@
       if (navIn) navIn.style.display = loggedIn ? 'flex' : 'none';
       if (footIn) footIn.style.display = loggedIn ? 'block' : 'none';
       // Desktop landing page nav: show Get Started when logged out, Dashboard when logged in
-      const lpGetStarted = document.getElementById('lp-nav-getstarted');
       const rnGetStartedBtn = document.getElementById('rn-get-started-btn');
       const lpDashboard = document.getElementById('lp-nav-dashboard');
-      if (lpGetStarted) lpGetStarted.style.display = 'none'; // old button always hidden
       if (rnGetStartedBtn) rnGetStartedBtn.style.display = loggedIn ? 'none' : 'inline-flex';
-      if (lpDashboard) lpDashboard.style.display = loggedIn ? '' : 'none';
       if (lpDashboard) lpDashboard.style.display = loggedIn ? '' : 'none';
       // Re-apply mobile Watch Tutorial ↔ Sign In swap after every auth update
       if (typeof window._rnNavMobileSwap === 'function') window._rnNavMobileSwap();
