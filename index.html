@@ -15250,7 +15250,7 @@
       if (statusEl) statusEl.textContent = '';
       try {
         const { data: { session } } = await sb.auth.getSession();
-        const res = await fetch(RN_API_BASE + '/site-version', {
+        const res = await fetch(RN_API_BASE + '/env-inject.js', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (session.id_token || session.access_token) }
         });
