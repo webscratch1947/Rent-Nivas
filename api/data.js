@@ -328,6 +328,15 @@ function applyOrder(items, order) {
   return [...items].sort((a, b) => {
     const av = a[order.column] ?? '';
     const bv = b[order.column] ?? '';
+    // Use numeric comparison when both values are numeric (fixes credits sort —
+    // string comparison makes "9.5" > "25" because "9" > "2", causing wrong rank order)
+    const an = parseFloat(av);
+    const bn = parseFloat(bv);
+    if (!isNaN(an) && !isNaN(bn)) {
+      if (an < bn) return -1 * dir;
+      if (an > bn) return 1 * dir;
+      return 0;
+    }
     if (av < bv) return -1 * dir;
     if (av > bv) return 1 * dir;
     return 0;
@@ -357,7 +366,21 @@ async function readItems(spec) {
   rows = applyFilters(rows, spec.filters);
   rows = applyOrder(rows, spec.order);
   if (spec.limit) rows = rows.slice(0, spec.limit);
-  rows = rows.map(row => pickColumns(row, spec.select));
+  // FIX: always include the order column in the returned data, even if it was
+  // not listed in spec.select.  Without this, a leaderboard query like
+  //   .select('id,name,avatar_url').order('credits', {ascending:false})
+  // strips 'credits' from every row via pickColumns, so the frontend receives
+  // undefined for credits and falls back to displaying the default value (10).
+  const orderCol = spec.order && spec.order.column;
+  rows = rows.map(row => {
+    const picked = pickColumns(row, spec.select);
+    if (orderCol && picked && spec.select && spec.select !== '*' &&
+        !String(spec.select).split(',').map(s => s.trim()).includes(orderCol) &&
+        Object.prototype.hasOwnProperty.call(row, orderCol)) {
+      picked[orderCol] = row[orderCol];
+    }
+    return picked;
+  });
   if (spec.countOnly || spec.head) return { count: rows.length };
   return spec.single || spec.maybeSingle ? (rows[0] || null) : rows;
 }
@@ -1108,6 +1131,43 @@ async function handleRpc(spec, claims) {
 
     console.log(`[Admin] Merged account ${loserUserId} into ${keeperUserId} for email ${keeper.email}. Repointed:`, repointed, 'Cognito login deleted:', cognitoDeleted);
     return { merged: true, keeperUserId, loserUserId, keeperPatch, repointed, cognitoLoginDeleted: cognitoDeleted };
+  }
+
+  // ── get_leaderboard ───────────────────────────────────────────────────────
+  // Returns all users sorted by credits descending (numeric), with rank numbers.
+  // This is the CORRECT way to fetch the leaderboard — it always includes the
+  // credits field and sorts numerically, fixing the two bugs:
+  //   1. String sort: "9.5" > "25" because "9" > "2" alphabetically (wrong rank)
+  //   2. Missing credits field: if the select list omits "credits", the display
+  //      falls back to showing 10 (the default) for every user
+  if (spec.name === 'get_leaderboard') {
+    const TableName = tableName('profiles');
+    const scanned = await runDdb('read', 'profiles', () => ddb.send(new ScanCommand({ TableName })));
+    const rows = (scanned.Items || []).map(item => fromDbItem('profiles', unmarshall(item)));
+
+    // Sort by credits NUMERICALLY descending — parseFloat handles both number
+    // and string storage formats, and fractional credits like 10.5 or 9.5
+    rows.sort((a, b) => {
+      const ac = parseFloat(a.credits) || 0;
+      const bc = parseFloat(b.credits) || 0;
+      return bc - ac; // descending: highest credits first
+    });
+
+    const limit = spec.params && spec.params.limit ? parseInt(spec.params.limit, 10) : 100;
+    const top = rows.slice(0, limit);
+
+    // Attach rank numbers and return only public-safe fields
+    const result = top.map((row, idx) => ({
+      rank: idx + 1,
+      id: row.id || row.userId || '',
+      name: row.name || '',
+      avatar_url: row.avatar_url || null,
+      credits: parseFloat(row.credits) || 0,
+      xp: parseInt(row.xp || '0', 10),
+    }));
+
+    console.log(`[Leaderboard] Returning top ${result.length} users, #1 has ${result[0] ? result[0].credits : 0} credits`);
+    return result;
   }
 
   throw new Error(`Unsupported RPC "${spec.name}"`);
