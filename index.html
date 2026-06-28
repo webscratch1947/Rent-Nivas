@@ -442,6 +442,7 @@
       align-items: center;
     }
 
+    .rn-hidden { display: none !important; }
     .btn-nav-outline {
       background: transparent;
       color: #fff;
@@ -8643,7 +8644,7 @@
         <button id="lp-nav-mob-tutorial" class="btn-nav-tutorial" onclick="(function(){var isLI=window._RNTut&&typeof window._RNTut.isLoggedIn==='function'&&window._RNTut.isLoggedIn();if(isLI){if(typeof _rnStartUserTutorial==='function')_rnStartUserTutorial();}else{if(typeof window.startViewTutorial==='function')window.startViewTutorial('landing');}})();">🎓 Watch Tutorial</button>
       </div>
       <div class="lp-nav-right" id="lp-nav-right">
-        <button class="btn btn-terra btn-sm" id="lp-nav-getstarted" style="display:none;" onclick="showPage('signup-page')">Get Started</button>
+        <button class="btn btn-terra btn-sm rn-hidden" id="lp-nav-getstarted" onclick="showPage('signup-page')">Get Started</button>
         <button class="btn btn-terra btn-sm" id="lp-nav-dashboard" style="display:none;" onclick="goToDashboard()">Dashboard →</button>
       </div>
     </nav>
@@ -8671,7 +8672,7 @@
         }else{
           /* Desktop + logged out: hide Watch Tutorial, show Get Started */
           tut.style.setProperty('display','none','important');
-          if(gs)gs.style.removeProperty('display');
+          if(gs)gs.style.setProperty('display','inline-flex','important');
         }
       };
       window.addEventListener('resize',window._rnNavMobileSwap);
@@ -17046,7 +17047,7 @@
       const lpGetStarted = document.getElementById('lp-nav-getstarted');
       const lpDashboard = document.getElementById('lp-nav-dashboard');
       if (lpSignIn) lpSignIn.style.display = 'none'; // always hidden — "Get Started" is the sole CTA
-      if (lpGetStarted) lpGetStarted.style.display = loggedIn ? 'none' : 'inline-flex';
+      if (lpGetStarted) lpGetStarted.classList.toggle('rn-hidden', loggedIn);
       if (lpDashboard) lpDashboard.style.display = loggedIn ? '' : 'none';
       // Re-apply mobile Watch Tutorial ↔ Sign In swap after every auth update
       if (typeof window._rnNavMobileSwap === 'function') window._rnNavMobileSwap();
