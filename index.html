@@ -8692,8 +8692,8 @@
       </div>
       <div class="lp-nav-right" id="lp-nav-right">
         <button class="btn-nav-tutorial" id="lp-nav-mob-tutorial" style="display:none;" onclick="(function(){var isLI=window._RNTut&&typeof window._RNTut.isLoggedIn==='function'&&window._RNTut.isLoggedIn();if(isLI){if(typeof _rnStartUserTutorial==='function')_rnStartUserTutorial();}else{if(typeof window.startViewTutorial==='function')window.startViewTutorial('landing');}})();">🎓 Watch Tutorial</button>
-        <button class="btn-nav-outline" id="lp-nav-signin" onclick="showPage('login-page')">Sign In</button>
-        <button class="btn btn-terra btn-sm" id="lp-nav-getstarted" onclick="showPage('signup-page')">Get Started</button>
+        <button class="btn-nav-outline" id="lp-nav-signin" style="display:none;" onclick="showPage('login-page')">Sign In</button>
+        <button class="btn btn-terra btn-sm" id="lp-nav-getstarted" style="display:none;" onclick="showPage('signup-page')">Get Started</button>
         <button class="btn btn-terra btn-sm" id="lp-nav-dashboard" style="display:none;" onclick="goToDashboard()">Dashboard →</button>
       </div>
     </nav>
@@ -15598,7 +15598,8 @@
           if (!verifyErr && verify && Number(verify.credits) !== val) {
             console.warn('[Admin] Credits verify mismatch — wrote', val, 'read back', verify.credits);
           }
-          toast('💰 Credits updated to ' + val + ' for ' + userName, 'success');
+          try{localStorage.removeItem('rn-lb-last-fetch');localStorage.removeItem('rn-lb-data');}catch(_){}
+          toast('🪙 Credits updated to ' + val + ' for ' + userName, 'success');
           loadAdminUsers();
         }
       });
@@ -17078,8 +17079,8 @@
       const lpSignIn = document.getElementById('lp-nav-signin');
       const lpGetStarted = document.getElementById('lp-nav-getstarted');
       const lpDashboard = document.getElementById('lp-nav-dashboard');
-      if (lpSignIn) lpSignIn.style.display = loggedIn ? 'none' : '';
-      if (lpGetStarted) lpGetStarted.style.display = loggedIn ? 'none' : '';
+      if (lpSignIn) lpSignIn.style.display = loggedIn ? 'none' : 'inline-flex';
+      if (lpGetStarted) lpGetStarted.style.display = loggedIn ? 'none' : 'inline-flex';
       if (lpDashboard) lpDashboard.style.display = loggedIn ? '' : 'none';
       // Re-apply mobile Watch Tutorial ↔ Sign In swap after every auth update
       if (typeof window._rnNavMobileSwap === 'function') window._rnNavMobileSwap();
