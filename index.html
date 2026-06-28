@@ -12645,6 +12645,7 @@
           return;
         }
         user = session.user;
+        window.user = user;
         syncMobNavAuth();
         const banned = await checkUserBan();
         if (banned) return;
@@ -16780,6 +16781,7 @@
         }
         if (event === 'SIGNED_OUT') {
           _clearStoredBan();
+          window.user = null;
           if (document.getElementById('perm-ban-page')?.style.display === 'flex') {
             user = null;
             allHouses = [];
@@ -16793,6 +16795,7 @@
         }
         if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION' || event === 'TOKEN_REFRESHED') && session?.user) {
           user = session.user;
+          window.user = user;
           await loadCreditsFromDB();
           syncMobNavAuth();
           const banned = await checkUserBan();
@@ -18479,7 +18482,14 @@ var T={
         if(typeof window.showSection==='function')setTimeout(function(){window.showSection('add');},200);
       }
       if(n===10){
-        if(typeof window.showSection==='function')setTimeout(function(){window.showSection('home');},200);
+        /* Only call showSection('home') when the host dashboard is actually active.
+           Calling it from the rent page blanks the screen. */
+        if(typeof window.showSection==='function'){
+          var hd=document.getElementById('host-dashboard');
+          if(hd&&hd.classList.contains('active')){
+            setTimeout(function(){window.showSection('home');},200);
+          }
+        }
       }
       if(n===11||n===12){
         if(typeof window.showPage==='function'&&document.getElementById('rent-page')&&!document.getElementById('rent-page').classList.contains('active')){
@@ -19040,9 +19050,8 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
       .then(function (json) {
         _lbLoading = false;
         var rows = json.data || json.leaderboard || (Array.isArray(json) ? json : []);
-        var uid  = (window.user && (window.user.id || window.user.sub)) || null;
+        var uid  = (window.user && (window.user.id || window.user.sub || window.user.email)) || null;
         renderLeaderboard(rows, container, uid);
-        if (rows.length > 0) _rnApplyCrownToTopUser(rows[0].id || rows[0].userId, uid);
       })
       .catch(function () {
         _lbLoading = false;
@@ -19115,7 +19124,27 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
     }
     var topName = displayName(top);
     var topInitial = (topName[0] || '?').toUpperCase();
-    var topIsMe = uid && (top.id === uid || top.userId === uid || top.email === (window.user && window.user.email));
+    var _wu = window.user || {};
+    var _myId    = (_wu.id    || '').toLowerCase().trim();
+    var _mySub   = (_wu.sub   || '').toLowerCase().trim();
+    var _myEmail = (_wu.email || '').toLowerCase().trim();
+    var _myName  = (_wu.name  || _wu.given_name || '').toLowerCase().trim();
+    var _topId   = (top.id     || '').toLowerCase().trim();
+    var _topUid  = (top.userId || '').toLowerCase().trim();
+    var _topEmail= (top.email  || '').toLowerCase().trim();
+    var _topName = (top.name   || '').toLowerCase().trim();
+    var topIsMe  = !!(uid && (
+      (_myId    && (_myId  === _topId || _myId  === _topUid)) ||
+      (_mySub   && (_mySub === _topId || _mySub === _topUid)) ||
+      (_myEmail && (_myEmail === _topEmail || _myEmail === _topUid)) ||
+      (_myName  && _topName && _myName === _topName)
+    ));
+
+    /* ── Show/hide sidebar crowns immediately while we have full context ── */
+    var _hc = document.getElementById('host-crown-badge');
+    var _rc = document.getElementById('rent-crown-badge');
+    if (_hc) _hc.style.display = topIsMe ? 'block' : 'none';
+    if (_rc) _rc.style.display = topIsMe ? 'block' : 'none';
 
     var heroHtml = '<div class="rn-lb-hero-av-wrap">';
     heroHtml += '<img src="/crown.svg" class="rn-lb-hero-crown" alt="Crown">';
