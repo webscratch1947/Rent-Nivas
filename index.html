@@ -18685,21 +18685,24 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
 </div>
 
 <!-- ══ LEADERBOARD PAGE ══ -->
-<div class="page" id="leaderboard-page" style="min-height:100vh;background:var(--bg);font-family:var(--font);">
-  <div style="max-width:680px;margin:0 auto;padding:0 16px 60px;">
+<div class="page" id="leaderboard-page" style="min-height:100vh;background:#f0ece4;font-family:var(--font);">
 
-    <!-- Topbar -->
-    <div style="display:flex;align-items:center;gap:12px;padding:24px 0 20px;">
-      <button onclick="goBackFromLeaderboard()" style="background:var(--bg2);border:none;border-radius:50%;width:40px;height:40px;font-size:18px;color:var(--ink);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-family:var(--font);">←</button>
-      <div>
-        <div style="font-size:22px;font-weight:800;color:var(--ink);font-family:var(--font);">Leaderboard 🏆</div>
-        <div style="font-size:13px;color:var(--soft);margin-top:1px;">Top users ranked by credits</div>
-      </div>
-    </div>
-
-    <!-- Content injected here -->
-    <div id="lb-page-content" style="min-height:200px;"></div>
+  <!-- Back button (top-left, floating) -->
+  <div style="position:absolute;top:20px;left:16px;z-index:10;">
+    <button onclick="goBackFromLeaderboard()" style="background:#fff;border:none;border-radius:50%;width:38px;height:38px;font-size:18px;color:var(--ink);cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.10);font-family:var(--font);">←</button>
   </div>
+
+  <!-- Hero section (current user #1 spotlight) -->
+  <div id="lb-hero-section" style="padding:56px 16px 28px;text-align:center;"></div>
+
+  <!-- Rankings list -->
+  <div style="background:#fff;border-radius:28px 28px 0 0;min-height:60vh;padding:28px 16px 80px;">
+    <div id="lb-rankings-label" style="display:none;font-size:11px;font-weight:700;letter-spacing:0.12em;color:#aaa;margin-bottom:14px;text-transform:uppercase;padding:0 4px;">Rankings</div>
+    <div id="lb-page-content" style="min-height:200px;"></div>
+    <!-- Live update ticker -->
+    <div id="lb-update-ticker" style="display:none;text-align:center;margin-top:24px;font-size:12px;color:#aaa;font-family:var(--font);"></div>
+  </div>
+
 </div>
 
 <style>
@@ -18720,31 +18723,136 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
   50%      { transform: translateY(-5px) rotate(5deg); }
 }
 
-/* ─── LEADERBOARD CARDS ─── */
+/* ─── LEADERBOARD PAGE LAYOUT ─── */
+#leaderboard-page {
+  position: relative;
+}
+
+/* ─── HERO: #1 USER SPOTLIGHT ─── */
+.rn-lb-hero-av-wrap {
+  position: relative;
+  display: inline-block;
+  margin-bottom: 14px;
+}
+.rn-lb-hero-av {
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  background: #e8e0d8;
+  border: 4px solid #fff;
+  box-shadow: 0 4px 20px rgba(0,0,0,.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 36px;
+  font-weight: 800;
+  color: #4a3f35;
+  font-family: var(--font);
+  overflow: hidden;
+}
+.rn-lb-hero-av img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+.rn-lb-hero-badge-ring {
+  position: absolute;
+  bottom: -6px;
+  right: -6px;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: #ffd700;
+  border: 3px solid #f0ece4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 900;
+  color: #6b4e1a;
+  box-shadow: 0 2px 6px rgba(0,0,0,.18);
+}
+.rn-lb-hero-crown {
+  position: absolute;
+  top: -22px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 42px;
+  height: 42px;
+  filter: drop-shadow(0 2px 8px rgba(200,160,0,.6));
+  animation: rn-crown-float 2.4s ease-in-out infinite;
+  pointer-events: none;
+}
+.rn-lb-hero-name {
+  font-size: 20px;
+  font-weight: 800;
+  color: #18150f;
+  font-family: var(--font);
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+.rn-lb-hero-you-tag {
+  font-size: 12px;
+  font-weight: 700;
+  background: #c2714f;
+  color: #fff;
+  padding: 2px 9px;
+  border-radius: 20px;
+  letter-spacing: 0.02em;
+}
+.rn-lb-hero-credits-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: #2c2720;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  padding: 8px 20px;
+  border-radius: 50px;
+  margin-top: 10px;
+  font-family: var(--font);
+}
+.rn-lb-hero-coin {
+  width: 18px;
+  height: 18px;
+}
+
+/* ─── LEADERBOARD RANK CARDS ─── */
 .rn-lb-card {
   background: #fff;
-  border: 1.5px solid var(--border);
-  border-radius: 16px;
+  border: none;
+  border-bottom: 1px solid #f0ece4;
+  border-radius: 0;
   display: flex;
   align-items: center;
   gap: 14px;
-  padding: 14px 18px;
-  margin-bottom: 10px;
-  transition: box-shadow 0.2s, border-color 0.2s;
+  padding: 13px 4px;
+  transition: background 0.15s;
   font-family: var(--font);
 }
-.rn-lb-card:hover {
-  box-shadow: 0 4px 16px rgba(0,0,0,.07);
-  border-color: var(--border2);
+.rn-lb-card:last-child { border-bottom: none; }
+.rn-lb-card:active { background: #faf8f5; }
+
+.rn-lb-rank-num {
+  width: 28px;
+  text-align: center;
+  font-size: 15px;
+  font-weight: 700;
+  color: #888;
+  flex-shrink: 0;
+  font-family: var(--font);
 }
-.rn-lb-card-me {
-  background: var(--terra-lt) !important;
-  border-color: var(--terra) !important;
-}
+
 .rn-lb-av {
-  width: 46px; height: 46px;
+  width: 46px;
+  height: 46px;
   border-radius: 50%;
-  background: linear-gradient(135deg, var(--terra,#c2714f), #e8926a);
+  background: #2c3e60;
   color: #fff;
   font-weight: 800;
   font-size: 18px;
@@ -18761,72 +18869,57 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
 }
 .rn-lb-crown-over {
   position: absolute;
-  top: -16px;
+  top: -14px;
   left: 50%;
   transform: translateX(-50%);
-  width: 26px;
-  height: 26px;
+  width: 22px;
+  height: 22px;
   filter: drop-shadow(0 1px 6px rgba(200,160,0,.5));
   animation: rn-crown-float 2.4s ease-in-out infinite;
   pointer-events: none;
 }
 
-/* ─── PODIUM ─── */
-.rn-lb-podium {
-  display: flex;
-  justify-content: center;
-  align-items: flex-end;
-  gap: 10px;
-  margin: 8px 0 28px;
-  background: linear-gradient(135deg, var(--ink,#18150f) 0%, #2c2720 100%);
-  border-radius: 20px;
-  padding: 28px 16px 20px;
-}
-.rn-lb-pod {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  flex: 1;
-  max-width: 140px;
-}
-.rn-lb-pod-av {
-  border-radius: 50%;
-  background: rgba(255,255,255,0.15);
-  border: 2px solid rgba(255,255,255,.3);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #fff;
-  font-weight: 800;
-  margin-bottom: 8px;
-  font-family: var(--font);
-}
-.rn-lb-pod-name {
-  color: #fff;
+.rn-lb-card-info { flex: 1; min-width: 0; }
+.rn-lb-card-name {
+  font-size: 15px;
   font-weight: 700;
-  font-size: 13px;
-  text-align: center;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 120px;
+  color: #18150f;
+  display: flex;
+  align-items: center;
+  gap: 6px;
   font-family: var(--font);
 }
-.rn-lb-pod-credits {
-  color: rgba(255,255,255,.7);
-  font-size: 12px;
-  margin-top: 3px;
-  font-family: var(--font);
-}
-.rn-lb-pod-badge {
-  margin-top: 6px;
+.rn-lb-card-name-you {
   font-size: 11px;
   font-weight: 700;
-  padding: 2px 10px;
-  border-radius: 8px;
-  background: rgba(255,255,255,.13);
+  background: #c2714f;
   color: #fff;
+  padding: 1px 7px;
+  border-radius: 20px;
+}
+.rn-lb-card-rank-sub {
+  font-size: 12px;
+  color: #aaa;
+  margin-top: 2px;
   font-family: var(--font);
+}
+
+.rn-lb-credits-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #2c2720;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 6px 13px;
+  border-radius: 50px;
+  flex-shrink: 0;
+  font-family: var(--font);
+}
+.rn-lb-credits-pill-coin {
+  width: 15px;
+  height: 15px;
 }
 
 /* ─── OPENING ANIMATION OVERLAY ─── */
@@ -18975,73 +19068,145 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
 
   /* ── RENDER ── */
   function renderLeaderboard(rows, container, uid) {
+    var hero = document.getElementById('lb-hero-section');
+    var rankLabel = document.getElementById('lb-rankings-label');
+    var ticker = document.getElementById('lb-update-ticker');
+
     if (!rows || !rows.length) {
+      if (hero) hero.innerHTML = '';
+      if (rankLabel) rankLabel.style.display = 'none';
       container.innerHTML =
         '<div style="text-align:center;padding:64px 0;color:var(--soft);font-size:15px;font-family:var(--font);">' +
         'No leaderboard data yet.<br><span style="font-size:13px;">Start using Rent Nivas to earn credits!</span></div>';
       return;
     }
 
-    var html = '';
-
-    /* ── TOP 3 PODIUM ── */
-    if (rows.length >= 1) {
-      var podOrder  = rows.length >= 3 ? [1,0,2] : rows.length === 2 ? [0,1] : [0];
-      var podSizes  = [52, 72, 46];   // avatar px: [2nd, 1st, 3rd]
-      var podLabels = ['🥈 2nd', '🥇 1st', '🥉 3rd'];
-
-      html += '<div class="rn-lb-podium">';
-      podOrder.forEach(function (origIdx, podPos) {
-        var r = rows[origIdx];
-        if (!r) return;
-        var name    = r.name || r.email || 'User';
-        var initial = (name[0] || 'U').toUpperCase();
-        var isMe    = uid && (r.id === uid || r.userId === uid);
-        var avPx    = podSizes[podPos];
-        var isFirst = origIdx === 0;
-        var crown   = isFirst
-          ? '<img src="/crown.svg" style="width:30px;height:30px;display:block;margin:0 auto 6px;filter:drop-shadow(0 1px 6px rgba(255,210,0,.6));animation:rn-crown-float 2.4s ease-in-out infinite;" alt="Crown">'
-          : '<div style="height:36px;"></div>';
-
-        html += '<div class="rn-lb-pod">';
-        html += crown;
-        html += '<div class="rn-lb-pod-av" style="width:' + avPx + 'px;height:' + avPx + 'px;font-size:' + Math.round(avPx * 0.36) + 'px;">' + esc(initial) + '</div>';
-        html += '<div class="rn-lb-pod-name">' + esc(name.split(' ')[0]) + (isMe ? ' <span style="font-size:10px;background:var(--terra);color:#fff;padding:1px 5px;border-radius:4px;">You</span>' : '') + '</div>';
-        html += '<div class="rn-lb-pod-credits">🪙 ' + (r.credits || 0) + '</div>';
-        html += '<div class="rn-lb-pod-badge">' + podLabels[podPos] + '</div>';
-        html += '</div>';
-      });
-      html += '</div>';
+    /* ── HERO: show the current user if they exist, else #1 ── */
+    var heroRow = null;
+    var heroRank = 1;
+    if (uid) {
+      for (var i = 0; i < rows.length; i++) {
+        if (rows[i].id === uid || rows[i].userId === uid) {
+          heroRow = rows[i];
+          heroRank = i + 1;
+          break;
+        }
+      }
     }
+    if (!heroRow) { heroRow = rows[0]; heroRank = 1; }
 
-    /* ── FULL LIST ── */
+    var heroName    = heroRow.name || heroRow.email || 'User';
+    var heroInitial = (heroName[0] || 'U').toUpperCase();
+    var heroIsMe    = uid && (heroRow.id === uid || heroRow.userId === uid);
+    var heroIsFirst = heroRank === 1;
+
+    /* Badge label based on rank */
+    var heroBadge = heroRank === 1 ? '1' : heroRank === 2 ? '2' : heroRank === 3 ? '3' : heroRank;
+
+    /* Avatar: try to use badge image for top 3, fallback to initial */
+    var heroAvInner = '<span>' + esc(heroInitial) + '</span>';
+
+    var heroHtml = '<div class="rn-lb-hero-av-wrap">';
+    if (heroIsFirst) {
+      heroHtml += '<img src="/crown.svg" class="rn-lb-hero-crown" alt="Crown">';
+    }
+    heroHtml += '<div class="rn-lb-hero-av">' + heroAvInner + '</div>';
+    heroHtml += '<div class="rn-lb-hero-badge-ring">' + heroBadge + '</div>';
+    heroHtml += '</div>';
+    heroHtml += '<div class="rn-lb-hero-name">' + esc(heroName);
+    if (heroIsMe) heroHtml += '<span class="rn-lb-hero-you-tag">You</span>';
+    heroHtml += '</div>';
+    heroHtml += '<div>';
+    heroHtml += '<div class="rn-lb-hero-credits-pill">';
+    heroHtml += '<img src="/coin.svg" class="rn-lb-hero-coin" onerror="this.style.display=\'none\'" alt=""> ';
+    heroHtml += (heroRow.credits || 0) + ' credits';
+    heroHtml += '</div>';
+    heroHtml += '</div>';
+
+    if (hero) hero.innerHTML = heroHtml;
+
+    /* Show rankings label */
+    if (rankLabel) rankLabel.style.display = 'block';
+
+    /* ── FULL LIST (all rows, skip rank #1 hero only if they are the current user) ── */
+    var html = '';
     rows.forEach(function (r, idx) {
       var rank    = idx + 1;
       var name    = r.name || r.email || 'User';
       var initial = (name[0] || 'U').toUpperCase();
       var isMe    = uid && (r.id === uid || r.userId === uid);
       var isFirst = rank === 1;
-      var medal   = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉'
-                  : '<span style="color:var(--soft);font-size:13px;font-weight:700;">' + rank + '</span>';
-      var cls = 'rn-lb-card' + (isMe ? ' rn-lb-card-me' : '');
 
-      html += '<div class="' + cls + '">';
-      html += '<div style="width:32px;text-align:center;font-size:20px;flex-shrink:0;">' + medal + '</div>';
+      /* Rank number display */
+      var rankDisplay;
+      if (rank === 1) rankDisplay = '<span style="font-size:20px;">🥇</span>';
+      else if (rank === 2) rankDisplay = '<span style="font-size:20px;">🥈</span>';
+      else if (rank === 3) rankDisplay = '<span style="font-size:20px;">🥉</span>';
+      else rankDisplay = '<span style="color:#888;font-size:15px;font-weight:700;">' + rank + '</span>';
+
+      html += '<div class="rn-lb-card">';
+      html += '<div class="rn-lb-rank-num">' + rankDisplay + '</div>';
       html += '<div class="rn-lb-av-wrap">';
       if (isFirst) html += '<img src="/crown.svg" class="rn-lb-crown-over" alt="Crown">';
-      html += '<div class="rn-lb-av">' + esc(initial) + '</div>';
+      html += '<div class="rn-lb-av" style="background:' + _lbAvatarColor(rank) + ';">' + esc(initial) + '</div>';
       html += '</div>';
-      html += '<div style="flex:1;min-width:0;">';
-      html += '<div style="color:var(--ink);font-weight:' + (isMe ? '800' : '600') + ';font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">';
-      html += esc(name);
-      if (isMe) html += ' <span style="font-size:10px;background:var(--terra);color:#fff;padding:1px 6px;border-radius:5px;font-weight:700;">You</span>';
+      html += '<div class="rn-lb-card-info">';
+      html += '<div class="rn-lb-card-name">' + esc(name);
+      if (isMe) html += '<span class="rn-lb-card-name-you">You</span>';
       html += '</div>';
+      html += '<div class="rn-lb-card-rank-sub">Rank #' + rank + '</div>';
       html += '</div>';
-      html += '<div style="color:var(--terra);font-weight:800;font-size:15px;flex-shrink:0;">🪙 ' + (r.credits || 0) + '</div>';
+      html += '<div class="rn-lb-credits-pill">';
+      html += '<img src="/coin.svg" class="rn-lb-credits-pill-coin" onerror="this.style.display=\'none\'" alt="">';
+      html += (r.credits || 0);
+      html += '</div>';
       html += '</div>';
     });
 
     container.innerHTML = html;
+
+    /* ── LIVE COUNTDOWN TICKER ── */
+    if (ticker) {
+      ticker.style.display = 'block';
+      _startLbTicker(ticker);
+    }
+  }
+
+  /* Avatar background colours cycling through a small palette */
+  function _lbAvatarColor(rank) {
+    var palette = ['#2c3e60','#1a7a5e','#5c3d8f','#b5450b','#2c6080','#4a3f35'];
+    return palette[(rank - 1) % palette.length];
+  }
+
+  /* ── LIVE UPDATE COUNTDOWN TICKER ── */
+  var _lbTickerInterval = null;
+  function _startLbTicker(el) {
+    if (_lbTickerInterval) clearInterval(_lbTickerInterval);
+    var next = 30; /* seconds until next update */
+    function _render() {
+      var s = next % 60;
+      var m = Math.floor(next / 60);
+      var display = m > 0 ? m + ':' + (s < 10 ? '0' : '') + s : '0:' + (s < 10 ? '0' : '') + s;
+      el.innerHTML = 'Leaderboard will update in <strong>' + display + '</strong>';
+    }
+    _render();
+    _lbTickerInterval = setInterval(function () {
+      next--;
+      if (next < 0) {
+        next = 30;
+        /* silently reload data */
+        var container = document.getElementById('lb-page-content');
+        var uid = (window.user && (window.user.id || window.user.sub)) || null;
+        fetch('/api/leaderboard?limit=300', { headers: _getHeaders() })
+          .then(function (r) { return r.json(); })
+          .then(function (json) {
+            var rows = json.data || json.leaderboard || (Array.isArray(json) ? json : []);
+            if (container) renderLeaderboard(rows, container, uid);
+          })
+          .catch(function () {});
+      }
+      _render();
+    }, 1000);
   }
 
   /* ── CROWN ON SIDEBAR AVATARS ── */
