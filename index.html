@@ -8698,23 +8698,30 @@
       </div>
     </nav>
     <script>
-      (function(){
-        function _rnNavMobileSwap(){
-          var signin=document.getElementById('lp-nav-signin');
-          var tut=document.getElementById('lp-nav-mob-tutorial');
-          if(!signin||!tut)return;
-          if(window.innerWidth<=768){
-            signin.style.setProperty('display','none','important');
-            tut.style.setProperty('display','inline-flex','important');
-          }else{
-            signin.style.removeProperty('display');
-            tut.style.setProperty('display','none','important');
-          }
+      /* Global mobile nav swap — called by DOMContentLoaded, resize, and syncMobNavAuth */
+      window._rnNavMobileSwap=function(){
+        var signin=document.getElementById('lp-nav-signin');
+        var tut=document.getElementById('lp-nav-mob-tutorial');
+        if(!signin||!tut)return;
+        /* Detect logged-in state by checking if Dashboard button is visible */
+        var dash=document.getElementById('lp-nav-dashboard');
+        var loggedIn=dash&&dash.style.display!=='none'&&dash.style.display!=='';
+        if(loggedIn){
+          /* Logged in: hide both Sign In and mob Watch Tutorial */
+          signin.style.setProperty('display','none','important');
+          tut.style.setProperty('display','none','important');
+        }else if(window.innerWidth<=768){
+          /* Mobile + logged out: hide Sign In, show Watch Tutorial */
+          signin.style.setProperty('display','none','important');
+          tut.style.setProperty('display','inline-flex','important');
+        }else{
+          /* Desktop + logged out: show Sign In, hide mob Watch Tutorial */
+          signin.style.removeProperty('display');
+          tut.style.setProperty('display','none','important');
         }
-        document.addEventListener('DOMContentLoaded',_rnNavMobileSwap);
-        window.addEventListener('resize',_rnNavMobileSwap);
-        _rnNavMobileSwap();
-      })();
+      };
+      document.addEventListener('DOMContentLoaded',window._rnNavMobileSwap);
+      window.addEventListener('resize',window._rnNavMobileSwap);
     </script>
     <div class="lp-hero">
       <div class="hero-bg"></div>
@@ -14468,7 +14475,9 @@
           try {
             const cached = JSON.parse(localStorage.getItem('rn_listings_cache') || 'null');
             if (cached && cached.length && grid) {
-              rentAllHouses = cached;
+              // Strip any ghost entries: only show cached houses that have owner_id
+              const validCached = cached.filter(h => h && h.id && h.owner_id);
+              rentAllHouses = validCached;
               renderRentPage(rentAllHouses);
               // Dim stale cache — real data will clear this
               grid.style.opacity = '0.45';
@@ -14481,8 +14490,10 @@
           }
         }
         loadUserPurchases().then(() => updateCreditsBadges()).catch(() => {});
+        // Using profiles!inner ensures houses with deleted owner accounts are excluded
+        // (Supabase inner join — only returns rows that have a matching profiles entry)
         const listResult = await withTimeout(
-          sb.from('houses').select(RENT_BROWSE_COLS).eq('status', 'published').order('created_at', { ascending: false }),
+          sb.from('houses').select(RENT_BROWSE_COLS + ',profiles!inner(id)').eq('status', 'published').order('created_at', { ascending: false }),
           10000,
           'Browse listings timed out. Please try again.'
         );
@@ -14510,8 +14521,9 @@
           failBrowse('No published listings yet. Check back soon or switch to Host to list a property.', false);
           return;
         }
-        rentAllHouses = data;
-        try { localStorage.setItem('rn_listings_cache', JSON.stringify(data)); } catch (_) {}
+        // Strip the profiles join field — it was only used as a filter
+        rentAllHouses = (data || []).map(h => { const c = Object.assign({}, h); delete c.profiles; return c; });
+        try { localStorage.setItem('rn_listings_cache', JSON.stringify(rentAllHouses)); } catch (_) {}
         rentPropFilter = 'all';
         document.querySelectorAll('.prop-filter-chip').forEach(c => c.classList.remove('active'));
         const allChip = document.querySelector('.prop-filter-chip');
@@ -16558,8 +16570,11 @@
           await initDash(session); // session is fresh — DB calls will succeed
         } else {
           // Couldn't get a fresh session after 8s total.
-          // Show landing page so user can log in again (token truly expired/revoked).
-          showPage('landing-page');
+          // Only show landing page if INITIAL_SESSION hasn't already routed to dashboard.
+          const _curActive = document.querySelector('.page.active')?.id;
+          if (!_curActive || _curActive === 'landing-page') {
+            showPage('landing-page');
+          }
         }
         syncMobNavAuth();
         hideBootSplash();
@@ -16641,21 +16656,23 @@
         if (event === 'USER_DELETED') {
           finishLoggedOutState();
         }
-        if (event === 'SIGNED_IN' && session?.user) {
+        if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION' || event === 'TOKEN_REFRESHED') && session?.user) {
           user = session.user;
           await loadCreditsFromDB();
           syncMobNavAuth();
           const banned = await checkUserBan();
           if (banned) return;
           const activePageId = document.querySelector('.page.active')?.id;
-          if (activePageId === 'signup-page' || activePageId === 'login-page') {
+          // Route from any auth/landing page to dashboard (covers new-tab reopen)
+          if (['signup-page', 'login-page', 'landing-page'].includes(activePageId)) {
+            hideBootSplash();
             const savedRole = localStorage.getItem('nestly-role');
             if (savedRole) await selectRole(savedRole);
             else showPage('role-page');
           }
-          // Show streak popup right after a fresh sign-in if a reward is
-          // currently claimable (maybeShowStreakPopup checks that itself).
-          setTimeout(function() { if (window.maybeShowStreakPopup) window.maybeShowStreakPopup(); }, 1400);
+          if (event === 'SIGNED_IN') {
+            setTimeout(function() { if (window.maybeShowStreakPopup) window.maybeShowStreakPopup(); }, 1400);
+          }
         }
       });
     })();
@@ -16983,6 +17000,8 @@
       if (lpSignIn) lpSignIn.style.display = loggedIn ? 'none' : '';
       if (lpGetStarted) lpGetStarted.style.display = loggedIn ? 'none' : '';
       if (lpDashboard) lpDashboard.style.display = loggedIn ? '' : 'none';
+      // Re-apply mobile Watch Tutorial ↔ Sign In swap after every auth update
+      if (typeof window._rnNavMobileSwap === 'function') window._rnNavMobileSwap();
       // Sidebar user name/email display
       const userInfo = document.getElementById('mob-sidebar-userinfo');
       if (userInfo) {
@@ -18124,7 +18143,7 @@
     <!-- Top bar -->
     <div class="lb-topbar">
       <button class="lb-back-btn" onclick="closeLeaderboard()">←</button>
-      <div class="lb-topbar-title">Leaderboard 🏆</div>
+      <div class="lb-topbar-title"></div>
       <div class="lb-topbar-spacer"></div>
     </div>
     <!-- Hero: rank 1 -->
@@ -18213,6 +18232,9 @@ function openLeaderboard(){
     _lbAnimPlayed=true;
     // Disable transition momentarily to prevent flash-to-done state
     if(animScreen){animScreen.style.transition='none';animScreen.classList.remove('lb-anim-done');requestAnimationFrame(function(){animScreen.style.transition='';});}
+    // Force SVG to restart from frame 0 (browser may cache last frame)
+    var _svg=animScreen?animScreen.querySelector('.lb-anim-svg'):null;
+    if(_svg){var _s=_svg.getAttribute('src');_svg.removeAttribute('src');setTimeout(function(){_svg.setAttribute('src',_s);},30);}
     if(page)page.style.opacity='0';
     // Fetch AFTER animation ends so data is ready exactly when page shows
     setTimeout(function(){
@@ -18234,6 +18256,8 @@ function closeLeaderboard(){
   var modal=document.getElementById('rn-leaderboard-modal');
   if(modal)modal.classList.remove('lb-open');
   if(_lbCountdownTimer){clearInterval(_lbCountdownTimer);_lbCountdownTimer=null;}
+  // Reset so animation plays fresh on next open
+  _lbAnimPlayed=false;
 }
 window.closeLeaderboard=closeLeaderboard;
 
@@ -18343,12 +18367,48 @@ function makeAvatarEl(item,size,fontSize){
   return esc(init);
 }
 
+function _rnGetLocalCredits(){
+  // Read current user's credits from the dashboard badge (most accurate local value)
+  try{
+    var badge=document.querySelector('.credits-badge span:last-child,.credits-badge');
+    if(badge){var n=parseInt(badge.textContent);if(!isNaN(n)&&n>0)return n;}
+    var badge2=document.querySelector('.rent-credits-badge');
+    if(badge2){var m=parseInt(badge2.textContent);if(!isNaN(m)&&m>0)return m;}
+  }catch(e){}
+  return null;
+}
+function _rnGetCurrentUserId(){
+  try{
+    var raw=localStorage.getItem('rentnivas-auth');
+    if(!raw)return null;
+    var p=JSON.parse(raw);
+    var token=p.access_token||p.id_token;
+    if(!token)return null;
+    var parts=token.split('.');
+    if(parts.length<2)return null;
+    var pay=JSON.parse(atob(parts[1].replace(/-/g,'+').replace(/_/g,'/')));
+    return pay.sub||null;
+  }catch(e){return null;}
+}
 function renderLeaderboard(){
   if(!_lbData){
     // Trigger fetch if not loaded yet
     var last=parseInt(localStorage.getItem(LB_KEY)||'0',10);
     if(!last){fetchLeaderboard();}
     return;
+  }
+  // Inject current user's local credits so leaderboard matches dashboard
+  var _myId=_rnGetCurrentUserId();
+  var _myCredits=_rnGetLocalCredits();
+  if(_myId&&_myCredits){
+    _lbData=_lbData.map(function(item){
+      if(item.id===_myId&&_myCredits>item.credits){
+        return Object.assign({},item,{credits:_myCredits});
+      }
+      return item;
+    });
+    // Re-sort after potential credits change
+    _lbData.sort(function(a,b){return (b.credits||0)-(a.credits||0);});
   }
   // Always deduplicate and filter anonymous at render time — covers cached and fresh data
   var _rs={};
