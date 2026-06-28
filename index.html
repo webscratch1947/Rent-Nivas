@@ -8651,6 +8651,7 @@
     <script>
       /* Global mobile nav swap — called by DOMContentLoaded, resize, and syncMobNavAuth */
       window._rnNavMobileSwap=function(){
+        if(!window._rnAuthDetermined)return;
         var signin=document.getElementById('lp-nav-signin');
         var tut=document.getElementById('lp-nav-mob-tutorial');
         var gs=document.getElementById('lp-nav-getstarted');
@@ -8924,8 +8925,11 @@
               <label style="margin-bottom:0;">Password</label>
               <span class="forgot-link" onclick="openForgotPasswordModal()">Forgot Password?</span>
             </div>
-            <input type="password" id="login-password" placeholder="••••••••"
-              autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
+            <div style="position:relative;">
+              <input type="password" id="login-password" placeholder="••••••••"
+                autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()" style="padding-right:42px;width:100%;box-sizing:border-box;">
+              <button type="button" onclick="var i=document.getElementById('login-password');i.type=i.type==='password'?'text':'password';this.textContent=i.type==='password'?'👁':'🙈';" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:16px;padding:0;line-height:1;">👁</button>
+            </div>
           </div>
           <button class="btn btn-terra btn-lg btn-full" id="login-btn" onclick="doLogin()">Sign In →</button>
           <p style="text-align:center;margin-top:20px;font-size:15px;color:var(--muted);">New to Rent Nivas? <span
@@ -8970,8 +8974,13 @@
               autocomplete="name" onkeydown="if(event.key==='Enter')doSignup()"></div>
           <div class="fg"><label>Email Address</label><input type="email" id="signup-email"
               placeholder="you@example.com" autocomplete="email" onkeydown="if(event.key==='Enter')doSignup()"></div>
-          <div class="fg"><label>Password</label><input type="password" id="signup-password"
-              placeholder="At least 8 characters (letters &amp; numbers)" autocomplete="new-password" onkeydown="if(event.key==='Enter')doSignup()"></div>
+          <div class="fg"><label>Password</label>
+            <div style="position:relative;">
+              <input type="password" id="signup-password"
+                placeholder="At least 8 characters (letters &amp; numbers)" autocomplete="new-password" onkeydown="if(event.key==='Enter')doSignup()" style="padding-right:42px;width:100%;box-sizing:border-box;">
+              <button type="button" onclick="var i=document.getElementById('signup-password');i.type=i.type==='password'?'text':'password';this.textContent=i.type==='password'?'👁':'🙈';" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:16px;padding:0;line-height:1;">👁</button>
+            </div>
+          </div>
           <div class="fg"><label>Referral Code <span style="font-weight:400;font-size:12px;color:var(--muted);">(Optional)</span></label>
             <input type="text" id="signup-referral-code" maxlength="8" placeholder="e.g. 12345678" autocomplete="off"
               onkeydown="if(event.key==='Enter')doSignup()"
@@ -17005,6 +17014,7 @@
 
     // ══ MOBILE NAV AUTH SYNC ══
     function syncMobNavAuth() {
+      window._rnAuthDetermined = true;
       const loggedIn = (typeof user !== 'undefined' && user !== null);
       // Bottom nav: only show when logged in AND on mobile
       // Uses class toggle — CSS media query controls actual rendering
@@ -17485,13 +17495,19 @@
           <div id="rp-form-fields">
             <div class="fg">
               <label>New Password</label>
-              <input type="password" id="rp-new-pass" placeholder="Min. 6 characters"
+              <div style="position:relative;">
+              <input type="password" id="rp-new-pass" placeholder="Min. 6 characters" style="padding-right:42px;width:100%;box-sizing:border-box;"
                 onkeydown="if(event.key==='Enter')doUpdatePassword()">
+              <button type="button" onclick="var i=document.getElementById('rp-new-pass');i.type=i.type==='password'?'text':'password';this.textContent=i.type==='password'?'👁':'🙈';" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:16px;padding:0;line-height:1;">👁</button>
+              </div>
             </div>
             <div class="fg">
               <label>Confirm Password</label>
-              <input type="password" id="rp-confirm-pass" placeholder="Re-enter your password"
+              <div style="position:relative;">
+              <input type="password" id="rp-confirm-pass" placeholder="Re-enter your password" style="padding-right:42px;width:100%;box-sizing:border-box;"
                 onkeydown="if(event.key==='Enter')doUpdatePassword()">
+              <button type="button" onclick="var i=document.getElementById('rp-confirm-pass');i.type=i.type==='password'?'text':'password';this.textContent=i.type==='password'?'👁':'🙈';" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:16px;padding:0;line-height:1;">👁</button>
+              </div>
             </div>
             <button class="btn btn-terra btn-lg btn-full" id="rp-update-btn" onclick="doUpdatePassword()">Update
               Password →</button>
