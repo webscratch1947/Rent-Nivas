@@ -18685,21 +18685,20 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
 </div>
 
 <!-- ══ LEADERBOARD PAGE ══ -->
-<div class="page" id="leaderboard-page" style="min-height:100vh;background:#f0ece4;font-family:var(--font);">
+<div class="page" id="leaderboard-page" style="min-height:100vh;background:#f0ece4;font-family:var(--font);position:relative;">
 
-  <!-- Back button (top-left, floating) -->
+  <!-- Back button -->
   <div style="position:absolute;top:20px;left:16px;z-index:10;">
     <button onclick="goBackFromLeaderboard()" style="background:#fff;border:none;border-radius:50%;width:38px;height:38px;font-size:18px;color:var(--ink);cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.10);font-family:var(--font);">←</button>
   </div>
 
-  <!-- Hero section (current user #1 spotlight) -->
-  <div id="lb-hero-section" style="padding:56px 16px 28px;text-align:center;"></div>
+  <!-- Hero: spotlight the #1 user (or logged-in user) -->
+  <div id="lb-hero-section" style="padding:60px 16px 28px;text-align:center;"></div>
 
-  <!-- Rankings list -->
-  <div style="background:#fff;border-radius:28px 28px 0 0;min-height:60vh;padding:28px 16px 80px;">
+  <!-- Rankings white sheet -->
+  <div style="background:#fff;border-radius:28px 28px 0 0;min-height:60vh;padding:24px 16px 80px;">
     <div id="lb-rankings-label" style="display:none;font-size:11px;font-weight:700;letter-spacing:0.12em;color:#aaa;margin-bottom:14px;text-transform:uppercase;padding:0 4px;">Rankings</div>
     <div id="lb-page-content" style="min-height:200px;"></div>
-    <!-- Live update ticker -->
     <div id="lb-update-ticker" style="display:none;text-align:center;margin-top:24px;font-size:12px;color:#aaa;font-family:var(--font);"></div>
   </div>
 
@@ -18723,16 +18722,23 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
   50%      { transform: translateY(-5px) rotate(5deg); }
 }
 
-/* ─── LEADERBOARD PAGE LAYOUT ─── */
-#leaderboard-page {
-  position: relative;
-}
-
-/* ─── HERO: #1 USER SPOTLIGHT ─── */
+/* ─── HERO AVATAR ─── */
 .rn-lb-hero-av-wrap {
   position: relative;
   display: inline-block;
-  margin-bottom: 14px;
+  margin: 0 auto 14px;
+}
+/* Crown sits centered above the avatar */
+.rn-lb-hero-crown {
+  position: absolute;
+  top: -28px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 38px;
+  height: 38px;
+  filter: drop-shadow(0 2px 8px rgba(200,160,0,.6));
+  animation: rn-crown-float 2.4s ease-in-out infinite;
+  pointer-events: none;
 }
 .rn-lb-hero-av {
   width: 96px;
@@ -18755,34 +18761,25 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
   height: 100%;
   object-fit: cover;
   border-radius: 50%;
+  display: block;
 }
+/* Rank badge (bottom-right of avatar) */
 .rn-lb-hero-badge-ring {
   position: absolute;
-  bottom: -6px;
-  right: -6px;
-  width: 30px;
-  height: 30px;
+  bottom: -4px;
+  right: -4px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   background: #ffd700;
   border: 3px solid #f0ece4;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 900;
   color: #6b4e1a;
   box-shadow: 0 2px 6px rgba(0,0,0,.18);
-}
-.rn-lb-hero-crown {
-  position: absolute;
-  top: -22px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 42px;
-  height: 42px;
-  filter: drop-shadow(0 2px 8px rgba(200,160,0,.6));
-  animation: rn-crown-float 2.4s ease-in-out infinite;
-  pointer-events: none;
 }
 .rn-lb-hero-name {
   font-size: 20px;
@@ -18802,7 +18799,6 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
   color: #fff;
   padding: 2px 9px;
   border-radius: 20px;
-  letter-spacing: 0.02em;
 }
 .rn-lb-hero-credits-pill {
   display: inline-flex;
@@ -18812,32 +18808,22 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
   color: #fff;
   font-size: 14px;
   font-weight: 700;
-  padding: 8px 20px;
+  padding: 8px 22px;
   border-radius: 50px;
   margin-top: 10px;
   font-family: var(--font);
 }
-.rn-lb-hero-coin {
-  width: 18px;
-  height: 18px;
-}
 
-/* ─── LEADERBOARD RANK CARDS ─── */
+/* ─── LIST CARDS ─── */
 .rn-lb-card {
-  background: #fff;
-  border: none;
-  border-bottom: 1px solid #f0ece4;
-  border-radius: 0;
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 13px 4px;
-  transition: background 0.15s;
+  gap: 13px;
+  padding: 12px 4px;
+  border-bottom: 1px solid #f3f0eb;
   font-family: var(--font);
 }
 .rn-lb-card:last-child { border-bottom: none; }
-.rn-lb-card:active { background: #faf8f5; }
-
 .rn-lb-rank-num {
   width: 28px;
   text-align: center;
@@ -18845,9 +18831,24 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
   font-weight: 700;
   color: #888;
   flex-shrink: 0;
-  font-family: var(--font);
 }
-
+.rn-lb-av-wrap {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+}
+/* Crown above list avatar (only for rank 1) */
+.rn-lb-crown-over {
+  position: absolute;
+  top: -14px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 20px;
+  height: 20px;
+  filter: drop-shadow(0 1px 4px rgba(200,160,0,.5));
+  animation: rn-crown-float 2.4s ease-in-out infinite;
+  pointer-events: none;
+}
 .rn-lb-av {
   width: 46px;
   height: 46px;
@@ -18856,29 +18857,19 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
   color: #fff;
   font-weight: 800;
   font-size: 18px;
-  display: inline-flex;
+  display: flex;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
+  overflow: hidden;
   font-family: var(--font);
 }
-.rn-lb-av-wrap {
-  position: relative;
-  display: inline-flex;
-  flex-shrink: 0;
+.rn-lb-av img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+  display: block;
 }
-.rn-lb-crown-over {
-  position: absolute;
-  top: -14px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 22px;
-  height: 22px;
-  filter: drop-shadow(0 1px 6px rgba(200,160,0,.5));
-  animation: rn-crown-float 2.4s ease-in-out infinite;
-  pointer-events: none;
-}
-
 .rn-lb-card-info { flex: 1; min-width: 0; }
 .rn-lb-card-name {
   font-size: 15px;
@@ -18886,24 +18877,27 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
   color: #18150f;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   font-family: var(--font);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .rn-lb-card-name-you {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
   background: #c2714f;
   color: #fff;
   padding: 1px 7px;
   border-radius: 20px;
+  flex-shrink: 0;
 }
-.rn-lb-card-rank-sub {
+.rn-lb-card-sub {
   font-size: 12px;
   color: #aaa;
   margin-top: 2px;
   font-family: var(--font);
 }
-
 .rn-lb-credits-pill {
   display: inline-flex;
   align-items: center;
@@ -18912,34 +18906,30 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
   color: #fff;
   font-size: 13px;
   font-weight: 700;
-  padding: 6px 13px;
+  padding: 6px 14px;
   border-radius: 50px;
   flex-shrink: 0;
   font-family: var(--font);
 }
-.rn-lb-credits-pill-coin {
-  width: 15px;
-  height: 15px;
+.rn-lb-coin-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #f5a623;
+  display: inline-block;
+  flex-shrink: 0;
 }
 
 /* ─── OPENING ANIMATION OVERLAY ─── */
 #lb-anim-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 99999;
+  position: fixed; inset: 0; z-index: 99999;
   background: var(--bg, #faf8f5);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
   transition: opacity 0.6s ease;
 }
-#lb-anim-overlay.lb-fade-out {
-  opacity: 0;
-  pointer-events: none;
-}
+#lb-anim-overlay.lb-fade-out { opacity: 0; pointer-events: none; }
 
-/* ─── CREDITS PROMPT ─── */
 @keyframes rn-prompt-bounce {
   from { transform: scale(0.7); opacity: 0; }
   to   { transform: scale(1); opacity: 1; }
@@ -18971,13 +18961,13 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
   /* ── STATE ── */
   var _lbPrevPage = null;
   var _lbLoading  = false;
+  var _lbTickerInterval = null;
 
-  /* ── SHOW LEADERBOARD: play animation FIRST, then switch page ── */
+  /* ── SHOW LEADERBOARD ── */
   window.showLeaderboard = function () {
     var pages = document.querySelectorAll('.page.active');
     _lbPrevPage = pages.length ? pages[0].id : 'host-dashboard';
 
-    // Create and show the animation overlay (site bg colour, leaderboard.svg)
     var existing = document.getElementById('lb-anim-overlay');
     if (existing) existing.remove();
 
@@ -18988,24 +18978,21 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
       '<div style="margin-top:20px;font-size:20px;font-weight:800;color:var(--ink);font-family:var(--font);opacity:0;transition:opacity 0.4s;" id="lb-anim-label">Leaderboard 🏆</div>';
     document.body.appendChild(overlay);
 
-    // Fade in the label after 0.5s
     setTimeout(function () {
       var lbl = document.getElementById('lb-anim-label');
       if (lbl) lbl.style.opacity = '1';
     }, 500);
 
-    // The SVG animation is ~3.87s — wait for it to fully finish, then switch page
     setTimeout(function () {
       overlay.classList.add('lb-fade-out');
-      // Switch to leaderboard page while overlay fades
       if (typeof window.showPage === 'function') window.showPage('leaderboard-page');
       loadLeaderboardPage();
-      // Remove overlay from DOM after fade completes
       setTimeout(function () { overlay.remove(); }, 700);
     }, 3900);
   };
 
   window.goBackFromLeaderboard = function () {
+    if (_lbTickerInterval) { clearInterval(_lbTickerInterval); _lbTickerInterval = null; }
     var target = _lbPrevPage || 'host-dashboard';
     if (typeof window.showPage === 'function') window.showPage(target);
     try {
@@ -19016,18 +19003,15 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
 
   /* ── AUTH HEADERS ── */
   function _getHeaders() {
-    var h = {};
-    try {
-      if (typeof getAuthHeaders === 'function') return getAuthHeaders();
-    } catch (e) {}
+    try { if (typeof getAuthHeaders === 'function') return getAuthHeaders(); } catch (e) {}
     try {
       var raw = localStorage.getItem('rentnivas-auth');
       if (raw) {
         var s = JSON.parse(raw);
-        if (s.id_token || s.access_token) h['Authorization'] = 'Bearer ' + (s.id_token || s.access_token);
+        if (s.id_token || s.access_token) return { 'Authorization': 'Bearer ' + (s.id_token || s.access_token) };
       }
     } catch (e) {}
-    return h;
+    return {};
   }
 
   /* ── LOAD DATA ── */
@@ -19035,14 +19019,21 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
     if (_lbLoading) return;
     _lbLoading = true;
     var container = document.getElementById('lb-page-content');
+    var hero      = document.getElementById('lb-hero-section');
+    var rankLabel = document.getElementById('lb-rankings-label');
+    var ticker    = document.getElementById('lb-update-ticker');
     if (!container) { _lbLoading = false; return; }
+
+    /* Reset hero while loading */
+    if (hero) hero.innerHTML = '<div style="height:160px;"></div>';
+    if (rankLabel) rankLabel.style.display = 'none';
+    if (ticker) ticker.style.display = 'none';
     container.innerHTML = '<div style="text-align:center;padding:64px 0;color:var(--soft);font-size:15px;font-family:var(--font);">Loading…</div>';
 
     fetch('/api/leaderboard?limit=300', { headers: _getHeaders() })
       .then(function (r) { return r.json(); })
       .then(function (json) {
         _lbLoading = false;
-        /* API returns { data: [...] } */
         var rows = json.data || json.leaderboard || (Array.isArray(json) ? json : []);
         var uid  = (window.user && (window.user.id || window.user.sub)) || null;
         renderLeaderboard(rows, container, uid);
@@ -19066,152 +19057,156 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
     return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 
+  /* ── DISPLAY NAME: never show raw "User" for blank names ── */
+  function displayName(row) {
+    var n = (row.name || '').trim();
+    if (!n || n.toLowerCase() === 'user') {
+      /* fall back to first part of email */
+      var em = (row.email || '').trim();
+      if (em) return em.split('@')[0];
+      return 'Anonymous';
+    }
+    return n;
+  }
+
+  /* ── AVATAR HTML: show profile picture if available, else initial ── */
+  function avatarInner(row, cssClass) {
+    var name = displayName(row);
+    var initial = (name[0] || '?').toUpperCase();
+    if (row.avatar_url) {
+      return '<img src="' + esc(row.avatar_url) + '" alt="' + esc(initial) + '" ' +
+             'onerror="this.style.display=\'none\';this.parentElement.setAttribute(\'data-fb\',\'1\');this.parentElement.textContent=\'' + esc(initial) + '\';">';
+    }
+    return esc(initial);
+  }
+
+  /* ── AVATAR BACKGROUND COLORS ── */
+  var _avPalette = ['#2c3e60','#1a7a5e','#5c3d8f','#b5450b','#2c6080','#4a3f35','#1a6b7a','#7a4a1a'];
+  function avColor(rank) { return _avPalette[(rank - 1) % _avPalette.length]; }
+
   /* ── RENDER ── */
   function renderLeaderboard(rows, container, uid) {
-    var hero = document.getElementById('lb-hero-section');
+    var hero      = document.getElementById('lb-hero-section');
     var rankLabel = document.getElementById('lb-rankings-label');
-    var ticker = document.getElementById('lb-update-ticker');
+    var ticker    = document.getElementById('lb-update-ticker');
 
     if (!rows || !rows.length) {
       if (hero) hero.innerHTML = '';
-      if (rankLabel) rankLabel.style.display = 'none';
       container.innerHTML =
         '<div style="text-align:center;padding:64px 0;color:var(--soft);font-size:15px;font-family:var(--font);">' +
         'No leaderboard data yet.<br><span style="font-size:13px;">Start using Rent Nivas to earn credits!</span></div>';
       return;
     }
 
-    /* ── HERO: show the current user if they exist, else #1 ── */
-    var heroRow = null;
-    var heroRank = 1;
-    if (uid) {
-      for (var i = 0; i < rows.length; i++) {
-        if (rows[i].id === uid || rows[i].userId === uid) {
-          heroRow = rows[i];
-          heroRank = i + 1;
-          break;
-        }
-      }
-    }
-    if (!heroRow) { heroRow = rows[0]; heroRank = 1; }
-
-    var heroName    = heroRow.name || heroRow.email || 'User';
-    var heroInitial = (heroName[0] || 'U').toUpperCase();
-    var heroIsMe    = uid && (heroRow.id === uid || heroRow.userId === uid);
-    var heroIsFirst = heroRank === 1;
-
-    /* Badge label based on rank */
-    var heroBadge = heroRank === 1 ? '1' : heroRank === 2 ? '2' : heroRank === 3 ? '3' : heroRank;
-
-    /* Avatar: try to use badge image for top 3, fallback to initial */
-    var heroAvInner = '<span>' + esc(heroInitial) + '</span>';
+    /* ── HERO: show the #1 user always ── */
+    var top    = rows[0];
+    var topName = displayName(top);
+    var topInitial = (topName[0] || '?').toUpperCase();
+    var topIsMe = uid && (top.id === uid || top.userId === uid);
 
     var heroHtml = '<div class="rn-lb-hero-av-wrap">';
-    if (heroIsFirst) {
-      heroHtml += '<img src="/crown.svg" class="rn-lb-hero-crown" alt="Crown">';
+    heroHtml += '<img src="/crown.svg" class="rn-lb-hero-crown" alt="Crown">';
+    heroHtml += '<div class="rn-lb-hero-av">';
+    if (top.avatar_url) {
+      heroHtml += '<img src="' + esc(top.avatar_url) + '" alt="' + esc(topInitial) + '" ' +
+                  'onerror="this.style.display=\'none\';this.parentElement.textContent=\'' + esc(topInitial) + '\';">';
+    } else {
+      heroHtml += esc(topInitial);
     }
-    heroHtml += '<div class="rn-lb-hero-av">' + heroAvInner + '</div>';
-    heroHtml += '<div class="rn-lb-hero-badge-ring">' + heroBadge + '</div>';
     heroHtml += '</div>';
-    heroHtml += '<div class="rn-lb-hero-name">' + esc(heroName);
-    if (heroIsMe) heroHtml += '<span class="rn-lb-hero-you-tag">You</span>';
+    heroHtml += '<div class="rn-lb-hero-badge-ring">1</div>';
     heroHtml += '</div>';
-    heroHtml += '<div>';
-    heroHtml += '<div class="rn-lb-hero-credits-pill">';
-    heroHtml += '<img src="/coin.svg" class="rn-lb-hero-coin" onerror="this.style.display=\'none\'" alt=""> ';
-    heroHtml += (heroRow.credits || 0) + ' credits';
+    heroHtml += '<div class="rn-lb-hero-name">' + esc(topName);
+    if (topIsMe) heroHtml += '<span class="rn-lb-hero-you-tag">You</span>';
     heroHtml += '</div>';
-    heroHtml += '</div>';
+    heroHtml += '<div><div class="rn-lb-hero-credits-pill">';
+    heroHtml += '<span class="rn-lb-coin-dot" style="width:14px;height:14px;background:#f5a623;border-radius:50%;display:inline-block;flex-shrink:0;"></span> ';
+    heroHtml += (top.credits || 0) + ' credits';
+    heroHtml += '</div></div>';
 
     if (hero) hero.innerHTML = heroHtml;
-
-    /* Show rankings label */
     if (rankLabel) rankLabel.style.display = 'block';
 
-    /* ── FULL LIST (all rows, skip rank #1 hero only if they are the current user) ── */
+    /* ── FULL LIST: skip rank #1 if they are the logged-in user ── */
     var html = '';
     rows.forEach(function (r, idx) {
       var rank    = idx + 1;
-      var name    = r.name || r.email || 'User';
-      var initial = (name[0] || 'U').toUpperCase();
       var isMe    = uid && (r.id === uid || r.userId === uid);
       var isFirst = rank === 1;
 
-      /* Rank number display */
+      /* If this is the current user AND they are rank 1, skip — already in hero */
+      if (isFirst && isMe) return;
+
+      var name    = displayName(r);
+      var initial = (name[0] || '?').toUpperCase();
+
+      /* Rank display */
       var rankDisplay;
-      if (rank === 1) rankDisplay = '<span style="font-size:20px;">🥇</span>';
-      else if (rank === 2) rankDisplay = '<span style="font-size:20px;">🥈</span>';
-      else if (rank === 3) rankDisplay = '<span style="font-size:20px;">🥉</span>';
-      else rankDisplay = '<span style="color:#888;font-size:15px;font-weight:700;">' + rank + '</span>';
+      if (rank === 1)      rankDisplay = '<img src="/crown.svg" style="width:20px;height:20px;vertical-align:middle;filter:drop-shadow(0 1px 3px rgba(200,160,0,.5));" alt="👑">';
+      else if (rank === 2) rankDisplay = '<span style="font-size:18px;">🥈</span>';
+      else if (rank === 3) rankDisplay = '<span style="font-size:18px;">🥉</span>';
+      else                 rankDisplay = '<span style="color:#888;font-size:14px;font-weight:700;">' + rank + '</span>';
 
       html += '<div class="rn-lb-card">';
       html += '<div class="rn-lb-rank-num">' + rankDisplay + '</div>';
       html += '<div class="rn-lb-av-wrap">';
       if (isFirst) html += '<img src="/crown.svg" class="rn-lb-crown-over" alt="Crown">';
-      html += '<div class="rn-lb-av" style="background:' + _lbAvatarColor(rank) + ';">' + esc(initial) + '</div>';
-      html += '</div>';
+      html += '<div class="rn-lb-av" style="background:' + avColor(rank) + ';">';
+      if (r.avatar_url) {
+        html += '<img src="' + esc(r.avatar_url) + '" alt="' + esc(initial) + '" ' +
+                'onerror="this.style.display=\'none\';this.parentElement.textContent=\'' + esc(initial) + '\';">';
+      } else {
+        html += esc(initial);
+      }
+      html += '</div></div>';
       html += '<div class="rn-lb-card-info">';
       html += '<div class="rn-lb-card-name">' + esc(name);
       if (isMe) html += '<span class="rn-lb-card-name-you">You</span>';
       html += '</div>';
-      html += '<div class="rn-lb-card-rank-sub">Rank #' + rank + '</div>';
+      html += '<div class="rn-lb-card-sub">Rank #' + rank + '</div>';
       html += '</div>';
-      html += '<div class="rn-lb-credits-pill">';
-      html += '<img src="/coin.svg" class="rn-lb-credits-pill-coin" onerror="this.style.display=\'none\'" alt="">';
-      html += (r.credits || 0);
-      html += '</div>';
+      html += '<div class="rn-lb-credits-pill"><span class="rn-lb-coin-dot"></span>' + (r.credits || 0) + '</div>';
       html += '</div>';
     });
 
-    container.innerHTML = html;
+    container.innerHTML = html || '<div style="text-align:center;padding:40px 0;color:var(--soft);font-size:14px;">You\'re #1 — no one else yet!</div>';
 
     /* ── LIVE COUNTDOWN TICKER ── */
     if (ticker) {
       ticker.style.display = 'block';
-      _startLbTicker(ticker);
+      _startTicker(ticker, rows, container, uid);
     }
   }
 
-  /* Avatar background colours cycling through a small palette */
-  function _lbAvatarColor(rank) {
-    var palette = ['#2c3e60','#1a7a5e','#5c3d8f','#b5450b','#2c6080','#4a3f35'];
-    return palette[(rank - 1) % palette.length];
-  }
-
-  /* ── LIVE UPDATE COUNTDOWN TICKER ── */
-  var _lbTickerInterval = null;
-  function _startLbTicker(el) {
+  /* ── COUNTDOWN TICKER ── */
+  function _startTicker(el, _rows, container, uid) {
     if (_lbTickerInterval) clearInterval(_lbTickerInterval);
-    var next = 30; /* seconds until next update */
-    function _render() {
-      var s = next % 60;
-      var m = Math.floor(next / 60);
-      var display = m > 0 ? m + ':' + (s < 10 ? '0' : '') + s : '0:' + (s < 10 ? '0' : '') + s;
-      el.innerHTML = 'Leaderboard will update in <strong>' + display + '</strong>';
-    }
-    _render();
+    var secs = 30;
+    function _fmt(n) { return '0:' + (n < 10 ? '0' : '') + n; }
+    function _draw() { el.innerHTML = 'Leaderboard will update in <strong>' + _fmt(secs) + '</strong>'; }
+    _draw();
     _lbTickerInterval = setInterval(function () {
-      next--;
-      if (next < 0) {
-        next = 30;
-        /* silently reload data */
-        var container = document.getElementById('lb-page-content');
-        var uid = (window.user && (window.user.id || window.user.sub)) || null;
+      secs--;
+      if (secs < 0) {
+        secs = 30;
         fetch('/api/leaderboard?limit=300', { headers: _getHeaders() })
           .then(function (r) { return r.json(); })
           .then(function (json) {
-            var rows = json.data || json.leaderboard || (Array.isArray(json) ? json : []);
-            if (container) renderLeaderboard(rows, container, uid);
+            var rows2 = json.data || json.leaderboard || (Array.isArray(json) ? json : []);
+            var uid2  = (window.user && (window.user.id || window.user.sub)) || null;
+            renderLeaderboard(rows2, container, uid2);
+            if (rows2.length > 0) _rnApplyCrownToTopUser(rows2[0].id || rows2[0].userId, uid2);
           })
           .catch(function () {});
+        return;
       }
-      _render();
+      _draw();
     }, 1000);
   }
 
   /* ── CROWN ON SIDEBAR AVATARS ── */
   function _rnApplyCrownToTopUser(topId, uid) {
-    var isTop = topId && uid && (topId === uid);
+    var isTop = !!(topId && uid && (topId === uid));
     var hc = document.getElementById('host-crown-badge');
     var rc = document.getElementById('rent-crown-badge');
     if (hc) hc.style.display = isTop ? 'block' : 'none';
