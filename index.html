@@ -13067,10 +13067,10 @@
     // listing can briefly flash back up from that stale cache.
     function purgeHouseFromLocalCache(houseId) {
       try {
-        const cached = JSON.parse(localStorage.getItem('rn_listings_cache') || 'null');
+        const cached = JSON.parse(localStorage.getItem('rn_listings_cache_v2') || 'null');
         if (Array.isArray(cached)) {
           const next = cached.filter(h => h.id !== houseId);
-          localStorage.setItem('rn_listings_cache', JSON.stringify(next));
+          localStorage.setItem('rn_listings_cache_v2', JSON.stringify(next));
         }
       } catch (_) { /* cache is best-effort, ignore failures */ }
     }
@@ -14475,7 +14475,7 @@
           renderRentPage(rentAllHouses);
         } else {
           try {
-            const cached = JSON.parse(localStorage.getItem('rn_listings_cache') || 'null');
+            const cached = JSON.parse(localStorage.getItem('rn_listings_cache_v2') || 'null');
             if (cached && cached.length && grid) {
               // Strip any ghost entries: only show cached houses that have owner_id
               const validCached = cached.filter(h => h && h.id && h.owner_id);
@@ -14522,7 +14522,7 @@
           return;
         }
         rentAllHouses = data;
-        try { localStorage.setItem('rn_listings_cache', JSON.stringify(data)); } catch (_) {}
+        try { localStorage.setItem('rn_listings_cache_v2', JSON.stringify(data)); } catch (_) {}
         rentPropFilter = 'all';
         document.querySelectorAll('.prop-filter-chip').forEach(c => c.classList.remove('active'));
         const allChip = document.querySelector('.prop-filter-chip');
@@ -18245,9 +18245,9 @@ function openLeaderboard(){
     _lbAnimPlayed=true;
     // Disable transition momentarily to prevent flash-to-done state
     if(animScreen){animScreen.style.transition='none';animScreen.classList.remove('lb-anim-done');requestAnimationFrame(function(){animScreen.style.transition='';});}
-    // Force SVG to restart from frame 0 (browser may cache last frame)
+    // Clone the img node to restart animation from frame 0 without re-fetching
     var _svg=animScreen?animScreen.querySelector('.lb-anim-svg'):null;
-    if(_svg){var _s=_svg.getAttribute('src');_svg.removeAttribute('src');setTimeout(function(){_svg.setAttribute('src',_s);},30);}
+    if(_svg&&_svg.parentNode){var _clone=_svg.cloneNode(true);_svg.parentNode.replaceChild(_clone,_svg);}
     if(page)page.style.opacity='0';
     // Fetch AFTER animation ends so data is ready exactly when page shows
     setTimeout(function(){
