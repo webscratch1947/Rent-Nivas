@@ -8715,10 +8715,10 @@
           tut.style.setProperty('display','none','important');
           if(gs)gs.style.setProperty('display','none','important');
         }else if(window.innerWidth<=768){
-          /* Mobile + logged out: hide Sign In & Get Started, show Watch Tutorial */
+          /* Mobile + logged out: hide Sign In, show Watch Tutorial + keep Get Started */
           signin.style.setProperty('display','none','important');
           tut.style.setProperty('display','inline-flex','important');
-          if(gs)gs.style.setProperty('display','none','important');
+          if(gs)gs.style.removeProperty('display');
         }else{
           /* Desktop + logged out: show Sign In & Get Started, hide mob Watch Tutorial */
           signin.style.removeProperty('display');
@@ -18845,7 +18845,9 @@ var T={
     var s=this,a=document.getElementById('rn-tut-audio');if(!a)return;
     var _lf=s.lang==='hi'?'hindi':'english';
     var _lc=s.lang==='hi'?'hi':'en';
-    a.src='/'+_lf+'/step'+(s.step+1)+'-'+_lc+'.mp3';
+    var _role=localStorage.getItem('nestly-role');
+    var _src=(_role==='rent')?('/'+_lf+'/rent-welcome-'+_lc+'.mp3'):('/'+_lf+'/step'+(s.step+1)+'-'+_lc+'.mp3');
+    a.src=_src;
     a.load();
     var p=a.play();
     if(p&&p.then)p.then(function(){s.isPlaying=true;s.updPB();}).catch(function(){s.isPlaying=false;s.updPB();if(s.step===0){var nx=document.getElementById('rn-tut-next');if(nx)nx.classList.add('rn-show');}});
@@ -18859,8 +18861,9 @@ var T={
     }else{
       var _lf=s.lang==='hi'?'hindi':'english';
       var _lc=s.lang==='hi'?'hi':'en';
-      var expectedSrc='/'+_lf+'/step'+(s.step+1)+'-'+_lc+'.mp3';
-      if(!a.src||a.src.indexOf('step'+(s.step+1)+'-'+_lc)<0){
+      var _role2=localStorage.getItem('nestly-role');
+      var expectedSrc=(_role2==='rent')?('/'+_lf+'/rent-welcome-'+_lc+'.mp3'):('/'+_lf+'/step'+(s.step+1)+'-'+_lc+'.mp3');
+      if(!a.src||a.src.indexOf((_role2==='rent')?('rent-welcome-'+_lc):('step'+(s.step+1)+'-'+_lc))<0){
         a.src=expectedSrc;a.load();
       }
       a.play().then(function(){s.isPlaying=true;s.updPB();}).catch(function(){s.isPlaying=false;s.updPB();});
