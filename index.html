@@ -3134,7 +3134,7 @@
       position: fixed;
       bottom: 28px;
       right: 28px;
-      z-index: 2000;
+      z-index: 100000;
       display: flex;
       flex-direction: column;
       gap: 10px;
@@ -5245,10 +5245,6 @@
       .lp-nav-right {
         display: flex !important;
       }
-
-      /* Mobile: swap Sign In for Watch Tutorial */
-      #lp-nav-signin { display: none !important; }
-      #lp-nav-mob-tutorial { display: inline-flex !important; }
 
       /* ══ LANDING — HERO ══ */
       .lp-hero {
@@ -8701,6 +8697,25 @@
         <button class="btn btn-terra btn-sm" id="lp-nav-dashboard" style="display:none;" onclick="goToDashboard()">Dashboard →</button>
       </div>
     </nav>
+    <script>
+      (function(){
+        function _rnNavMobileSwap(){
+          var signin=document.getElementById('lp-nav-signin');
+          var tut=document.getElementById('lp-nav-mob-tutorial');
+          if(!signin||!tut)return;
+          if(window.innerWidth<=768){
+            signin.style.setProperty('display','none','important');
+            tut.style.setProperty('display','inline-flex','important');
+          }else{
+            signin.style.removeProperty('display');
+            tut.style.setProperty('display','none','important');
+          }
+        }
+        document.addEventListener('DOMContentLoaded',_rnNavMobileSwap);
+        window.addEventListener('resize',_rnNavMobileSwap);
+        _rnNavMobileSwap();
+      })();
+    </script>
     <div class="lp-hero">
       <div class="hero-bg"></div>
       <div class="hero-content">
@@ -17566,8 +17581,9 @@
         .then(function(txt){
           // Play once, freeze on last frame (prevents disappear bug)
           _rnCoinsSvgText = txt
-            .replace(/repeatCount="indefinite"/g, 'repeatCount="1"')
-            .replace(/fill="remove"/g, 'fill="freeze"');
+            .replace(/repeatCount="indefinite"/g, 'repeatCount="1" fill="freeze"')
+            .replace(/\sfill="remove"/g, ' fill="freeze"')
+            .replace(/(<(?:animate|animateTransform|animateMotion|set)(?![^>]*\sfill=)[^>]*?)(\/?>)/g, '$1 fill="freeze"$2');
         })
         .catch(function(){});
 
@@ -17613,8 +17629,9 @@
               .then(function(r){ return r.text(); })
               .then(function(txt){
                 var once = txt
-                  .replace(/repeatCount="indefinite"/g, 'repeatCount="1"')
-                  .replace(/fill="remove"/g, 'fill="freeze"');
+                  .replace(/repeatCount="indefinite"/g, 'repeatCount="1" fill="freeze"')
+                  .replace(/\sfill="remove"/g, ' fill="freeze"')
+                  .replace(/(<(?:animate|animateTransform|animateMotion|set)(?![^>]*\sfill=)[^>]*?)(\/?>)/g, '$1 fill="freeze"$2');
                 wrap.innerHTML = once;
                 var svg = wrap.querySelector('svg');
                 if (svg) { svg.style.width='100%'; svg.style.height='100%'; }
@@ -18187,21 +18204,25 @@ function openLeaderboard(){
   modal.classList.add('lb-open');
   var animScreen=document.getElementById('lb-anim-screen');
   var page=document.getElementById('lb-page');
-  // Always force a fresh fetch when opening so credits are never stale
+  // Clear BOTH cache keys to force truly fresh data (fixes stale credits)
   if(_lbFetchTimer){clearTimeout(_lbFetchTimer);_lbFetchTimer=null;}
   localStorage.removeItem('rn-lb-last-fetch');
+  localStorage.removeItem('rn-lb-data');
+  _lbData=null;
   if(!_lbAnimPlayed){
     _lbAnimPlayed=true;
-    if(animScreen)animScreen.classList.remove('lb-anim-done');
+    // Disable transition momentarily to prevent flash-to-done state
+    if(animScreen){animScreen.style.transition='none';animScreen.classList.remove('lb-anim-done');requestAnimationFrame(function(){animScreen.style.transition='';});}
     if(page)page.style.opacity='0';
-    fetchLeaderboard();
+    // Fetch AFTER animation ends so data is ready exactly when page shows
     setTimeout(function(){
+      fetchLeaderboard();
       if(animScreen)animScreen.classList.add('lb-anim-done');
       if(page)page.style.opacity='1';
-      renderLeaderboard();
-    },2200);
+    },2000);
   } else {
-    if(animScreen)animScreen.classList.add('lb-anim-done');
+    // Re-open: no animation, just show fresh data
+    if(animScreen){animScreen.style.transition='none';animScreen.classList.add('lb-anim-done');requestAnimationFrame(function(){animScreen.style.transition='';});}
     if(page)page.style.opacity='1';
     fetchLeaderboard();
   }
@@ -18479,8 +18500,8 @@ var T={
     if(this.isLoggedIn())return;
     var ov=document.getElementById('rn-tutorial');
     if(!ov)return;
-    // If user already skipped or finished, never auto-start again
-    if(localStorage.getItem('rn-tutorial-done'))return;
+    // Never auto-start if user has already started or finished the tutorial
+    if(localStorage.getItem('rn-tutorial-started')||localStorage.getItem('rn-tutorial-done'))return;
     // Track that tutorial has been started; only mark done when finished or skipped.
     localStorage.setItem('rn-tutorial-started','1');
     ov.classList.remove('rn-hidden');
