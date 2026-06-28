@@ -38,19 +38,39 @@ module.exports = async function handler(req, res) {
 
     try {
       const profiles = await ddb.send(new ScanCommand({ TableName: process.env.TABLE_USERS || 'Users' }));
-      const byId = new Map((profiles.Items || []).map(item => {
-        const p = unmarshall(item);
-        // The Users table's real partition key is "userId" — older rows
-        // (migrated before that was discovered) may still carry a legacy
-        // "id" attribute instead. Accept either so every account merges.
-        const key = p.userId || p.id;
-        return [String(key), p];
-      }));
+      const allProfiles = (profiles.Items || []).map(item => unmarshall(item));
+
+      // Build TWO lookup maps: by userId/id AND by email
+      // This is critical for migrated accounts where the DynamoDB userId
+      // (old Supabase UUID) differs from the Cognito sub.
+      // Without email-based fallback, admin sees wrong credits and
+      // "Edit Credits" creates a ghost row keyed by the Cognito sub.
+      const byId    = new Map();
+      const byEmail = new Map();
+      for (const p of allProfiles) {
+        const key = String(p.userId || p.id || '');
+        if (key) byId.set(key, p);
+        const em = String(p.email || '').toLowerCase().trim();
+        if (em) {
+          // If multiple rows share the same email, prefer the one with higher credits
+          const existing = byEmail.get(em);
+          if (!existing || (parseFloat(p.credits) || 0) > (parseFloat(existing.credits) || 0)) {
+            byEmail.set(em, p);
+          }
+        }
+      }
+
       users.forEach(u => {
-        const profile = byId.get(String(u.id));
+        // Try matching by Cognito sub first, then fall back to email
+        const profile = byId.get(String(u.id)) || byEmail.get(String(u.email).toLowerCase().trim());
         if (profile) {
-          const { userId, id, ...rest } = profile; // keep u.id as the Cognito sub
+          const profileId = profile.userId || profile.id;
+          // CRITICAL: use the DynamoDB row's own userId as the canonical id
+          // for all admin operations (credits edit, ban, etc.) so they always
+          // hit the correct existing row instead of creating a ghost row.
+          const { userId, id, ...rest } = profile;
           Object.assign(u, rest);
+          u.id = profileId || u.id; // override with DynamoDB key so Edit Credits hits the right row
         }
       });
     } catch (err) {
