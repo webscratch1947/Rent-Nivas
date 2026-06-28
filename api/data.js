@@ -709,13 +709,13 @@ async function migrateProfileReferralFields(userId) {
     }
     if (profile.referred_by_code === undefined) patch.referred_by_code = null;
     if (profile.partner_xp     === undefined)  patch.partner_xp = 0;
-    // Floor everyone at 10 credits — not just rows missing the field
-    // entirely. This is a deliberate one-time admin-requested baseline
-    // bump, not a "fill missing field" default: it raises anyone sitting
-    // below 10 (including a real, intentional 0) up to 10, but never
-    // lowers anyone who already has more.
+    // Only set credits to 10 if the field is completely missing/undefined (new user).
+    // Do NOT floor existing users to 10 — this was overwriting legitimate credit
+    // balances on accounts where the legacy id-keyed row had no credits field,
+    // causing them to show as 10 in the leaderboard even when the userId-keyed
+    // row had real (higher) credits.
     const currentCredits = parseFloat(profile.credits);
-    if (isNaN(currentCredits) || currentCredits < 10) patch.credits = 10;
+    if (isNaN(currentCredits) || profile.credits === undefined || profile.credits === null) patch.credits = 10;
     if (profile.total_referrals          === undefined) patch.total_referrals = 0;
     if (profile.registration_referrals   === undefined) patch.registration_referrals = 0;
     if (profile.listing_referrals        === undefined) patch.listing_referrals = 0;
