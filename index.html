@@ -10502,6 +10502,8 @@
     });
 
     function showSection(id) {
+      // Save section so refresh restores the exact dashboard tab
+      try{var _ln=JSON.parse(localStorage.getItem('rn-last-nav')||'null');if(_ln&&_ln.page==='host-dashboard'){_ln.section=id;localStorage.setItem('rn-last-nav',JSON.stringify(_ln));}}catch(e){}
       document.querySelectorAll('.ds-section').forEach(s => s.classList.remove('active'));
       document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
       const section = document.getElementById('section-' + id);
@@ -16602,7 +16604,7 @@
                 if (_savedNav.section && typeof showSection === 'function') {
                   setTimeout(function() { showSection(_savedNav.section); }, 200);
                 }
-              }, 50);
+              }, 400);
             }
           }
         } catch(e) {}
@@ -18236,11 +18238,8 @@ function openLeaderboard(){
   modal.classList.add('lb-open');
   var animScreen=document.getElementById('lb-anim-screen');
   var page=document.getElementById('lb-page');
-  // Clear BOTH cache keys to force truly fresh data (fixes stale credits)
-  if(_lbFetchTimer){clearTimeout(_lbFetchTimer);_lbFetchTimer=null;}
-  localStorage.removeItem('rn-lb-last-fetch');
-  localStorage.removeItem('rn-lb-data');
-  _lbData=null;
+  // Don't clear rn-lb-last-fetch — let the countdown continue from where it was.
+  // renderLeaderboard() internally triggers a fetch only if the timer has expired.
   if(!_lbAnimPlayed){
     _lbAnimPlayed=true;
     // Disable transition momentarily to prevent flash-to-done state
@@ -18249,17 +18248,19 @@ function openLeaderboard(){
     var _svg=animScreen?animScreen.querySelector('.lb-anim-svg'):null;
     if(_svg&&_svg.parentNode){var _clone=_svg.cloneNode(true);_svg.parentNode.replaceChild(_clone,_svg);}
     if(page)page.style.opacity='0';
-    // Fetch AFTER animation ends so data is ready exactly when page shows
+    // Show leaderboard after animation; use scheduleNextFetch to respect existing timer
     setTimeout(function(){
-      fetchLeaderboard();
+      scheduleNextFetch();
+      renderLeaderboard();
       if(animScreen)animScreen.classList.add('lb-anim-done');
       if(page)page.style.opacity='1';
     },2000);
   } else {
-    // Re-open: no animation, just show fresh data
+    // Re-open: no animation, render with existing/cached data (scheduleNextFetch keeps timer)
     if(animScreen){animScreen.style.transition='none';animScreen.classList.add('lb-anim-done');requestAnimationFrame(function(){animScreen.style.transition='';});}
     if(page)page.style.opacity='1';
-    fetchLeaderboard();
+    scheduleNextFetch();
+    renderLeaderboard();
   }
   startCountdown();
 }
@@ -18382,11 +18383,12 @@ function makeAvatarEl(item,size,fontSize){
 
 function _rnGetLocalCredits(){
   // Read current user's credits from the dashboard badge (most accurate local value)
+  // Use replace(/[^0-9]/g,'') to strip emojis/text (e.g. "🪙 12" → "12")
   try{
     var badge=document.querySelector('.credits-badge span:last-child,.credits-badge');
-    if(badge){var n=parseInt(badge.textContent);if(!isNaN(n)&&n>0)return n;}
+    if(badge){var n=parseInt((badge.textContent||'').replace(/[^0-9]/g,''),10);if(!isNaN(n)&&n>0)return n;}
     var badge2=document.querySelector('.rent-credits-badge');
-    if(badge2){var m=parseInt(badge2.textContent);if(!isNaN(m)&&m>0)return m;}
+    if(badge2){var m=parseInt((badge2.textContent||'').replace(/[^0-9]/g,''),10);if(!isNaN(m)&&m>0)return m;}
   }catch(e){}
   return null;
 }
@@ -18415,7 +18417,8 @@ function renderLeaderboard(){
   var _myCredits=_rnGetLocalCredits();
   if(_myId&&_myCredits){
     _lbData=_lbData.map(function(item){
-      if(item.id===_myId&&_myCredits>item.credits){
+      // Always apply local credits for current user — DB may be stale
+      if(item.id===_myId){
         return Object.assign({},item,{credits:_myCredits});
       }
       return item;
