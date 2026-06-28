@@ -1185,16 +1185,29 @@ async function handleRpc(spec, claims) {
     const scanned = await runDdb('read', 'profiles', () => ddb.send(new ScanCommand({ TableName })));
     const rawRows = (scanned.Items || []).map(item => {
       const r = unmarshall(item);
-      // Normalise: both legacy (id-keyed) and current (userId-keyed) rows
-      // must surface under the same 'id' field so de-dup works correctly.
+      // Normalise: both legacy (id-keyed) and current (userId-keyed) rows must
+      // surface under the same 'id' field so de-dup works correctly.
+      // Track which format each row is so we can choose credits correctly below.
+      const isLegacy = !Object.prototype.hasOwnProperty.call(r, 'userId') && Object.prototype.hasOwnProperty.call(r, 'id');
       const effectiveId = r.userId || r.id || '';
-      return Object.assign({}, r, { id: effectiveId });
+      return Object.assign({}, r, { id: effectiveId, _isLegacy: isLegacy });
     });
 
-    // De-duplicate by user ID: merge every pair of rows that share the same id.
-    // Keep the HIGHEST credits and the best available name/avatar from either row.
-    // This handles the case where one row has a name but stale credits, and
-    // another row has updated credits but no name.
+    // De-duplicate by user ID.
+    // Root cause of the credits mismatch:
+    //   Legacy profile rows use 'id' as the DynamoDB partition key and hold
+    //   the original default credits (10).  When an admin sets credits via upsert,
+    //   the backend keyed on 'userId' and — if the legacy row existed — created a
+    //   SECOND row with the correct new credits but no name.  Two rows now exist
+    //   for the same user:
+    //     • legacy row  → { id: 'xxx', name: 'MGR', credits: 10 }  (old)
+    //     • current row → { userId: 'xxx', credits: 5 }             (admin-set)
+    //
+    //   Previous merge used Math.max, which returned 10 when admin set 5.
+    //
+    //   Fix: PREFER the non-legacy (userId-keyed) row's credits because that is
+    //   the row the admin explicitly wrote to.  The legacy row's credits are just
+    //   the old default and must not override the intentional admin update.
     const byId = {};
     for (const row of rawRows) {
       const uid = String(row.id || '');
@@ -1203,17 +1216,33 @@ async function handleRpc(spec, claims) {
         byId[uid] = row;
       } else {
         const prev = byId[uid];
-        const prevCredits = parseFloat(prev.credits) || 0;
-        const currCredits = parseFloat(row.credits) || 0;
+        // Decide which row's credits to trust:
+        //   • Non-legacy (userId-keyed) row wins — it was the target of the last admin write.
+        //   • If both are the same type, trust the more recently updated one.
+        let credits;
+        const prevIsLegacy = prev._isLegacy;
+        const currIsLegacy = row._isLegacy;
+        if (!currIsLegacy && prevIsLegacy) {
+          credits = parseFloat(row.credits) || 0;   // current row is authoritative
+        } else if (currIsLegacy && !prevIsLegacy) {
+          credits = parseFloat(prev.credits) || 0;  // prev row is authoritative
+        } else {
+          // Both same format — trust whichever was updated most recently
+          const prevTime = prev.updated_at || prev.created_at || '';
+          const currTime = row.updated_at || row.created_at || '';
+          credits = currTime > prevTime
+            ? parseFloat(row.credits) || 0
+            : parseFloat(prev.credits) || 0;
+        }
         byId[uid] = {
           ...prev,
           ...row,
           id: uid,
-          // Always take the HIGHEST credit value across all rows for this user
-          credits: Math.max(prevCredits, currCredits),
+          credits,
           // Take name/avatar from whichever row actually has them
           name: (prev.name && prev.name.trim()) ? prev.name : (row.name || ''),
           avatar_url: prev.avatar_url || row.avatar_url || null,
+          _isLegacy: false,
         };
       }
     }
