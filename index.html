@@ -1307,12 +1307,14 @@
       height: 100vh;
       z-index: 200;
       overflow-y: auto;
+      overflow-x: visible;
       transition: transform .3s var(--ease);
     }
 
     .ds-sidebar-head {
-      padding: 28px 24px 20px;
+      padding: 38px 24px 20px;  /* extra top padding for crown */
       border-bottom: 1px solid rgba(255, 255, 255, .08);
+      overflow: visible;
     }
 
     .sidebar-logo {
@@ -11399,6 +11401,8 @@
       initDashUI();
       showSection('home');
       loadHome();
+      // Ensure crown shows immediately if user is #1
+      setTimeout(function() { if (typeof _checkCrown === 'function') _checkCrown(); }, 500);
     }
 
     // ══ PARTNER PROGRAM ══
@@ -12985,13 +12989,15 @@
       showAdminNav();
       ensureReferralCode();
       processPendingSignupReferral();
-      // First-login welcome video (once per account, post-registration)
+      // First-login welcome animation (once per account, post-registration)
+      // Show a "tap to claim" prompt — user must click before animation starts
       setTimeout(function() {
         var uid = (user && (user.id || user.sub || user.email)) || null;
         if (uid && !localStorage.getItem('rn-first-login-video-' + uid)) {
           localStorage.setItem('rn-first-login-video-' + uid, '1');
-          if (typeof window._rnShowFirstLoginVideo === 'function') {
-            window._rnShowFirstLoginVideo();
+          // Use the same click-to-claim prompt as the rent side (not auto-play)
+          if (typeof window._rnShowCreditsPrompt === 'function') {
+            window._rnShowCreditsPrompt();
           }
         }
       }, 800);
@@ -18823,12 +18829,12 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
 /* ─── CROWN BADGE (sidebar avatars) ─── */
 .rn-crown-badge {
   position: absolute;
-  top: -22px;
+  top: -24px;
   left: 50%;
   transform: translateX(-50%);
-  width: 42px;
-  height: 42px;
-  z-index: 10;
+  width: 44px;
+  height: 44px;
+  z-index: 300;
   pointer-events: none;
   filter: drop-shadow(0 2px 8px rgba(200,150,0,.6));
   animation: rn-crown-float 2.4s ease-in-out infinite;
