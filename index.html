@@ -18686,26 +18686,33 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
 
 <!-- ══ LEADERBOARD PAGE ══ -->
 <div class="page" id="leaderboard-page">
-  <div style="min-height:100vh;background:var(--bg,#FEFDF4);padding:0;">
-    <div style="max-width:720px;margin:0 auto;padding:0 16px 48px;">
+  <!-- Opening animation overlay -->
+  <div id="lb-open-anim" style="position:fixed;inset:0;z-index:9999;background:#0d1b2e;display:flex;align-items:center;justify-content:center;flex-direction:column;pointer-events:none;transition:opacity 0.5s;">
+    <img src="/leaderboard.svg" style="width:180px;height:180px;" alt="">
+    <div style="color:#fff;font-size:22px;font-weight:800;margin-top:18px;letter-spacing:1px;opacity:0;transition:opacity 0.4s;" id="lb-anim-title">Leaderboard</div>
+  </div>
+
+  <!-- Main content -->
+  <div id="lb-main-content" style="min-height:100vh;background:linear-gradient(160deg,#0d1b2e 0%,#1a2e4a 60%,#0d1b2e 100%);padding:0;opacity:0;transition:opacity 0.5s;">
+    <div style="max-width:680px;margin:0 auto;padding:0 16px 60px;">
+
       <!-- Topbar -->
-      <div style="display:flex;align-items:center;gap:12px;padding:24px 0 20px;">
-        <button onclick="goBackFromLeaderboard()" style="background:var(--bg2,#f3f0e8);border:none;border-radius:10px;padding:8px 16px;font-size:14px;font-weight:600;color:var(--ink,#1E3A5F);cursor:pointer;display:flex;align-items:center;gap:6px;">← Back</button>
+      <div style="display:flex;align-items:center;gap:12px;padding:20px 0 10px;">
+        <button onclick="goBackFromLeaderboard()" style="background:rgba(255,255,255,0.1);border:none;border-radius:50%;width:40px;height:40px;font-size:18px;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;">←</button>
         <div>
-          <div style="font-size:22px;font-weight:800;color:var(--ink,#1E3A5F);">🏆 Leaderboard</div>
-          <div style="font-size:13px;color:var(--soft,#7a8e9e);margin-top:1px;">Top renters ranked by credits</div>
+          <div style="font-size:20px;font-weight:800;color:#fff;">Leaderboard 🏆</div>
+          <div style="font-size:12px;color:rgba(255,255,255,.5);margin-top:1px;">Top users ranked by credits</div>
         </div>
       </div>
-      <!-- Leaderboard content -->
-      <div id="lb-page-content" style="min-height:200px;">
-        <div style="text-align:center;padding:64px 0;color:var(--soft,#7a8e9e);font-size:15px;">Loading leaderboard…</div>
-      </div>
+
+      <!-- Leaderboard content injected here -->
+      <div id="lb-page-content" style="min-height:200px;"></div>
     </div>
   </div>
 </div>
 
 <style>
-/* ─── CROWN BADGE ─── */
+/* ─── CROWN BADGE (sidebar) ─── */
 .rn-crown-badge {
   position: absolute;
   top: -14px;
@@ -18721,7 +18728,104 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
   0%,100% { transform: translateY(0) rotate(-5deg); }
   50%      { transform: translateY(-5px) rotate(5deg); }
 }
-/* ─── CREDITS PROMPT ─── */
+
+/* ─── LEADERBOARD CARDS ─── */
+.rn-lb-card {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 18px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 18px;
+  margin-bottom: 10px;
+  transition: background 0.2s;
+  cursor: default;
+}
+.rn-lb-card:hover { background: rgba(255,255,255,0.10); }
+.rn-lb-card-me {
+  background: rgba(201,106,59,0.18) !important;
+  border-color: rgba(201,106,59,0.45) !important;
+}
+.rn-lb-av {
+  width: 46px; height: 46px;
+  border-radius: 50%;
+  background: linear-gradient(135deg,#C96A3B,#e88a5a);
+  color: #fff;
+  font-weight: 800;
+  font-size: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  position: relative;
+}
+.rn-lb-av-wrap { position: relative; display: inline-flex; }
+.rn-lb-crown-over {
+  position: absolute;
+  top: -16px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 28px;
+  height: 28px;
+  filter: drop-shadow(0 1px 6px rgba(255,200,0,.6));
+  animation: rn-crown-float 2.4s ease-in-out infinite;
+  pointer-events: none;
+}
+
+/* ─── PODIUM ─── */
+.rn-lb-podium {
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  gap: 10px;
+  margin: 10px 0 28px;
+}
+.rn-lb-pod {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+  max-width: 140px;
+}
+.rn-lb-pod-av {
+  border-radius: 50%;
+  background: rgba(255,255,255,0.15);
+  border: 2px solid rgba(255,255,255,.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-weight: 800;
+  margin-bottom: 8px;
+  position: relative;
+}
+.rn-lb-pod-name {
+  color: #fff;
+  font-weight: 700;
+  font-size: 13px;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 120px;
+}
+.rn-lb-pod-credits {
+  color: rgba(255,255,255,.65);
+  font-size: 12px;
+  margin-top: 2px;
+}
+.rn-lb-pod-label {
+  margin-top: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 10px;
+  border-radius: 8px;
+  background: rgba(255,255,255,.12);
+  color: #fff;
+}
+
+/* ─── CREDITS PROMPT ANIMATIONS ─── */
 @keyframes rn-prompt-bounce {
   from { transform: scale(0.7); opacity: 0; }
   to   { transform: scale(1);   opacity: 1; }
@@ -18730,58 +18834,6 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
   0%,100% { transform: scale(1) rotate(-3deg); }
   50%     { transform: scale(1.12) rotate(3deg); }
 }
-/* ─── LEADERBOARD TABLE ─── */
-.rn-lb-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 15px;
-}
-.rn-lb-table th {
-  text-align: left;
-  padding: 10px 14px;
-  color: var(--soft, #7a8e9e);
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: .6px;
-  text-transform: uppercase;
-  border-bottom: 1.5px solid var(--border, #e8e3d4);
-}
-.rn-lb-table td {
-  padding: 14px 14px;
-  border-bottom: 1px solid var(--border, #e8e3d4);
-  color: var(--ink, #1E3A5F);
-  vertical-align: middle;
-}
-.rn-lb-table tr:last-child td { border-bottom: none; }
-.rn-lb-table tr:hover td { background: rgba(30,58,95,0.04); }
-.rn-lb-row-me td { background: rgba(201,106,59,0.08) !important; }
-.rn-lb-rank-1 td { background: rgba(249,199,79,0.10) !important; font-weight: 700; }
-.rn-lb-av {
-  width: 38px; height: 38px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, var(--terra,#C96A3B), var(--terra2,#e88a5a));
-  color: #fff;
-  font-weight: 800;
-  font-size: 15px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  overflow: hidden;
-  position: relative;
-}
-.rn-lb-medal { font-size: 20px; }
-.rn-lb-crown-wrap { position: relative; display: inline-block; }
-.rn-lb-crown-wrap .rn-lb-crown-img {
-  position: absolute;
-  top: -14px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 22px;
-  height: 22px;
-  filter: drop-shadow(0 1px 4px rgba(0,0,0,.3));
-  animation: rn-crown-float 2.4s ease-in-out infinite;
-}
 </style>
 
 <script>
@@ -18789,11 +18841,9 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
   'use strict';
 
   /* ── CREDITS CLAIM PROMPT ── */
-  var _promptEl = null;
   window._rnShowCreditsPrompt = function() {
     var el = document.getElementById('rn-credits-prompt');
     if (!el) return;
-    _promptEl = el;
     el.style.display = 'flex';
     if (typeof _lockScroll === 'function') _lockScroll();
   };
@@ -18801,59 +18851,49 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
     var el = document.getElementById('rn-credits-prompt');
     if (el) el.style.display = 'none';
     if (typeof _unlockScroll === 'function') _unlockScroll();
-    // Now play the actual coins animation
-    if (typeof window._rnShowCoinsOverlayDirect === 'function') {
-      window._rnShowCoinsOverlayDirect();
-    }
+    if (typeof window._rnShowCoinsOverlayDirect === 'function') window._rnShowCoinsOverlayDirect();
   };
 
   /* ── LEADERBOARD ── */
   var _lbPrevPage = null;
-  var _lbData = null;
   var _lbLoading = false;
 
   window.showLeaderboard = function() {
-    // Save current page to go back
     var pages = document.querySelectorAll('.page.active');
     _lbPrevPage = pages.length ? pages[0].id : 'host-dashboard';
     if (typeof window.showPage === 'function') window.showPage('leaderboard-page');
+    _playOpenAnim();
     loadLeaderboardPage();
   };
+
+  function _playOpenAnim() {
+    var overlay = document.getElementById('lb-open-anim');
+    var main    = document.getElementById('lb-main-content');
+    var title   = document.getElementById('lb-anim-title');
+    if (!overlay) return;
+    // Reset
+    overlay.style.opacity = '1';
+    overlay.style.pointerEvents = 'all';
+    if (main) main.style.opacity = '0';
+    // Show title text after 0.6s
+    setTimeout(function() { if (title) title.style.opacity = '1'; }, 600);
+    // Fade overlay out after 2s, reveal content
+    setTimeout(function() {
+      overlay.style.opacity = '0';
+      overlay.style.pointerEvents = 'none';
+      if (main) main.style.opacity = '1';
+      setTimeout(function() { if (title) title.style.opacity = '0'; }, 500);
+    }, 2000);
+  }
 
   window.goBackFromLeaderboard = function() {
     var target = _lbPrevPage || 'host-dashboard';
     if (typeof window.showPage === 'function') window.showPage(target);
-    // Re-init the appropriate page
     try {
       if (target === 'host-dashboard' && typeof window.showSection === 'function') window.showSection('home');
       if (target === 'rent-page' && typeof window.rentShowSection === 'function') window.rentShowSection('browse');
     } catch(e) {}
   };
-
-  function loadLeaderboardPage() {
-    if (_lbLoading) return;
-    _lbLoading = true;
-    var container = document.getElementById('lb-page-content');
-    if (!container) { _lbLoading = false; return; }
-    container.innerHTML = '<div style="text-align:center;padding:64px 0;color:var(--soft,#7a8e9e);font-size:15px;">Loading leaderboard…</div>';
-    var currentUserId = (window.user && (window.user.id || window.user.sub)) || null;
-    fetch('/api/leaderboard?limit=50', { headers: window.user ? getAuthHeaders() : {} })
-      .then(function(r) { return r.json(); })
-      .then(function(json) {
-        _lbLoading = false;
-        var rows = (json && json.leaderboard) ? json.leaderboard : (Array.isArray(json) ? json : []);
-        _lbData = rows;
-        renderLeaderboard(rows, container, currentUserId);
-        // Apply crown to #1 user on sidebars
-        if (rows.length > 0) {
-          _rnApplyCrownToTopUser(rows[0].id || rows[0].userId, currentUserId);
-        }
-      })
-      .catch(function(err) {
-        _lbLoading = false;
-        if (container) container.innerHTML = '<div style="text-align:center;padding:64px 0;color:rgba(220,38,38,.7);font-size:15px;">Could not load leaderboard. Please try again.<br><br><button onclick="loadLeaderboardPage()" style="background:var(--terra);color:#fff;border:none;border-radius:8px;padding:10px 20px;font-size:14px;cursor:pointer;">Retry</button></div>';
-      });
-  }
 
   function getAuthHeaders() {
     try {
@@ -18862,67 +18902,126 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
       var s = JSON.parse(raw);
       if (s.id_token || s.access_token) return { 'Authorization': 'Bearer ' + (s.id_token || s.access_token) };
     } catch(e) {}
+    // Also try Supabase session
+    try {
+      if (window.sb && window.sb.auth) {
+        // handled by getAuthHeaders in main script
+      }
+    } catch(e) {}
     return {};
+  }
+
+  function loadLeaderboardPage() {
+    if (_lbLoading) return;
+    _lbLoading = true;
+    var container = document.getElementById('lb-page-content');
+    if (!container) { _lbLoading = false; return; }
+    container.innerHTML = '<div style="text-align:center;padding:64px 0;color:rgba(255,255,255,.4);font-size:15px;">Loading…</div>';
+
+    // Build headers — support both Cognito and Supabase
+    var headers = {};
+    try {
+      var raw = localStorage.getItem('rentnivas-auth');
+      if (raw) {
+        var s = JSON.parse(raw);
+        if (s.id_token || s.access_token) headers['Authorization'] = 'Bearer ' + (s.id_token || s.access_token);
+      }
+    } catch(e) {}
+    // Supabase fallback
+    if (!headers['Authorization'] && window.user) {
+      try {
+        if (typeof getAuthHeaders === 'function') headers = getAuthHeaders();
+      } catch(e) {}
+    }
+
+    fetch('/api/leaderboard?limit=50', { headers: headers })
+      .then(function(r) { return r.json(); })
+      .then(function(json) {
+        _lbLoading = false;
+        var rows = (json && json.leaderboard) ? json.leaderboard : (Array.isArray(json) ? json : []);
+        var currentUserId = (window.user && (window.user.id || window.user.sub)) || null;
+        renderLeaderboard(rows, container, currentUserId);
+        if (rows.length > 0) _rnApplyCrownToTopUser(rows[0].id || rows[0].userId, currentUserId);
+      })
+      .catch(function() {
+        _lbLoading = false;
+        if (container) container.innerHTML = '<div style="text-align:center;padding:64px 0;color:rgba(255,100,100,.8);font-size:15px;">Could not load leaderboard.<br><br><button onclick="loadLeaderboardPage()" style="background:var(--terra,#C96A3B);color:#fff;border:none;border-radius:10px;padding:10px 24px;font-size:14px;cursor:pointer;font-weight:700;">Retry</button></div>';
+      });
+  }
+  window.loadLeaderboardPage = loadLeaderboardPage;
+
+  function esc(str) {
+    return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 
   function renderLeaderboard(rows, container, currentUserId) {
     if (!rows || !rows.length) {
-      container.innerHTML = '<div style="text-align:center;padding:64px 0;color:var(--soft,#7a8e9e);font-size:15px;">No leaderboard data yet. Start using Rent Nivas to earn credits!</div>';
+      container.innerHTML = '<div style="text-align:center;padding:64px 0;color:rgba(255,255,255,.4);font-size:15px;">No leaderboard data yet.<br><span style="font-size:13px;">Start using Rent Nivas to earn credits!</span></div>';
       return;
     }
-    var html = '<div style="background:#fff;border:1.5px solid var(--border,#e8e3d4);border-radius:16px;overflow:hidden;">';
-    // Top 3 podium cards
+
+    var html = '';
+
+    /* ── PODIUM (top 3) ── */
     if (rows.length >= 1) {
-      html += '<div style="background:linear-gradient(135deg,#1E3A5F,#2d5a8e);padding:28px 20px 20px;display:flex;gap:12px;flex-wrap:wrap;justify-content:center;">';
-      var podiumOrder = rows.length >= 3 ? [1,0,2] : rows.length === 2 ? [0,1] : [0];
-      var podiumStyles = [
-        { height:'110px', label:'🥇 1st', badge:'gold', fontSize:'18px' },
-        { height:'80px',  label:'🥈 2nd', badge:'silver', fontSize:'16px' },
-        { height:'70px',  label:'🥉 3rd', badge:'bronze', fontSize:'15px' }
-      ];
-      podiumOrder.forEach(function(i) {
-        var r = rows[i];
+      // Reorder: 2nd, 1st, 3rd for visual podium
+      var podOrder = rows.length >= 3 ? [1,0,2] : rows.length === 2 ? [0,1] : [0];
+      var podSizes  = [52, 70, 46]; // avatar sizes: [2nd, 1st, 3rd]
+      var podLabels = ['🥈 2nd','🥇 1st','🥉 3rd'];
+
+      html += '<div class="rn-lb-podium">';
+      podOrder.forEach(function(origIdx, podPos) {
+        var r = rows[origIdx];
         if (!r) return;
-        var st = podiumStyles[i];
-        var isMe = currentUserId && (r.id === currentUserId || r.userId === currentUserId);
         var name = r.name || r.email || 'User';
         var initial = (name[0] || 'U').toUpperCase();
-        var crownHtml = (i === 0) ? '<img src="/crown.svg" style="width:28px;height:28px;display:block;margin:0 auto 4px;filter:drop-shadow(0 1px 4px rgba(0,0,0,.4));animation:rn-crown-float 2.4s ease-in-out infinite;" alt="Crown">' : '';
-        html += '<div style="text-align:center;flex:1;min-width:100px;max-width:160px;">';
+        var isMe = currentUserId && (r.id === currentUserId || r.userId === currentUserId);
+        var avSize = podSizes[podPos];
+        var isFirst = origIdx === 0;
+        var crownHtml = isFirst
+          ? '<img src="/crown.svg" class="rn-lb-crown-over" alt="Crown">'
+          : '';
+        html += '<div class="rn-lb-pod">';
+        html += '<div class="rn-lb-av-wrap">';
         html += crownHtml;
-        html += '<div style="width:50px;height:50px;border-radius:50%;background:rgba(255,255,255,0.15);border:2px solid rgba(255,255,255,.3);margin:0 auto 6px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:' + st.fontSize + ';color:#fff;">' + initial + '</div>';
-        html += '<div style="color:#fff;font-weight:700;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="' + esc(name) + '">' + esc(name.split(' ')[0]) + (isMe ? ' (You)' : '') + '</div>';
-        html += '<div style="color:rgba(255,255,255,.75);font-size:12px;margin-top:2px;">🪙 ' + (r.credits || 0) + ' credits</div>';
-        html += '<div style="margin-top:4px;font-size:11px;font-weight:700;padding:2px 8px;border-radius:6px;background:rgba(255,255,255,.15);color:#fff;display:inline-block;">' + st.label + '</div>';
+        html += '<div class="rn-lb-pod-av" style="width:'+avSize+'px;height:'+avSize+'px;font-size:'+(avSize*0.35)+'px;">' + esc(initial) + '</div>';
+        html += '</div>';
+        html += '<div class="rn-lb-pod-name">' + esc(name.split(' ')[0]) + (isMe ? ' <span style="font-size:10px;background:rgba(201,106,59,.8);padding:1px 6px;border-radius:5px;">You</span>' : '') + '</div>';
+        html += '<div class="rn-lb-pod-credits">🪙 ' + (r.credits || 0) + '</div>';
+        html += '<div class="rn-lb-pod-label">' + podLabels[podPos] + '</div>';
         html += '</div>';
       });
       html += '</div>';
     }
-    // Full table
-    html += '<table class="rn-lb-table"><thead><tr><th style="width:52px;">Rank</th><th>User</th><th style="text-align:right;">Credits</th></tr></thead><tbody>';
+
+    /* ── FULL LIST ── */
     rows.forEach(function(r, idx) {
       var rank = idx + 1;
-      var isMe = currentUserId && (r.id === currentUserId || r.userId === currentUserId);
-      var isFirst = rank === 1;
-      var rowCls = isMe ? 'rn-lb-row-me' : (isFirst ? 'rn-lb-rank-1' : '');
       var name = r.name || r.email || 'User';
       var initial = (name[0] || 'U').toUpperCase();
-      var medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : rank;
-      var crownWrap = isFirst
-        ? '<div class="rn-lb-crown-wrap"><img src="/crown.svg" class="rn-lb-crown-img" alt="Crown"><div class="rn-lb-av">' + esc(initial) + '</div></div>'
-        : '<div class="rn-lb-av">' + esc(initial) + '</div>';
-      html += '<tr class="' + rowCls + '">';
-      html += '<td><span class="rn-lb-medal">' + medal + '</span></td>';
-      html += '<td><div style="display:flex;align-items:center;gap:10px;">' + crownWrap + '<div><div style="font-weight:' + (isMe ? '700' : '600') + ';">' + esc(name) + (isMe ? ' <span style="font-size:11px;background:var(--terra,#C96A3B);color:#fff;border-radius:6px;padding:1px 7px;font-weight:700;">You</span>' : '') + '</div></div></div></td>';
-      html += '<td style="text-align:right;font-weight:700;color:var(--terra,#C96A3B);">🪙 ' + (r.credits || 0) + '</td>';
-      html += '</tr>';
-    });
-    html += '</tbody></table></div>';
-    container.innerHTML = html;
-  }
+      var isMe = currentUserId && (r.id === currentUserId || r.userId === currentUserId);
+      var isFirst = rank === 1;
+      var medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : '<span style="color:rgba(255,255,255,.5);font-size:13px;font-weight:700;">' + rank + '</span>';
+      var cardCls = 'rn-lb-card' + (isMe ? ' rn-lb-card-me' : '');
 
-  function esc(str) {
-    return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+      html += '<div class="' + cardCls + '">';
+      // Rank
+      html += '<div style="width:32px;text-align:center;font-size:20px;flex-shrink:0;">' + medal + '</div>';
+      // Avatar with crown for #1
+      html += '<div class="rn-lb-av-wrap" style="flex-shrink:0;">';
+      if (isFirst) html += '<img src="/crown.svg" class="rn-lb-crown-over" alt="Crown" style="width:22px;height:22px;top:-13px;">';
+      html += '<div class="rn-lb-av">' + esc(initial) + '</div>';
+      html += '</div>';
+      // Name
+      html += '<div style="flex:1;min-width:0;">';
+      html += '<div style="color:#fff;font-weight:'+(isMe?'800':'600')+';font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + esc(name) + (isMe ? ' <span style="font-size:10px;background:rgba(201,106,59,.8);color:#fff;padding:1px 6px;border-radius:5px;font-weight:700;">You</span>' : '') + '</div>';
+      html += '</div>';
+      // Credits
+      html += '<div style="color:#f5c97a;font-weight:800;font-size:15px;flex-shrink:0;">🪙 ' + (r.credits || 0) + '</div>';
+      html += '</div>';
+    });
+
+    container.innerHTML = html;
   }
 
   /* ── CROWN ON SIDEBAR AVATARS ── */
@@ -18935,39 +19034,37 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
   }
   window._rnApplyCrownToTopUser = _rnApplyCrownToTopUser;
 
-  /* ── AUTO-LOAD CROWN ON DASHBOARD INIT ── */
-  // Fetch leaderboard in background to show crown if user is #1
+  /* ── AUTO CHECK CROWN ON DASHBOARD LOAD ── */
   function _rnCheckCrownStatus() {
     var currentUserId = (window.user && (window.user.id || window.user.sub)) || null;
     if (!currentUserId) return;
-    fetch('/api/leaderboard?limit=1', { headers: getAuthHeaders() })
+    var headers = {};
+    try {
+      if (typeof getAuthHeaders === 'function') headers = getAuthHeaders();
+    } catch(e) {}
+    fetch('/api/leaderboard?limit=1', { headers: headers })
       .then(function(r) { return r.json(); })
       .then(function(json) {
         var rows = (json && json.leaderboard) ? json.leaderboard : (Array.isArray(json) ? json : []);
-        if (rows.length > 0) {
-          _rnApplyCrownToTopUser(rows[0].id || rows[0].userId, currentUserId);
-        }
+        if (rows.length > 0) _rnApplyCrownToTopUser(rows[0].id || rows[0].userId, currentUserId);
       })
       .catch(function() {});
   }
-  // Check crown status after login (wait for user to be set)
+
+  // Poll until user is set, then check crown
   setTimeout(function() {
-    if (window.user) { _rnCheckCrownStatus(); }
-    else {
-      // Poll until user is available
-      var attempts = 0;
-      var iv = setInterval(function() {
-        if (window.user || ++attempts > 20) {
-          clearInterval(iv);
-          if (window.user) _rnCheckCrownStatus();
-        }
-      }, 500);
-    }
+    if (window.user) { _rnCheckCrownStatus(); return; }
+    var attempts = 0;
+    var iv = setInterval(function() {
+      if (window.user || ++attempts > 20) {
+        clearInterval(iv);
+        if (window.user) _rnCheckCrownStatus();
+      }
+    }, 500);
   }, 2000);
 
 })();
 </script>
 
 </body>
-
 </html>
