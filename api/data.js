@@ -1308,7 +1308,43 @@ async function handleRpc(spec, claims) {
     return result;
   }
 
-  throw new Error(`Unsupported RPC "${spec.name}"`);
+  // ── admin_purge_ghost_rows ──────────────────────────────────────────────
+  // Scans the Users table and deletes any row where the partition key (userId)
+  // looks like an email address. These are ghost rows created by the old
+  // signup-verify.js bug where cognitoUser.Username (the email string) was
+  // used as the DynamoDB key instead of the real Cognito sub UUID.
+  if (spec.name === 'admin_purge_ghost_rows') {
+    const isAdminCaller = (claims['cognito:groups'] || []).includes('admin') ||
+      (process.env.ADMIN_EMAILS || '').split(',').map(v => v.trim().toLowerCase()).filter(Boolean)
+        .includes(String(claims.email || '').toLowerCase());
+    if (!isAdminCaller) throw new Error('Admin access required');
+
+    const TableName = tableName('Users');
+    const scanned_result = await ddb.send(new ScanCommand({ TableName }));
+    const items = scanned_result.Items || [];
+    let deleted = 0;
+
+    for (const item of items) {
+      const row = unmarshall(item);
+      const uid = String(row.userId || row.id || '');
+      // Ghost rows have userId = email string (contains @)
+      if (uid.includes('@')) {
+        try {
+          const keyToDelete = row.userId ? { userId: uid } : { id: uid };
+          await ddb.send(new DeleteItemCommand({ TableName, Key: marshall(keyToDelete) }));
+          console.log('[PurgeGhosts] Deleted ghost row with userId:', uid);
+          deleted++;
+        } catch (delErr) {
+          console.warn('[PurgeGhosts] Failed to delete ghost row:', uid, delErr.message);
+        }
+      }
+    }
+
+    console.log(`[PurgeGhosts] Scan complete — scanned ${items.length}, deleted ${deleted} ghost rows`);
+    return { scanned: items.length, deleted };
+  }
+
+    throw new Error(`Unsupported RPC "${spec.name}"`);
 }
 
 module.exports = async function handler(req, res) {
