@@ -60,11 +60,12 @@ async function patchUser(row) {
 
   for (const [field, defaultVal] of Object.entries(REFERRAL_FIELDS)) {
     if (field === 'credits') {
-      // Floor everyone at 10 credits (admin-requested baseline bump) —
-      // this field deliberately bypasses the "skip if already set" check
-      // below, since the whole point is to raise existing low/zero values.
+      // Only set credits to 10 if the field is completely missing/undefined.
+      // Do NOT floor existing credits — this was overwriting real credit balances
+      // on legacy id-keyed rows with 10, causing the leaderboard to show 10
+      // even when the userId-keyed row had a higher real balance.
       const current = parseFloat(row[field]);
-      if (isNaN(current) || current < 10) patch[field] = defaultVal;
+      if (isNaN(current) || row[field] === undefined || row[field] === null) patch[field] = defaultVal;
       continue;
     }
     if (row[field] !== undefined && row[field] !== null && row[field] !== '') continue;
