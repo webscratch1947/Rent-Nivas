@@ -1,4 +1,3 @@
-
 <!-- VERSION: FIXED - tutorial skip persists, mobile Watch Tutorial btn, crown on avatar, leaderboard dedup+anon filter, coins-animation.svg -->
 <!DOCTYPE html>
 <html lang="en">
@@ -443,7 +442,11 @@
       align-items: center;
     }
 
-    .rn-hidden { display: none !important; }
+    /* Hide mobile-only action buttons on desktop */
+    .lp-mob-actions {
+      display: none;
+    }
+
     .btn-nav-outline {
       background: transparent;
       color: #fff;
@@ -5246,7 +5249,53 @@
       }
 
       .lp-nav-right {
+        display: none !important;
+      }
+
+      /* Mobile nav action buttons */
+      .lp-mob-actions {
         display: flex !important;
+        align-items: center;
+        gap: 8px;
+        margin-left: auto;
+      }
+
+      .mob-nav-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 7px 13px;
+        border-radius: 20px;
+        border: none;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        white-space: nowrap;
+        transition: opacity 0.15s, transform 0.15s;
+      }
+
+      .mob-nav-btn:active {
+        opacity: 0.8;
+        transform: scale(0.96);
+      }
+
+      .mob-nav-tutorial-btn {
+        background: rgba(255,255,255,0.12);
+        color: #fff;
+        border: 1px solid rgba(255,255,255,0.22);
+        backdrop-filter: blur(4px);
+      }
+
+      .mob-nav-gs-btn {
+        background: var(--terra, #c9663b);
+        color: #fff;
+        box-shadow: 0 2px 8px rgba(201,102,59,0.35);
+      }
+
+      .mob-nav-dashboard-btn {
+        background: var(--terra, #c9663b);
+        color: #fff;
+        box-shadow: 0 2px 8px rgba(201,102,59,0.35);
       }
 
       #lp-nav-mob-tutorial {
@@ -7509,7 +7558,17 @@
       }
 
       .lp-nav-right {
+        display: none !important;
+      }
+
+      .lp-mob-actions {
         display: flex !important;
+        gap: 6px !important;
+      }
+
+      .mob-nav-btn {
+        padding: 6px 10px !important;
+        font-size: 11px !important;
       }
 
       #lp-nav-mob-tutorial {
@@ -8428,64 +8487,6 @@
 
 
 </style>
-<style id="rn-leaderboard-styles">
-/* ══ LEADERBOARD FULL PAGE ══ */
-#rn-leaderboard-modal{position:fixed;inset:0;z-index:88888;display:none;flex-direction:column;background:linear-gradient(160deg,#faf7f2 0%,#f0ebe0 60%,#e8dfd0 100%);}
-#rn-leaderboard-modal.lb-open{display:flex;}
-
-/* ── Opening animation screen ── */
-.lb-anim-screen{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px;z-index:10;background:linear-gradient(160deg,#faf7f2 0%,#f0ebe0 60%,#e8dfd0 100%);transition:opacity .5s ease,transform .5s ease;}
-.lb-anim-screen.lb-anim-done{opacity:0;pointer-events:none;transform:scale(1.05);}
-.lb-anim-svg{width:160px;height:160px;}
-.lb-anim-title{font-size:26px;font-weight:900;color:#1E3A5F;letter-spacing:-.5px;}
-
-/* ── Page layout ── */
-.lb-page{display:flex;flex-direction:column;flex:1;overflow:hidden;position:relative;z-index:3;}
-
-/* ── Top bar ── */
-.lb-topbar{display:flex;align-items:center;padding:16px 20px 10px;gap:12px;flex-shrink:0;}
-.lb-back-btn{width:38px;height:38px;border-radius:50%;background:#fff;border:1.5px solid rgba(30,58,95,.12);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:18px;color:#1E3A5F;box-shadow:0 2px 8px rgba(30,58,95,.08);flex-shrink:0;}
-.lb-back-btn:hover{background:#f0ebe0;}
-.lb-topbar-title{flex:1;text-align:center;font-size:20px;font-weight:900;color:#1E3A5F;letter-spacing:-.3px;}
-.lb-topbar-spacer{width:38px;flex-shrink:0;}
-
-/* ── Hero (#1 person) ── */
-.lb-hero{text-align:center;padding:14px 20px 20px;flex-shrink:0;}
-.lb-hero-avatar-wrap{position:relative;display:inline-block;margin-bottom:12px;}
-.lb-hero-avatar{width:90px;height:90px;border-radius:50%;background:linear-gradient(135deg,#1E3A5F 0%,#2b5fa8 100%);display:flex;align-items:center;justify-content:center;font-size:34px;font-weight:900;color:#fff;overflow:hidden;border:4px solid #fff;box-shadow:0 8px 30px rgba(30,58,95,.2);}
-.lb-hero-avatar img.av-img{width:100%;height:100%;object-fit:cover;border-radius:50%;}
-.lb-hero-crown{position:absolute;top:-44px;left:50%;transform:translateX(-50%);width:80px;height:80px;object-fit:contain;filter:drop-shadow(0 4px 14px rgba(200,150,0,.7));animation:lb-crown-float 2.2s ease-in-out infinite;}
-@keyframes lb-crown-float{0%,100%{transform:translateX(-50%) translateY(0) rotate(-4deg)}50%{transform:translateX(-50%) translateY(-7px) rotate(4deg)}}
-.lb-rank1-badge{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;background:#FFD232;color:#1E3A5F;font-size:13px;font-weight:900;border-radius:50%;position:absolute;bottom:0;right:-2px;border:2px solid #fff;}
-.lb-hero-name{font-size:20px;font-weight:900;color:#1E3A5F;margin-bottom:6px;}
-.lb-hero-badge{display:inline-flex;align-items:center;gap:6px;background:linear-gradient(135deg,#1E3A5F 0%,#2b5fa8 100%);color:#fff;font-size:13px;font-weight:800;padding:6px 18px;border-radius:20px;box-shadow:0 4px 14px rgba(30,58,95,.25);}
-
-/* ── List section ── */
-.lb-list-wrap{flex:1;overflow-y:auto;padding:4px 16px 4px;}
-.lb-list-wrap::-webkit-scrollbar{width:0;}
-.lb-list-label{font-size:11px;font-weight:700;color:#9a8f82;letter-spacing:.8px;text-transform:uppercase;padding:0 4px 8px;}
-.lb-item{display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:16px;margin-bottom:7px;background:#fff;border:1px solid rgba(30,58,95,.07);box-shadow:0 2px 8px rgba(30,58,95,.04);}
-.lb-item:hover{background:#f7f4ef;}
-.lb-item-rank{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;flex-shrink:0;}
-.lb-rank-2{background:linear-gradient(135deg,#ececec 0%,#b8b8b8 100%);color:#555;}
-.lb-rank-3{background:linear-gradient(135deg,#f7dfc2 0%,#cd7f32 100%);color:#fff;}
-.lb-rank-n{background:rgba(30,58,95,.08);color:#1E3A5F;}
-.lb-item-avatar{width:42px;height:42px;border-radius:50%;background:linear-gradient(135deg,#1E3A5F 0%,#2b5fa8 100%);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:#fff;flex-shrink:0;overflow:hidden;}
-.lb-item-avatar img.av-img{width:100%;height:100%;object-fit:cover;border-radius:50%;}
-.lb-item-info{flex:1;min-width:0;}
-.lb-item-name{font-size:14px;font-weight:700;color:#1E3A5F;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.lb-item-sub{font-size:11px;color:#9a8f82;font-weight:500;}
-.lb-credits-pill{background:linear-gradient(135deg,#1E3A5F 0%,#2b5fa8 100%);color:#fff;font-size:12px;font-weight:800;padding:5px 12px;border-radius:20px;white-space:nowrap;}
-
-/* ── Footer timer ── */
-.lb-footer{padding:8px 20px 14px;text-align:center;font-size:11px;color:#9a8f82;font-weight:500;flex-shrink:0;}
-.lb-timer-bold{font-weight:800;color:#1E3A5F;}
-
-/* ── Crown overlay for dashboard/bottom nav ── */
-.sb-crown-wrap{position:relative;display:inline-block;}
-.sb-crown-icon{position:absolute;top:-24px;left:50%;transform:translateX(-50%);width:38px;height:38px;object-fit:contain;filter:drop-shadow(0 2px 8px rgba(200,150,0,.9));animation:lb-crown-float 2.2s ease-in-out infinite;pointer-events:none;z-index:10;}
-.mbn-crown{position:absolute;top:-18px;left:50%;transform:translateX(-50%);width:32px;height:32px;object-fit:contain;filter:drop-shadow(0 2px 6px rgba(200,150,0,.9));animation:lb-crown-float 2.2s ease-in-out infinite;pointer-events:none;z-index:10;}
-</style>
 </head>
 
 <body>
@@ -8702,8 +8703,23 @@
         <a onclick="window.open('/language.html','_blank')" style="display:flex;align-items:center;gap:5px;">🌐 Language<span id="lp-nav-lang-badge" style="font-size:11px;background:rgba(201,106,59,0.18);color:#e88a5a;border-radius:6px;padding:1px 7px;font-weight:600;"></span></a>
         <button id="lp-nav-mob-tutorial" class="btn-nav-tutorial" onclick="(function(){var isLI=window._RNTut&&typeof window._RNTut.isLoggedIn==='function'&&window._RNTut.isLoggedIn();if(isLI){if(typeof _rnStartUserTutorial==='function')_rnStartUserTutorial();}else{if(typeof window.startViewTutorial==='function')window.startViewTutorial('landing');}})();">🎓 Watch Tutorial</button>
       </div>
+      <!-- MOBILE-ONLY action buttons (logo + these 2 are all that show on mobile) -->
+      <div class="lp-mob-actions" id="lp-mob-actions">
+        <button class="mob-nav-btn mob-nav-tutorial-btn" id="lp-mob-tutorial-btn"
+          onclick="(function(){var isLI=window._RNTut&&typeof window._RNTut.isLoggedIn==='function'&&window._RNTut.isLoggedIn();if(isLI){if(typeof _rnStartUserTutorial==='function')_rnStartUserTutorial();}else{if(typeof window.startViewTutorial==='function')window.startViewTutorial('landing');}})();">
+          🎓 Tutorial
+        </button>
+        <button class="mob-nav-btn mob-nav-gs-btn" id="lp-mob-getstarted-btn"
+          onclick="showPage('signup-page')">
+          ✨ Get Started
+        </button>
+        <button class="mob-nav-btn mob-nav-dashboard-btn" id="lp-mob-dashboard-btn" style="display:none;"
+          onclick="goToDashboard()">
+          Dashboard →
+        </button>
+      </div>
       <div class="lp-nav-right" id="lp-nav-right">
-        <button class="btn btn-terra btn-sm rn-hidden" id="lp-nav-getstarted" onclick="showPage('signup-page')">Get Started</button>
+        <button class="btn btn-terra btn-sm" id="lp-nav-getstarted" style="display:none;" onclick="showPage('signup-page')">Get Started</button>
         <button class="btn btn-terra btn-sm" id="lp-nav-dashboard" style="display:none;" onclick="goToDashboard()">Dashboard →</button>
       </div>
     </nav>
@@ -8720,18 +8736,32 @@
         /* Detect logged-in state by checking if Dashboard button is visible */
         var dash=document.getElementById('lp-nav-dashboard');
         var loggedIn=dash&&dash.style.display!=='none'&&dash.style.display!=='';
+        /* Mobile action buttons */
+        var mobActions=document.getElementById('lp-mob-actions');
+        var mobTutBtn=document.getElementById('lp-mob-tutorial-btn');
+        var mobGsBtn=document.getElementById('lp-mob-getstarted-btn');
+        var mobDashBtn=document.getElementById('lp-mob-dashboard-btn');
         if(loggedIn){
-          /* Logged in: hide Watch Tutorial and Get Started */
+          /* Logged in: hide Watch Tutorial and Get Started (desktop) */
           tut.style.setProperty('display','none','important');
           if(gs)gs.style.setProperty('display','none','important');
+          /* Mobile: show Dashboard btn, hide Get Started + Tutorial */
+          if(mobTutBtn)mobTutBtn.style.setProperty('display','none','important');
+          if(mobGsBtn)mobGsBtn.style.setProperty('display','none','important');
+          if(mobDashBtn)mobDashBtn.style.removeProperty('display');
         }else if(window.innerWidth<=768){
-          /* Mobile + logged out: show Watch Tutorial, hide Get Started (sidebar handles nav) */
-          tut.style.setProperty('display','inline-flex','important');
-          if(gs)gs.style.setProperty('display','none','important');
-        }else{
-          /* Desktop + logged out: hide Watch Tutorial, show Get Started */
+          /* Mobile + logged out: show our new mob buttons, hide old ones */
           tut.style.setProperty('display','none','important');
-          if(gs)gs.style.setProperty('display','inline-flex','important');
+          if(gs)gs.style.setProperty('display','none','important');
+          if(mobTutBtn)mobTutBtn.style.removeProperty('display');
+          if(mobGsBtn)mobGsBtn.style.removeProperty('display');
+          if(mobDashBtn)mobDashBtn.style.setProperty('display','none','important');
+        }else{
+          /* Desktop + logged out: hide Tutorial, show Get Started */
+          tut.style.setProperty('display','none','important');
+          if(gs)gs.style.removeProperty('display');
+          /* Hide mobile-only actions on desktop */
+          if(mobActions)mobActions.style.setProperty('display','none','important');
         }
       };
       window.addEventListener('resize',window._rnNavMobileSwap);
@@ -17106,7 +17136,7 @@
       const lpGetStarted = document.getElementById('lp-nav-getstarted');
       const lpDashboard = document.getElementById('lp-nav-dashboard');
       if (lpSignIn) lpSignIn.style.display = 'none'; // always hidden — "Get Started" is the sole CTA
-      if (lpGetStarted) lpGetStarted.classList.toggle('rn-hidden', loggedIn);
+      if (lpGetStarted) lpGetStarted.style.display = loggedIn ? 'none' : 'inline-flex';
       if (lpDashboard) lpDashboard.style.display = loggedIn ? '' : 'none';
       // Re-apply mobile Watch Tutorial ↔ Sign In swap after every auth update
       if (typeof window._rnNavMobileSwap === 'function') window._rnNavMobileSwap();
@@ -18660,286 +18690,290 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
   </div>
 </div>
 
-<!-- ══ LEADERBOARD FULL PAGE ══ -->
-<div id="rn-leaderboard-modal">
-  <!-- Opening animation screen -->
-  <div class="lb-anim-screen" id="lb-anim-screen">
-    <img class="lb-anim-svg" src="/leaderboard.svg" alt="" onerror="this.style.display='none'">
-    <div class="lb-anim-title">🏆 Leaderboard</div>
-  </div>
-  <!-- Full page content -->
-  <div class="lb-page" id="lb-page" style="opacity:0;transition:opacity .4s ease;">
-    <!-- Top bar -->
-    <div class="lb-topbar">
-      <button class="lb-back-btn" onclick="closeLeaderboard()">←</button>
-      <div class="lb-topbar-title"></div>
-      <div class="lb-topbar-spacer"></div>
-    </div>
-    <!-- Hero: rank 1 -->
-    <div class="lb-hero" id="lb-hero">
-      <div style="color:#9a8f82;font-size:13px;padding:24px 0;">Loading…</div>
-    </div>
-    <!-- List: rank 2+ -->
-    <div class="lb-list-wrap">
-      <div class="lb-list-label">Rankings</div>
-      <div id="lb-list"></div>
-    </div>
-    <!-- Footer timer -->
-    <div class="lb-footer">
-      Leaderboard will update in <span class="lb-timer-bold" id="lb-countdown">0:30</span>
+<!-- ══ LEADERBOARD PAGE ══ -->
+<div class="page" id="leaderboard-page">
+  <div style="min-height:100vh;background:var(--bg,#FEFDF4);padding:0;">
+    <div style="max-width:720px;margin:0 auto;padding:0 16px 48px;">
+      <!-- Topbar -->
+      <div style="display:flex;align-items:center;gap:12px;padding:24px 0 20px;">
+        <button onclick="goBackFromLeaderboard()" style="background:var(--bg2,#f3f0e8);border:none;border-radius:10px;padding:8px 16px;font-size:14px;font-weight:600;color:var(--ink,#1E3A5F);cursor:pointer;display:flex;align-items:center;gap:6px;">← Back</button>
+        <div>
+          <div style="font-size:22px;font-weight:800;color:var(--ink,#1E3A5F);">🏆 Leaderboard</div>
+          <div style="font-size:13px;color:var(--soft,#7a8e9e);margin-top:1px;">Top renters ranked by credits</div>
+        </div>
+      </div>
+      <!-- Leaderboard content -->
+      <div id="lb-page-content" style="min-height:200px;">
+        <div style="text-align:center;padding:64px 0;color:var(--soft,#7a8e9e);font-size:15px;">Loading leaderboard…</div>
+      </div>
     </div>
   </div>
 </div>
 
+<style>
+/* ─── CROWN BADGE ─── */
+.rn-crown-badge {
+  position: absolute;
+  top: -14px;
+  left: -8px;
+  width: 30px;
+  height: 30px;
+  z-index: 10;
+  pointer-events: none;
+  filter: drop-shadow(0 2px 6px rgba(0,0,0,.35));
+  animation: rn-crown-float 2.4s ease-in-out infinite;
+}
+@keyframes rn-crown-float {
+  0%,100% { transform: translateY(0) rotate(-5deg); }
+  50%      { transform: translateY(-5px) rotate(5deg); }
+}
+/* ─── CREDITS PROMPT ─── */
+@keyframes rn-prompt-bounce {
+  from { transform: scale(0.7); opacity: 0; }
+  to   { transform: scale(1);   opacity: 1; }
+}
+@keyframes rn-chest-pulse {
+  0%,100% { transform: scale(1) rotate(-3deg); }
+  50%     { transform: scale(1.12) rotate(3deg); }
+}
+/* ─── LEADERBOARD TABLE ─── */
+.rn-lb-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 15px;
+}
+.rn-lb-table th {
+  text-align: left;
+  padding: 10px 14px;
+  color: var(--soft, #7a8e9e);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .6px;
+  text-transform: uppercase;
+  border-bottom: 1.5px solid var(--border, #e8e3d4);
+}
+.rn-lb-table td {
+  padding: 14px 14px;
+  border-bottom: 1px solid var(--border, #e8e3d4);
+  color: var(--ink, #1E3A5F);
+  vertical-align: middle;
+}
+.rn-lb-table tr:last-child td { border-bottom: none; }
+.rn-lb-table tr:hover td { background: rgba(30,58,95,0.04); }
+.rn-lb-row-me td { background: rgba(201,106,59,0.08) !important; }
+.rn-lb-rank-1 td { background: rgba(249,199,79,0.10) !important; font-weight: 700; }
+.rn-lb-av {
+  width: 38px; height: 38px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--terra,#C96A3B), var(--terra2,#e88a5a));
+  color: #fff;
+  font-weight: 800;
+  font-size: 15px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  overflow: hidden;
+  position: relative;
+}
+.rn-lb-medal { font-size: 20px; }
+.rn-lb-crown-wrap { position: relative; display: inline-block; }
+.rn-lb-crown-wrap .rn-lb-crown-img {
+  position: absolute;
+  top: -14px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 22px;
+  height: 22px;
+  filter: drop-shadow(0 1px 4px rgba(0,0,0,.3));
+  animation: rn-crown-float 2.4s ease-in-out infinite;
+}
+</style>
+
 <script>
-// ══ LEADERBOARD SYSTEM ══
-(function(){
-'use strict';
+(function() {
+  'use strict';
 
-var LB_KEY='rn-lb-last-fetch';
-var LB_DATA_KEY='rn-lb-data';
-var LB_INTERVAL=30*1000;
-var _lbData=null;
-var _lbCountdownTimer=null;
-var _lbFetchTimer=null;
-var _lbAnimPlayed=false;
-try{var _c=localStorage.getItem(LB_DATA_KEY);if(_c){var _raw=JSON.parse(_c);var _s={};_lbData=_raw.filter(function(x){if(!x.id||_s[x.id])return false;_s[x.id]=true;return !!(x.name&&x.name.trim());});}}catch(e){}
+  /* ── CREDITS CLAIM PROMPT ── */
+  var _promptEl = null;
+  window._rnShowCreditsPrompt = function() {
+    var el = document.getElementById('rn-credits-prompt');
+    if (!el) return;
+    _promptEl = el;
+    el.style.display = 'flex';
+    if (typeof _lockScroll === 'function') _lockScroll();
+  };
+  window._rnClaimCreditsPrompt = function() {
+    var el = document.getElementById('rn-credits-prompt');
+    if (el) el.style.display = 'none';
+    if (typeof _unlockScroll === 'function') _unlockScroll();
+    // Now play the actual coins animation
+    if (typeof window._rnShowCoinsOverlayDirect === 'function') {
+      window._rnShowCoinsOverlayDirect();
+    }
+  };
 
-function openLeaderboard(){
-  var modal=document.getElementById('rn-leaderboard-modal');
-  if(!modal)return;
-  modal.classList.add('lb-open');
-  var animScreen=document.getElementById('lb-anim-screen');
-  var page=document.getElementById('lb-page');
-  if(!_lbAnimPlayed){
-    _lbAnimPlayed=true;
-    if(animScreen){animScreen.style.transition='none';animScreen.classList.remove('lb-anim-done');requestAnimationFrame(function(){animScreen.style.transition='';});}
-    var _svg=animScreen?animScreen.querySelector('.lb-anim-svg'):null;
-    if(_svg&&_svg.parentNode){var _clone=_svg.cloneNode(true);_svg.parentNode.replaceChild(_clone,_svg);}
-    if(page)page.style.opacity='0';
-    setTimeout(function(){
-      scheduleNextFetch();
-      renderLeaderboard();
-      if(animScreen)animScreen.classList.add('lb-anim-done');
-      if(page)page.style.opacity='1';
-    },2000);
-  } else {
-    if(animScreen){animScreen.style.transition='none';animScreen.classList.add('lb-anim-done');requestAnimationFrame(function(){animScreen.style.transition='';});}
-    if(page)page.style.opacity='1';
-    scheduleNextFetch();
-    renderLeaderboard();
-  }
-  startCountdown();
-}
-window.openLeaderboard=openLeaderboard;
-window.showLeaderboard=openLeaderboard;
+  /* ── LEADERBOARD ── */
+  var _lbPrevPage = null;
+  var _lbData = null;
+  var _lbLoading = false;
 
-function closeLeaderboard(){
-  var modal=document.getElementById('rn-leaderboard-modal');
-  if(modal)modal.classList.remove('lb-open');
-  if(_lbCountdownTimer){clearInterval(_lbCountdownTimer);_lbCountdownTimer=null;}
-  _lbAnimPlayed=false;
-}
-window.closeLeaderboard=closeLeaderboard;
+  window.showLeaderboard = function() {
+    // Save current page to go back
+    var pages = document.querySelectorAll('.page.active');
+    _lbPrevPage = pages.length ? pages[0].id : 'host-dashboard';
+    if (typeof window.showPage === 'function') window.showPage('leaderboard-page');
+    loadLeaderboardPage();
+  };
 
-function getMsUntilNextFetch(){
-  var last=parseInt(localStorage.getItem(LB_KEY)||'0',10);
-  if(!last)return 0;
-  var elapsed=Date.now()-last;
-  return Math.max(0,LB_INTERVAL-elapsed);
-}
+  window.goBackFromLeaderboard = function() {
+    var target = _lbPrevPage || 'host-dashboard';
+    if (typeof window.showPage === 'function') window.showPage(target);
+    // Re-init the appropriate page
+    try {
+      if (target === 'host-dashboard' && typeof window.showSection === 'function') window.showSection('home');
+      if (target === 'rent-page' && typeof window.rentShowSection === 'function') window.rentShowSection('browse');
+    } catch(e) {}
+  };
 
-function scheduleNextFetch(){
-  if(_lbFetchTimer){clearTimeout(_lbFetchTimer);_lbFetchTimer=null;}
-  var wait=getMsUntilNextFetch();
-  if(wait===0){fetchLeaderboard();}
-  else{_lbFetchTimer=setTimeout(function(){fetchLeaderboard();},wait);}
-}
-
-async function fetchLeaderboard(){
-  try{
-    try{localStorage.removeItem(LB_DATA_KEY);localStorage.removeItem(LB_KEY);}catch(e){}
-    var resp=await fetch('/api/leaderboard?limit=50');
-    var json=await resp.json().catch(function(){return{};});
-    var rows=null;
-    if(resp.ok&&json.data){rows=json.data;}
-    else if(resp.ok&&json.leaderboard){rows=json.leaderboard;}
-    if(rows){
-      var _seen={};
-      _lbData=rows.filter(function(item){
-        if(!item.id||_seen[item.id])return false;
-        _seen[item.id]=true;
-        return !!(item.name&&item.name.trim());
+  function loadLeaderboardPage() {
+    if (_lbLoading) return;
+    _lbLoading = true;
+    var container = document.getElementById('lb-page-content');
+    if (!container) { _lbLoading = false; return; }
+    container.innerHTML = '<div style="text-align:center;padding:64px 0;color:var(--soft,#7a8e9e);font-size:15px;">Loading leaderboard…</div>';
+    var currentUserId = (window.user && (window.user.id || window.user.sub)) || null;
+    fetch('/api/leaderboard?limit=50', { headers: window.user ? getAuthHeaders() : {} })
+      .then(function(r) { return r.json(); })
+      .then(function(json) {
+        _lbLoading = false;
+        var rows = (json && json.leaderboard) ? json.leaderboard : (Array.isArray(json) ? json : []);
+        _lbData = rows;
+        renderLeaderboard(rows, container, currentUserId);
+        // Apply crown to #1 user on sidebars
+        if (rows.length > 0) {
+          _rnApplyCrownToTopUser(rows[0].id || rows[0].userId, currentUserId);
+        }
+      })
+      .catch(function(err) {
+        _lbLoading = false;
+        if (container) container.innerHTML = '<div style="text-align:center;padding:64px 0;color:rgba(220,38,38,.7);font-size:15px;">Could not load leaderboard. Please try again.<br><br><button onclick="loadLeaderboardPage()" style="background:var(--terra);color:#fff;border:none;border-radius:8px;padding:10px 20px;font-size:14px;cursor:pointer;">Retry</button></div>';
       });
-      try{localStorage.setItem(LB_DATA_KEY,JSON.stringify(_lbData));}catch(e){}
-      localStorage.setItem(LB_KEY,Date.now().toString());
-      renderLeaderboard();
-      updateDashboardCrown(_lbData);
-    }
-  }catch(e){
-    console.error('[Leaderboard] fetch error:',e);
   }
-  if(_lbFetchTimer){clearTimeout(_lbFetchTimer);_lbFetchTimer=null;}
-  _lbFetchTimer=setTimeout(function(){fetchLeaderboard();},LB_INTERVAL);
-}
 
-function updateDashboardCrown(data){
-  try{
-    if(!data||!data.length)return;
-    var top=data[0];
-    var myId=(window.user&&(window.user.id||window.user.sub))||null;
-    if(!myId)return;
-    var isTop=(top.id===myId);
-    ['sb-av','rent-user-av','mob-sb-av'].forEach(function(id){
-      var el=document.getElementById(id);
-      if(!el)return;
-      var existing=el.querySelector('.sb-crown-icon');
-      if(isTop){
-        if(!existing){
-          var img=document.createElement('img');
-          img.src='/crown.svg';
-          img.className='sb-crown-icon';
-          img.alt='crown';
-          img.onerror=function(){this.style.display='none';};
-          if(getComputedStyle(el).position==='static')el.style.position='relative';
-          el.appendChild(img);
-        }
-      }else{
-        if(existing)existing.remove();
-      }
+  function getAuthHeaders() {
+    try {
+      var raw = localStorage.getItem('rentnivas-auth');
+      if (!raw) return {};
+      var s = JSON.parse(raw);
+      if (s.id_token || s.access_token) return { 'Authorization': 'Bearer ' + (s.id_token || s.access_token) };
+    } catch(e) {}
+    return {};
+  }
+
+  function renderLeaderboard(rows, container, currentUserId) {
+    if (!rows || !rows.length) {
+      container.innerHTML = '<div style="text-align:center;padding:64px 0;color:var(--soft,#7a8e9e);font-size:15px;">No leaderboard data yet. Start using Rent Nivas to earn credits!</div>';
+      return;
+    }
+    var html = '<div style="background:#fff;border:1.5px solid var(--border,#e8e3d4);border-radius:16px;overflow:hidden;">';
+    // Top 3 podium cards
+    if (rows.length >= 1) {
+      html += '<div style="background:linear-gradient(135deg,#1E3A5F,#2d5a8e);padding:28px 20px 20px;display:flex;gap:12px;flex-wrap:wrap;justify-content:center;">';
+      var podiumOrder = rows.length >= 3 ? [1,0,2] : rows.length === 2 ? [0,1] : [0];
+      var podiumStyles = [
+        { height:'110px', label:'🥇 1st', badge:'gold', fontSize:'18px' },
+        { height:'80px',  label:'🥈 2nd', badge:'silver', fontSize:'16px' },
+        { height:'70px',  label:'🥉 3rd', badge:'bronze', fontSize:'15px' }
+      ];
+      podiumOrder.forEach(function(i) {
+        var r = rows[i];
+        if (!r) return;
+        var st = podiumStyles[i];
+        var isMe = currentUserId && (r.id === currentUserId || r.userId === currentUserId);
+        var name = r.name || r.email || 'User';
+        var initial = (name[0] || 'U').toUpperCase();
+        var crownHtml = (i === 0) ? '<img src="/crown.svg" style="width:28px;height:28px;display:block;margin:0 auto 4px;filter:drop-shadow(0 1px 4px rgba(0,0,0,.4));animation:rn-crown-float 2.4s ease-in-out infinite;" alt="Crown">' : '';
+        html += '<div style="text-align:center;flex:1;min-width:100px;max-width:160px;">';
+        html += crownHtml;
+        html += '<div style="width:50px;height:50px;border-radius:50%;background:rgba(255,255,255,0.15);border:2px solid rgba(255,255,255,.3);margin:0 auto 6px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:' + st.fontSize + ';color:#fff;">' + initial + '</div>';
+        html += '<div style="color:#fff;font-weight:700;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="' + esc(name) + '">' + esc(name.split(' ')[0]) + (isMe ? ' (You)' : '') + '</div>';
+        html += '<div style="color:rgba(255,255,255,.75);font-size:12px;margin-top:2px;">🪙 ' + (r.credits || 0) + ' credits</div>';
+        html += '<div style="margin-top:4px;font-size:11px;font-weight:700;padding:2px 8px;border-radius:6px;background:rgba(255,255,255,.15);color:#fff;display:inline-block;">' + st.label + '</div>';
+        html += '</div>';
+      });
+      html += '</div>';
+    }
+    // Full table
+    html += '<table class="rn-lb-table"><thead><tr><th style="width:52px;">Rank</th><th>User</th><th style="text-align:right;">Credits</th></tr></thead><tbody>';
+    rows.forEach(function(r, idx) {
+      var rank = idx + 1;
+      var isMe = currentUserId && (r.id === currentUserId || r.userId === currentUserId);
+      var isFirst = rank === 1;
+      var rowCls = isMe ? 'rn-lb-row-me' : (isFirst ? 'rn-lb-rank-1' : '');
+      var name = r.name || r.email || 'User';
+      var initial = (name[0] || 'U').toUpperCase();
+      var medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : rank;
+      var crownWrap = isFirst
+        ? '<div class="rn-lb-crown-wrap"><img src="/crown.svg" class="rn-lb-crown-img" alt="Crown"><div class="rn-lb-av">' + esc(initial) + '</div></div>'
+        : '<div class="rn-lb-av">' + esc(initial) + '</div>';
+      html += '<tr class="' + rowCls + '">';
+      html += '<td><span class="rn-lb-medal">' + medal + '</span></td>';
+      html += '<td><div style="display:flex;align-items:center;gap:10px;">' + crownWrap + '<div><div style="font-weight:' + (isMe ? '700' : '600') + ';">' + esc(name) + (isMe ? ' <span style="font-size:11px;background:var(--terra,#C96A3B);color:#fff;border-radius:6px;padding:1px 7px;font-weight:700;">You</span>' : '') + '</div></div></div></td>';
+      html += '<td style="text-align:right;font-weight:700;color:var(--terra,#C96A3B);">🪙 ' + (r.credits || 0) + '</td>';
+      html += '</tr>';
     });
-    var mbnProfile=document.getElementById('mbn-profile');
-    if(mbnProfile){
-      var mbnIcon=mbnProfile.querySelector('.mbn-icon');
-      if(mbnIcon){
-        var existingMbn=mbnIcon.querySelector('.mbn-crown');
-        if(isTop){
-          if(!existingMbn){
-            var mbnImg=document.createElement('img');
-            mbnImg.src='/crown.svg';
-            mbnImg.className='mbn-crown';
-            mbnImg.alt='crown';
-            mbnImg.onerror=function(){this.style.display='none';};
-            mbnIcon.style.position='relative';
-            mbnIcon.appendChild(mbnImg);
-          }
-        }else{
-          if(existingMbn)existingMbn.remove();
+    html += '</tbody></table></div>';
+    container.innerHTML = html;
+  }
+
+  function esc(str) {
+    return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  /* ── CROWN ON SIDEBAR AVATARS ── */
+  function _rnApplyCrownToTopUser(topUserId, currentUserId) {
+    var isTopUser = topUserId && currentUserId && (topUserId === currentUserId);
+    var hostCrown = document.getElementById('host-crown-badge');
+    var rentCrown = document.getElementById('rent-crown-badge');
+    if (hostCrown) hostCrown.style.display = isTopUser ? 'block' : 'none';
+    if (rentCrown) rentCrown.style.display = isTopUser ? 'block' : 'none';
+  }
+  window._rnApplyCrownToTopUser = _rnApplyCrownToTopUser;
+
+  /* ── AUTO-LOAD CROWN ON DASHBOARD INIT ── */
+  // Fetch leaderboard in background to show crown if user is #1
+  function _rnCheckCrownStatus() {
+    var currentUserId = (window.user && (window.user.id || window.user.sub)) || null;
+    if (!currentUserId) return;
+    fetch('/api/leaderboard?limit=1', { headers: getAuthHeaders() })
+      .then(function(r) { return r.json(); })
+      .then(function(json) {
+        var rows = (json && json.leaderboard) ? json.leaderboard : (Array.isArray(json) ? json : []);
+        if (rows.length > 0) {
+          _rnApplyCrownToTopUser(rows[0].id || rows[0].userId, currentUserId);
         }
-      }
+      })
+      .catch(function() {});
+  }
+  // Check crown status after login (wait for user to be set)
+  setTimeout(function() {
+    if (window.user) { _rnCheckCrownStatus(); }
+    else {
+      // Poll until user is available
+      var attempts = 0;
+      var iv = setInterval(function() {
+        if (window.user || ++attempts > 20) {
+          clearInterval(iv);
+          if (window.user) _rnCheckCrownStatus();
+        }
+      }, 500);
     }
-  }catch(e){}
-}
-
-function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
-
-function makeAvatarEl(item){
-  var init=(item.name||'?')[0].toUpperCase();
-  if(item.avatar_url){return '<img class="av-img" src="'+esc(item.avatar_url)+'" alt="'+esc(item.name)+'">';}
-  return esc(init);
-}
-
-function _rnGetCurrentUserId(){
-  try{
-    if(window.user&&(window.user.id||window.user.sub))return window.user.id||window.user.sub;
-    var raw=localStorage.getItem('rentnivas-auth');
-    if(!raw)return null;
-    var p=JSON.parse(raw);
-    var token=p.access_token||p.id_token;
-    if(!token)return null;
-    var parts=token.split('.');
-    if(parts.length<2)return null;
-    var pay=JSON.parse(atob(parts[1].replace(/-/g,'+').replace(/_/g,'/')));
-    return pay.sub||null;
-  }catch(e){return null;}
-}
-
-function renderLeaderboard(){
-  if(!_lbData){
-    var last=parseInt(localStorage.getItem(LB_KEY)||'0',10);
-    if(!last){fetchLeaderboard();}
-    return;
-  }
-  var _myId=_rnGetCurrentUserId();
-  var _rs={};
-  var data=_lbData.filter(function(item){
-    if(!item.id||_rs[item.id])return false;
-    _rs[item.id]=true;
-    return !!(item.name&&item.name.trim());
-  });
-  // ── Hero (rank 1) ──
-  var hero=document.getElementById('lb-hero');
-  if(hero){
-    if(!data.length){
-      hero.innerHTML='<div style="color:#9a8f82;font-size:13px;padding:8px 0;">No data yet</div>';
-    }else{
-      var top=data[0];
-      var topIsMe=_myId&&(top.id===_myId);
-      hero.innerHTML=
-        '<div class="lb-hero-avatar-wrap">'+
-          '<img class="lb-hero-crown" src="/crown.svg" alt="crown" onerror="this.style.display=\'none\'">'+
-          '<div class="lb-hero-avatar">'+makeAvatarEl(top)+'</div>'+
-          '<span class="lb-rank1-badge">1</span>'+
-        '</div>'+
-        '<div class="lb-hero-name">'+esc(top.name||'Anonymous')+(topIsMe?' <span style="font-size:11px;background:#C96A3B;color:#fff;border-radius:6px;padding:1px 7px;font-weight:700;vertical-align:middle;">You</span>':'')+'</div>'+
-        '<div style="margin-top:8px;"><span class="lb-hero-badge">🪙 '+(top.credits||0)+' credits</span></div>';
-    }
-  }
-  // ── List (rank 2+) ──
-  var list=document.getElementById('lb-list');
-  if(list){
-    var html='';
-    for(var i=1;i<data.length;i++){
-      var item=data[i];
-      var rank=i+1;
-      var isMe=_myId&&(item.id===_myId);
-      var rankClass=rank===2?'lb-rank-2':rank===3?'lb-rank-3':'lb-rank-n';
-      html+='<div class="lb-item">'+
-        '<div class="lb-item-rank '+rankClass+'">'+rank+'</div>'+
-        '<div class="lb-item-avatar">'+makeAvatarEl(item)+'</div>'+
-        '<div class="lb-item-info">'+
-          '<div class="lb-item-name">'+esc(item.name||'Anonymous')+(isMe?' <span style="font-size:10px;background:#C96A3B;color:#fff;border-radius:6px;padding:1px 6px;font-weight:700;vertical-align:middle;">You</span>':'')+'</div>'+
-          '<div class="lb-item-sub">Rank #'+rank+'</div>'+
-        '</div>'+
-        '<div class="lb-credits-pill">🪙 '+(item.credits||0)+'</div>'+
-      '</div>';
-    }
-    list.innerHTML=html||'<div style="padding:16px;text-align:center;color:#9a8f82;font-size:13px;">No other users yet</div>';
-  }
-}
-
-function startCountdown(){
-  if(_lbCountdownTimer){clearInterval(_lbCountdownTimer);_lbCountdownTimer=null;}
-  function tick(){
-    var ms=getMsUntilNextFetch();
-    var mins=Math.floor(ms/60000);
-    var secs=Math.floor((ms%60000)/1000);
-    var el=document.getElementById('lb-countdown');
-    if(el)el.textContent=mins+':'+(secs<10?'0':'')+secs;
-  }
-  tick();
-  _lbCountdownTimer=setInterval(tick,1000);
-}
-
-function _lbInitLoad(){
-  var wait=getMsUntilNextFetch();
-  if(wait===0){fetchLeaderboard();}
-  else{
-    _lbFetchTimer=setTimeout(function(){fetchLeaderboard();},wait);
-    if(_lbData){try{updateDashboardCrown(_lbData);}catch(e){}}
-    else{fetchLeaderboard();}
-  }
-}
-if(document.readyState==='loading'){
-  document.addEventListener('DOMContentLoaded',function(){setTimeout(_lbInitLoad,2000);});
-}else{
-  setTimeout(_lbInitLoad,2000);
-}
+  }, 2000);
 
 })();
 </script>
 
-</body>
 </body>
 
 </html>
