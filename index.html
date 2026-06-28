@@ -18848,7 +18848,7 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
       .then(function(r) { return r.json(); })
       .then(function(json) {
         _lbLoading = false;
-        var rows = (json && json.leaderboard) ? json.leaderboard : (Array.isArray(json) ? json : []);
+        var rows = (json && json.data) ? json.data : (json && json.leaderboard) ? json.leaderboard : (Array.isArray(json) ? json : []);
         var newTopId = rows.length ? (rows[0].id || rows[0].userId) : null;
         var crownChanged = _lbPrevTopId !== null && newTopId !== _lbPrevTopId;
         renderLeaderboard(rows, container, hero, currentUserId, crownChanged, newTopId);
@@ -19011,7 +19011,7 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
     fetch('/api/leaderboard?limit=1', { headers: getAuthHeaders() })
       .then(function(r){ return r.json(); })
       .then(function(json) {
-        var rows = (json && json.leaderboard) ? json.leaderboard : (Array.isArray(json) ? json : []);
+        var rows = (json && json.data) ? json.data : (json && json.leaderboard) ? json.leaderboard : (Array.isArray(json) ? json : []);
         if (rows.length > 0) _rnApplyCrownToTopUser(rows[0].id||rows[0].userId, currentUserId);
       })
       .catch(function(){});
