@@ -447,8 +447,44 @@ async function putRows(spec, merge) {
     if (merge) {
       const key = keyFor(spec.table, next, spec.filters);
       const existing = await runDdb('upsert', spec.table, () => ddb.send(new GetItemCommand({ TableName, Key: marshall(key) })));
-      const existingAppRow = existing.Item ? fromDbItem(spec.table, unmarshall(existing.Item)) : {};
-      const isFirstCreation = !existing.Item;
+      let existingAppRow = existing.Item ? fromDbItem(spec.table, unmarshall(existing.Item)) : {};
+      let isFirstCreation = !existing.Item;
+
+      // LEGACY KEY FIX: Some profiles were created before the partition key
+      // was renamed from "id" to "userId".  When a upsert targets { userId: xxx }
+      // and finds no row, it previously created a brand-new row with the correct
+      // key but WITHOUT any of the fields (name, email, referral_code…) that
+      // live only on the legacy "id"-keyed row.  That left two rows for the same
+      // user — the new one with updated credits but no name, the old one with a
+      // name but stale credits — which is exactly why the leaderboard showed 10
+      // credits for users the admin had set to 25.
+      //
+      // Fix: when a userId-keyed lookup returns nothing, check whether a legacy
+      // id-keyed row exists for the same user.  If found, use it as the base,
+      // merge the caller's data on top, and write back under the correct
+      // userId key — effectively migrating the row on first touch.  We also
+      // delete the old id-keyed row so future operations never see the duplicate.
+      if (isFirstCreation && partitionKeyName(spec.table) === 'userId' && next.id) {
+        try {
+          const legacyKey = { id: next.id };
+          const legacyRes = await runDdb('upsert', spec.table, () =>
+            ddb.send(new GetItemCommand({ TableName, Key: marshall(legacyKey) })));
+          if (legacyRes.Item) {
+            const legacyRow = unmarshall(legacyRes.Item);
+            // Legacy row uses 'id' as the attribute; keep it as 'id' for app layer
+            existingAppRow = Object.assign({}, legacyRow, { id: next.id });
+            isFirstCreation = false;
+            // Remove the old id-keyed row to prevent duplicates in scans / leaderboard
+            await runDdb('upsert', spec.table, () =>
+              ddb.send(new DeleteItemCommand({ TableName, Key: marshall(legacyKey) })));
+            console.log(`[RentNivas API] Migrated legacy id-keyed row to userId-keyed for table "${spec.table}", user:`, next.id);
+          }
+        } catch (legacyErr) {
+          // Non-fatal — if migration check fails, proceed with normal first-creation
+          console.warn('[RentNivas API] Legacy row migration check failed:', legacyErr.message);
+        }
+      }
+
       const defaults = isFirstCreation ? resolveDefaults(NEW_ROW_DEFAULTS[spec.table] || {}) : {};
       // Order matters: defaults < existing row < caller's explicit values,
       // so defaults only fill gaps and never clobber a real existing value
@@ -1134,39 +1170,72 @@ async function handleRpc(spec, claims) {
   }
 
   // ── get_leaderboard ───────────────────────────────────────────────────────
-  // Returns all users sorted by credits descending (numeric), with rank numbers.
-  // This is the CORRECT way to fetch the leaderboard — it always includes the
-  // credits field and sorts numerically, fixing the two bugs:
-  //   1. String sort: "9.5" > "25" because "9" > "2" alphabetically (wrong rank)
-  //   2. Missing credits field: if the select list omits "credits", the display
-  //      falls back to showing 10 (the default) for every user
+  // Returns users sorted by credits descending (numeric), with rank numbers.
+  // This RPC is the single source of truth for leaderboard data because it:
+  //   1. Sorts numerically (parseFloat) — fixes "9.5" > "25" string-sort bug
+  //   2. Merges duplicate rows per user (legacy id-keyed + new userId-keyed rows)
+  //      by taking MAX credits and the best available name — this was the root
+  //      cause of "admin sets 25 credits, leaderboard shows 10": the upsert
+  //      created a second nameless row with 25 credits while the original named
+  //      row kept 10; the old fetch then filtered out the nameless row and showed
+  //      the old credits for everyone
+  //   3. Always returns credits as a JS number, never undefined/null/string
   if (spec.name === 'get_leaderboard') {
     const TableName = tableName('profiles');
     const scanned = await runDdb('read', 'profiles', () => ddb.send(new ScanCommand({ TableName })));
-    const rows = (scanned.Items || []).map(item => fromDbItem('profiles', unmarshall(item)));
-
-    // Sort by credits NUMERICALLY descending — parseFloat handles both number
-    // and string storage formats, and fractional credits like 10.5 or 9.5
-    rows.sort((a, b) => {
-      const ac = parseFloat(a.credits) || 0;
-      const bc = parseFloat(b.credits) || 0;
-      return bc - ac; // descending: highest credits first
+    const rawRows = (scanned.Items || []).map(item => {
+      const r = unmarshall(item);
+      // Normalise: both legacy (id-keyed) and current (userId-keyed) rows
+      // must surface under the same 'id' field so de-dup works correctly.
+      const effectiveId = r.userId || r.id || '';
+      return Object.assign({}, r, { id: effectiveId });
     });
 
-    const limit = spec.params && spec.params.limit ? parseInt(spec.params.limit, 10) : 100;
-    const top = rows.slice(0, limit);
+    // De-duplicate by user ID: merge every pair of rows that share the same id.
+    // Keep the HIGHEST credits and the best available name/avatar from either row.
+    // This handles the case where one row has a name but stale credits, and
+    // another row has updated credits but no name.
+    const byId = {};
+    for (const row of rawRows) {
+      const uid = String(row.id || '');
+      if (!uid) continue;
+      if (!byId[uid]) {
+        byId[uid] = row;
+      } else {
+        const prev = byId[uid];
+        const prevCredits = parseFloat(prev.credits) || 0;
+        const currCredits = parseFloat(row.credits) || 0;
+        byId[uid] = {
+          ...prev,
+          ...row,
+          id: uid,
+          // Always take the HIGHEST credit value across all rows for this user
+          credits: Math.max(prevCredits, currCredits),
+          // Take name/avatar from whichever row actually has them
+          name: (prev.name && prev.name.trim()) ? prev.name : (row.name || ''),
+          avatar_url: prev.avatar_url || row.avatar_url || null,
+        };
+      }
+    }
+
+    // Sort by credits NUMERICALLY descending
+    const merged = Object.values(byId);
+    merged.sort((a, b) => (parseFloat(b.credits) || 0) - (parseFloat(a.credits) || 0));
+
+    const limit = spec.params && spec.params.limit ? parseInt(spec.params.limit, 10) : 300;
+    const top = merged.slice(0, limit);
 
     // Attach rank numbers and return only public-safe fields
     const result = top.map((row, idx) => ({
       rank: idx + 1,
-      id: row.id || row.userId || '',
+      id: row.id || '',
       name: row.name || '',
       avatar_url: row.avatar_url || null,
       credits: parseFloat(row.credits) || 0,
       xp: parseInt(row.xp || '0', 10),
     }));
 
-    console.log(`[Leaderboard] Returning top ${result.length} users, #1 has ${result[0] ? result[0].credits : 0} credits`);
+    console.log(`[Leaderboard] ${result.length} users returned; #1="${result[0] && result[0].name}" credits=${result[0] && result[0].credits}`);
     return result;
   }
 
