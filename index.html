@@ -8499,6 +8499,7 @@
       <button class="mob-nav-item" onclick="closeMobSidebar();if(typeof _rnStartUserTutorial==='function')_rnStartUserTutorial()">
         <span class="mob-nav-icon">🎓</span> Watch Tutorial
       </button>
+      <button class="mob-nav-item" onclick="closeMobSidebar();if(typeof showLeaderboard==='function')showLeaderboard()">
         <span class="mob-nav-icon">🏆</span> Leaderboard
       </button>
       <button class="mob-nav-item" onclick="closeMobSidebar();window.open('/language.html','_blank')">
@@ -8639,7 +8640,7 @@
         <a onclick="smoothScroll('#testimonials')">Testimonials</a>
         <a onclick="smoothScroll('#support')">Support</a>
         <a onclick="window.open('/language.html','_blank')" style="display:flex;align-items:center;gap:5px;">🌐 Language<span id="lp-nav-lang-badge" style="font-size:11px;background:rgba(201,106,59,0.18);color:#e88a5a;border-radius:6px;padding:1px 7px;font-weight:600;"></span></a>
-        <button class="btn-nav-tutorial" onclick="(function(){var isLI=window._RNTut&&typeof window._RNTut.isLoggedIn==='function'&&window._RNTut.isLoggedIn();if(isLI){if(typeof _rnStartUserTutorial==='function')_rnStartUserTutorial();}else{if(typeof window.startViewTutorial==='function')window.startViewTutorial('landing');}})();">🎓 Watch Tutorial</button>
+        <button id="lp-nav-mob-tutorial" class="btn-nav-tutorial" onclick="(function(){var isLI=window._RNTut&&typeof window._RNTut.isLoggedIn==='function'&&window._RNTut.isLoggedIn();if(isLI){if(typeof _rnStartUserTutorial==='function')_rnStartUserTutorial();}else{if(typeof window.startViewTutorial==='function')window.startViewTutorial('landing');}})();">🎓 Watch Tutorial</button>
       </div>
       <div class="lp-nav-right" id="lp-nav-right">
         <button class="btn btn-terra btn-sm" id="lp-nav-getstarted" style="display:none;" onclick="showPage('signup-page')">Get Started</button>
@@ -8653,23 +8654,22 @@
         var signin=document.getElementById('lp-nav-signin');
         var tut=document.getElementById('lp-nav-mob-tutorial');
         var gs=document.getElementById('lp-nav-getstarted');
-        if(!signin||!tut)return;
+        /* Always keep lp-nav-signin hidden — "Get Started" is the sole logged-out CTA */
+        if(signin)signin.style.setProperty('display','none','important');
+        if(!tut)return;
         /* Detect logged-in state by checking if Dashboard button is visible */
         var dash=document.getElementById('lp-nav-dashboard');
         var loggedIn=dash&&dash.style.display!=='none'&&dash.style.display!=='';
         if(loggedIn){
-          /* Logged in: hide Sign In, Watch Tutorial, and Get Started */
-          signin.style.setProperty('display','none','important');
+          /* Logged in: hide Watch Tutorial and Get Started */
           tut.style.setProperty('display','none','important');
           if(gs)gs.style.setProperty('display','none','important');
         }else if(window.innerWidth<=768){
-          /* Mobile + logged out: hide Sign In, show Watch Tutorial + keep Get Started */
-          signin.style.setProperty('display','none','important');
+          /* Mobile + logged out: show Watch Tutorial, hide Get Started (sidebar handles nav) */
           tut.style.setProperty('display','inline-flex','important');
-          if(gs)gs.style.removeProperty('display');
+          if(gs)gs.style.setProperty('display','none','important');
         }else{
-          /* Desktop + logged out: show Sign In & Get Started, hide mob Watch Tutorial */
-          signin.style.removeProperty('display');
+          /* Desktop + logged out: hide Watch Tutorial, show Get Started */
           tut.style.setProperty('display','none','important');
           if(gs)gs.style.removeProperty('display');
         }
@@ -17045,7 +17045,7 @@
       const lpSignIn = document.getElementById('lp-nav-signin');
       const lpGetStarted = document.getElementById('lp-nav-getstarted');
       const lpDashboard = document.getElementById('lp-nav-dashboard');
-      if (lpSignIn) lpSignIn.style.display = loggedIn ? 'none' : 'inline-flex';
+      if (lpSignIn) lpSignIn.style.display = 'none'; // always hidden — "Get Started" is the sole CTA
       if (lpGetStarted) lpGetStarted.style.display = loggedIn ? 'none' : 'inline-flex';
       if (lpDashboard) lpDashboard.style.display = loggedIn ? '' : 'none';
       // Re-apply mobile Watch Tutorial ↔ Sign In swap after every auth update
