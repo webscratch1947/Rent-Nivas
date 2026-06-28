@@ -18293,27 +18293,33 @@ async function fetchLeaderboard(){
   try{
     var sb=window.sb;
     if(!sb)return;
-    // Fetch all profiles and sort client-side (DynamoDB cannot sort by
-    // a non-primary-key attribute without a GSI, so .order() is unreliable)
-    var res=await sb.from('profiles')
-      .select('id,name,avatar_url,credits')
-      .limit(300);
+    // Use the server-side get_leaderboard RPC instead of a raw profiles query.
+    // The RPC correctly:
+    //   - Merges duplicate rows per user (legacy id-keyed + userId-keyed) and
+    //     takes the HIGHEST credits value — this fixes "admin sets 25 credits
+    //     but leaderboard still shows 10" caused by two DynamoDB rows for the
+    //     same user where the named row had stale credits
+    //   - Sorts numerically server-side (not as strings, which caused "9.5" > "25")
+    //   - Always returns credits as a real number, never undefined
+    var res=await sb.rpc('get_leaderboard',{limit:300});
     if(res.data){
-      // Sort by credits descending client-side — always correct
-      var _sorted=res.data.slice().sort(function(a,b){return (b.credits||0)-(a.credits||0);});
-      // Deduplicate by id and filter out entries with no name
+      // Server already sorted and de-duped; just filter anonymous entries
       var _seen={};
-      _lbData=_sorted.filter(function(item){
+      _lbData=res.data.filter(function(item){
         if(!item.id||_seen[item.id])return false;
         _seen[item.id]=true;
         return !!(item.name&&item.name.trim());
       });
+      // Clear any stale cached data so old wrong values never persist
       try{localStorage.setItem(LB_DATA_KEY,JSON.stringify(_lbData));}catch(e){}
       localStorage.setItem(LB_KEY,Date.now().toString());
       renderLeaderboard();
-      updateDashboardCrown(res.data);
+      // Pass already-sorted data so crown always goes to the real #1
+      updateDashboardCrown(_lbData);
     }
-  }catch(e){}
+  }catch(e){
+    console.error('[Leaderboard] fetchLeaderboard error:',e);
+  }
   // Schedule next fetch
   if(_lbFetchTimer){clearTimeout(_lbFetchTimer);_lbFetchTimer=null;}
   _lbFetchTimer=setTimeout(function(){fetchLeaderboard();},LB_INTERVAL);
