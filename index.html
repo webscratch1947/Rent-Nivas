@@ -13310,12 +13310,25 @@
       return allHouses;
     }
 
+    // Returns the effective rent for a listing — sums floor rents when floors exist
+    function getListingRent(x) {
+      let floorsData = x.floors_data;
+      if (floorsData) {
+        try { if (typeof floorsData === 'string') floorsData = JSON.parse(floorsData); } catch { floorsData = null; }
+      }
+      if (Array.isArray(floorsData) && floorsData.length > 0) {
+        const floorsRent = floorsData.reduce((s, f) => s + (parseFloat(f.rent) || 0), 0);
+        if (floorsRent > 0) return floorsRent;
+      }
+      return parseFloat(x.price) || 0;
+    }
+
     function renderHomeDashboard(h) {
       const now = new Date();
       const pub = h.filter(x => x.status === 'published');
       const dr = h.filter(x => x.status === 'draft');
       const totalImgs = h.reduce((s, x) => s + (x.images?.length || 0), 0);
-      const prices = pub.map(x => parseFloat(x.price) || 0).filter(p => p > 0);
+      const prices = pub.map(getListingRent).filter(p => p > 0);
       const totalRent = prices.reduce((a, b) => a + b, 0);
 
       document.getElementById('k-total').textContent = h.length;
@@ -13343,7 +13356,7 @@
             </div></td>
             <td><span class="sp sp-${x.status}">${x.status}</span></td>
             <td style="font-weight:600;font-size:15px;">${x.bedrooms || '—'}</td>
-            <td><strong style="color:var(--terra);font-size:15px;">₹${parseInt(x.price || 0).toLocaleString('en-IN')}</strong></td>
+            <td><strong style="color:var(--terra);font-size:15px;">₹${Math.round(getListingRent(x)).toLocaleString('en-IN')}</strong></td>
             <td style="color:var(--muted);font-size:13px;">${x.expires_at ? fmtDate(x.expires_at) : '—'}</td>
             <td style="color:var(--muted);font-size:13px;">${fmtDate(x.created_at)}</td>
           </tr>`;
@@ -14656,7 +14669,7 @@
       const h = await fetchHouses(true);
       const pub = h.filter(x => x.status === 'published');
       const dr = h.filter(x => x.status === 'draft');
-      const prices = h.map(x => parseFloat(x.price) || 0).filter(p => p > 0);
+      const prices = h.map(getListingRent).filter(p => p > 0);
       const avg = prices.length ? prices.reduce((a, b) => a + b, 0) / prices.length : 0;
 
       document.getElementById('an-total').textContent = h.length;
@@ -14999,7 +15012,7 @@
       const h = await fetchHouses();
       const pub = h.filter(x => x.status === 'published');
       const dr = h.filter(x => x.status === 'draft');
-      const prices = h.map(x => parseFloat(x.price) || 0).filter(p => p > 0);
+      const prices = h.map(getListingRent).filter(p => p > 0);
       const avg = prices.length ? prices.reduce((a, b) => a + b, 0) / prices.length : 0;
       document.getElementById('pst-total').textContent = h.length;
       document.getElementById('pst-pub').textContent = pub.length;
@@ -19848,12 +19861,13 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
 })();
 </script>
 <!-- ══ CREDITS CLAIM PROMPT ══ -->
-<div id="rn-credits-prompt" style="display:none;position:fixed;inset:0;z-index:200002;background:rgba(0,0,0,0.65);backdrop-filter:blur(4px);align-items:center;justify-content:center;flex-direction:column;">
-  <div id="rn-credits-prompt-box" onclick="window._rnClaimCreditsPrompt&&window._rnClaimCreditsPrompt()" style="cursor:pointer;background:linear-gradient(135deg,#1E3A5F 0%,#2d5a8e 100%);border-radius:24px;padding:40px 48px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.5);max-width:340px;width:90%;border:2px solid rgba(255,255,255,0.15);animation:rn-prompt-bounce 0.5s cubic-bezier(.34,1.56,.64,1);">
-    <div style="font-size:64px;margin-bottom:12px;animation:rn-chest-pulse 1.5s ease-in-out infinite;">🎁</div>
-    <h2 style="color:#fff;font-size:22px;font-weight:800;margin:0 0 8px;">You've earned free credits!</h2>
-    <p style="color:rgba(255,255,255,.75);font-size:15px;margin:0 0 20px;line-height:1.5;">Welcome to Rent Nivas! You received <strong style="color:#f9c74f;">10 free RN credits</strong> to start browsing homes.</p>
-    <div style="background:rgba(249,199,79,0.2);border:1.5px solid #f9c74f;border-radius:12px;padding:14px 20px;color:#f9c74f;font-size:16px;font-weight:700;letter-spacing:.3px;">✨ Tap to open your chest!</div>
+<div id="rn-credits-prompt" style="display:none;position:fixed;inset:0;z-index:200002;background:rgba(0,0,0,0.72);backdrop-filter:blur(6px);align-items:center;justify-content:center;flex-direction:column;">
+  <div style="text-align:center;animation:rn-prompt-bounce 0.5s cubic-bezier(.34,1.56,.64,1);">
+    <!-- SVG animation container — click to play -->
+    <div id="rn-coin-anim-wrap" onclick="window._rnClaimCreditsPrompt&&window._rnClaimCreditsPrompt()" style="cursor:pointer;width:220px;height:220px;margin:0 auto 18px;display:flex;align-items:center;justify-content:center;" title="Tap to claim your credits!"></div>
+    <h2 style="color:#fff;font-size:22px;font-weight:800;margin:0 0 8px;text-shadow:0 2px 12px rgba(0,0,0,.4);">You've earned free credits!</h2>
+    <p style="color:rgba(255,255,255,.8);font-size:15px;margin:0 0 6px;line-height:1.5;">Welcome to Rent Nivas! You received <strong style="color:#f9c74f;">10 free RN credits</strong> to start browsing homes.</p>
+    <p style="color:rgba(255,255,255,.45);font-size:13px;margin:0;">Tap the animation to claim</p>
   </div>
 </div>
 
@@ -20125,17 +20139,66 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
   'use strict';
 
   /* ── CREDITS CLAIM PROMPT ── */
+  var _rnCreditsClaiming = false;
+
   window._rnShowCreditsPrompt = function () {
     var el = document.getElementById('rn-credits-prompt');
     if (!el) return;
+    _rnCreditsClaiming = false;
+    // Inject the SVG inline so we can control its animation
+    var wrap = document.getElementById('rn-coin-anim-wrap');
+    if (wrap && !wrap.querySelector('svg')) {
+      fetch('coins-animation.svg')
+        .then(function(r) { return r.text(); })
+        .then(function(svgText) {
+          if (!wrap) return;
+          wrap.innerHTML = svgText;
+          var svgEl = wrap.querySelector('svg');
+          if (svgEl) {
+            // Size it to fit the container
+            svgEl.setAttribute('width', '220');
+            svgEl.setAttribute('height', '220');
+            svgEl.style.display = 'block';
+            // Rewind to frame 0 and pause — animation only plays on user click
+            svgEl.setCurrentTime(0);
+            svgEl.pauseAnimations();
+          }
+        })
+        .catch(function() {
+          // Fallback: just show a coin emoji if fetch fails
+          if (wrap) wrap.innerHTML = '<div style="font-size:80px;line-height:1;">🪙</div>';
+        });
+    } else if (wrap) {
+      // Reset animation to first frame if showing again
+      var svgEl = wrap.querySelector('svg');
+      if (svgEl) { svgEl.setCurrentTime(0); svgEl.pauseAnimations(); }
+    }
     el.style.display = 'flex';
     if (typeof _lockScroll === 'function') _lockScroll();
   };
+
   window._rnClaimCreditsPrompt = function () {
-    var el = document.getElementById('rn-credits-prompt');
-    if (el) el.style.display = 'none';
-    if (typeof _unlockScroll === 'function') _unlockScroll();
-    if (typeof window._rnShowCoinsOverlayDirect === 'function') window._rnShowCoinsOverlayDirect();
+    if (_rnCreditsClaiming) return; // prevent double-fire
+    _rnCreditsClaiming = true;
+    // Play the animation first, then close and show coins
+    var wrap = document.getElementById('rn-coin-anim-wrap');
+    var svgEl = wrap ? wrap.querySelector('svg') : null;
+    if (svgEl) {
+      svgEl.unpauseAnimations();
+      // Close after animation has had time to play (~2.5 s)
+      setTimeout(function() {
+        var el = document.getElementById('rn-credits-prompt');
+        if (el) el.style.display = 'none';
+        if (typeof _unlockScroll === 'function') _unlockScroll();
+        if (typeof window._rnShowCoinsOverlayDirect === 'function') window._rnShowCoinsOverlayDirect();
+      }, 2500);
+    } else {
+      // No SVG yet — close immediately
+      var el = document.getElementById('rn-credits-prompt');
+      if (el) el.style.display = 'none';
+      if (typeof _unlockScroll === 'function') _unlockScroll();
+      if (typeof window._rnShowCoinsOverlayDirect === 'function') window._rnShowCoinsOverlayDirect();
+    }
   };
 
   /* ── STATE ── */
