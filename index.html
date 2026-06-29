@@ -9870,7 +9870,10 @@
                 <!-- ══ DYNAMIC PROPERTY TYPE FIELDS ══ -->
                 <!-- House / Apartment / Villa (default) -->
                 <div id="pt-fields-residential" class="pt-fields-block">
-                  <div class="fg" style="margin-bottom:10px;"><label id="add-price-lbl">Monthly Rent (₹) *</label><input type="number" id="h-price" placeholder="35000"></div>
+                  <div class="form-2col" style="margin-bottom:10px;">
+                    <div class="fg"><label id="add-price-lbl">Monthly Rent (₹) *</label><input type="number" id="h-price" placeholder="35000"></div>
+                    <div class="fg"><label>Floor Number</label><input type="number" id="h-floor-number" placeholder="e.g. 2" min="0"></div>
+                  </div>
                   <div class="form-2col">
                     <div class="fg"><label id="add-beds-lbl">Bedrooms *</label><input type="number" id="h-beds" placeholder="3" min="0"></div>
                     <div class="fg"><label id="add-baths-lbl">Bathrooms *</label><input type="number" id="h-baths" placeholder="2" min="0"></div>
@@ -13606,11 +13609,11 @@
         setV('h-reception', ed.reception); setV('h-parking-office', ed.parking);
         setV('h-office-layout', ed.layout);
       } else if (!['PG','Shop'].includes(selectedPropType)) {
-        // Residential: restore furnishing + tenant type
+        // Residential: restore furnishing + tenant type + floor number
         const selV = (id, val) => { const el = document.getElementById(id); if (el && val != null) el.value = val; };
         selV('h-furnish-status', h.furnish_status);
         selV('h-tenant-type', h.tenant_type);
-      }
+        setV('h-floor-number', ed.floor_number != null ? ed.floor_number : '');
       if (selectedPropType === 'PG') {
         setV('h-pg-beds', ed.total_beds); setV('h-baths-pg', ed.bathrooms);
         setV('h-parking-pg', ed.parking);
@@ -13640,7 +13643,7 @@
       // Clear all text inputs
       ['h-title', 'h-desc', 'h-price', 'h-phone', 'h-address', 'h-area', 'h-city', 'h-state',
         'h-beds', 'h-baths', 'h-kitchen', 'h-living', 'h-balcony', 'h-parking', 'h-conditions-extra',
-        'h-price-office', 'h-price-pg', 'h-price-shop'].forEach(id => {
+        'h-floor-number', 'h-price-office', 'h-price-pg', 'h-price-shop'].forEach(id => {
           const el = document.getElementById(id);
           if (el) el.value = '';
         });
@@ -14161,6 +14164,10 @@
         // Collect type-specific extra details
         let extraDetails = null;
         const vAny = id => document.getElementById(id)?.value?.trim() || '';
+        if (!selectedPropType || !['Office','PG','Shop'].includes(selectedPropType)) {
+          const floorNum = vAny('h-floor-number');
+          if (floorNum !== '') extraDetails = { floor_number: parseInt(floorNum) };
+        }
         if (selectedPropType === 'Office') {
           extraDetails = {
             cabins: parseInt(vAny('h-cabins')) || 0,
@@ -15430,7 +15437,8 @@
           { em: '🛋️', val: h.living_room, lbl: 'Living' },
           { em: '🏠', val: h.balcony, lbl: 'Balcony' },
           { em: '🚗', val: h.parking, lbl: 'Parking' },
-        ].filter(r => r.val > 0),
+          ed.floor_number != null ? { em: '🏢', val: ed.floor_number, lbl: 'Floor' } : null,
+        ].filter(r => r && r.val > 0),
         metaTags: resMetaTags,
         layoutNote: '',
       };
