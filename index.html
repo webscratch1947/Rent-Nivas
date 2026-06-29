@@ -19861,13 +19861,13 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
 })();
 </script>
 <!-- ══ CREDITS CLAIM PROMPT ══ -->
-<div id="rn-credits-prompt" style="display:none;position:fixed;inset:0;z-index:200002;background:rgba(0,0,0,0.72);backdrop-filter:blur(6px);align-items:center;justify-content:center;flex-direction:column;">
-  <div style="text-align:center;animation:rn-prompt-bounce 0.5s cubic-bezier(.34,1.56,.64,1);">
-    <!-- SVG animation container — click to play -->
-    <div id="rn-coin-anim-wrap" onclick="window._rnClaimCreditsPrompt&&window._rnClaimCreditsPrompt()" style="cursor:pointer;width:220px;height:220px;margin:0 auto 18px;display:flex;align-items:center;justify-content:center;" title="Tap to claim your credits!"></div>
-    <h2 style="color:#fff;font-size:22px;font-weight:800;margin:0 0 8px;text-shadow:0 2px 12px rgba(0,0,0,.4);">You've earned free credits!</h2>
-    <p style="color:rgba(255,255,255,.8);font-size:15px;margin:0 0 6px;line-height:1.5;">Welcome to Rent Nivas! You received <strong style="color:#f9c74f;">10 free RN credits</strong> to start browsing homes.</p>
-    <p style="color:rgba(255,255,255,.45);font-size:13px;margin:0;">Tap the animation to claim</p>
+<div id="rn-credits-prompt" style="display:none;position:fixed;inset:0;z-index:200002;background:rgba(0,0,0,0.72);backdrop-filter:blur(6px);align-items:center;justify-content:center;flex-direction:column;cursor:pointer;" onclick="window._rnClaimCreditsPrompt&&window._rnClaimCreditsPrompt()">
+  <!-- SVG chest — shows first frame (static) until user taps -->
+  <div id="rn-coin-anim-wrap" style="width:min(320px,85vw);height:min(320px,85vw);display:flex;align-items:center;justify-content:center;pointer-events:none;"></div>
+  <!-- Shown only AFTER animation ends -->
+  <div id="rn-credits-claim-text" style="display:none;margin-top:18px;text-align:center;opacity:0;transition:opacity .6s ease;pointer-events:none;">
+    <h2 style="color:#fff;font-size:22px;font-weight:800;margin:0 0 8px;text-shadow:0 2px 12px rgba(0,0,0,.4);">🎉 You got <strong style="color:#f9c74f;">10 Free Credits!</strong></h2>
+    <p style="color:rgba(255,255,255,.65);font-size:13px;margin:0;">Tap anywhere to close</p>
   </div>
 </div>
 
@@ -20145,59 +20145,103 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
     var el = document.getElementById('rn-credits-prompt');
     if (!el) return;
     _rnCreditsClaiming = false;
-    // Inject the SVG inline so we can control its animation
+    // Reset: hide post-animation text
+    var claimText = document.getElementById('rn-credits-claim-text');
+    if (claimText) { claimText.style.display = 'none'; claimText.style.opacity = '0'; }
+
     var wrap = document.getElementById('rn-coin-anim-wrap');
+
+    function _applyFirstFrame(svgEl) {
+      if (!svgEl) return;
+      svgEl.style.width = '100%';
+      svgEl.style.height = '100%';
+      svgEl.style.display = 'block';
+      // Rewind to frame 0 and PAUSE — user must tap to start
+      try { svgEl.setCurrentTime(0); } catch(e) {}
+      try { svgEl.pauseAnimations(); } catch(e) {}
+    }
+
+    function _showOverlay() {
+      el.style.display = 'flex';
+      if (typeof _lockScroll === 'function') _lockScroll();
+    }
+
     if (wrap && !wrap.querySelector('svg')) {
+      // Fetch SVG first — only show overlay once it's ready so chest is visible from the start
       fetch('coins-animation.svg')
         .then(function(r) { return r.text(); })
         .then(function(svgText) {
           if (!wrap) return;
           wrap.innerHTML = svgText;
-          var svgEl = wrap.querySelector('svg');
-          if (svgEl) {
-            // Size it to fit the container
-            svgEl.setAttribute('width', '220');
-            svgEl.setAttribute('height', '220');
-            svgEl.style.display = 'block';
-            // Rewind to frame 0 and pause — animation only plays on user click
-            svgEl.setCurrentTime(0);
-            svgEl.pauseAnimations();
-          }
+          _applyFirstFrame(wrap.querySelector('svg'));
+          _showOverlay();
         })
         .catch(function() {
-          // Fallback: just show a coin emoji if fetch fails
-          if (wrap) wrap.innerHTML = '<div style="font-size:80px;line-height:1;">🪙</div>';
+          if (wrap) wrap.innerHTML = '<div style="font-size:120px;line-height:1;text-align:center;">🎁</div>';
+          _showOverlay();
         });
     } else if (wrap) {
-      // Reset animation to first frame if showing again
-      var svgEl = wrap.querySelector('svg');
-      if (svgEl) { svgEl.setCurrentTime(0); svgEl.pauseAnimations(); }
+      // SVG already injected — reset to first frame
+      _applyFirstFrame(wrap.querySelector('svg'));
+      _showOverlay();
+    } else {
+      _showOverlay();
     }
-    el.style.display = 'flex';
-    if (typeof _lockScroll === 'function') _lockScroll();
   };
 
   window._rnClaimCreditsPrompt = function () {
-    if (_rnCreditsClaiming) return; // prevent double-fire
-    _rnCreditsClaiming = true;
-    // Play the animation first, then close and show coins
+    var el = document.getElementById('rn-credits-prompt');
     var wrap = document.getElementById('rn-coin-anim-wrap');
+    var claimText = document.getElementById('rn-credits-claim-text');
+
+    // If post-animation text is already showing — this tap means "close"
+    if (claimText && claimText.style.display !== 'none') {
+      if (el) el.style.display = 'none';
+      if (claimText) { claimText.style.display = 'none'; claimText.style.opacity = '0'; }
+      if (typeof _unlockScroll === 'function') _unlockScroll();
+      // Animate the credits badge counter up to actual value
+      setTimeout(function() {
+        var actualCredits = 0;
+        try { var raw = localStorage.getItem('nestly-credits'); if (raw !== null) actualCredits = Math.max(0, parseInt(raw, 10) || 0); } catch(e) {}
+        var ids = ['host-credits-count','rent-credits-count','pur-credits-count','detail-credits-count','sett-credits-count'];
+        ids.forEach(function(id) { var e2 = document.getElementById(id); if (e2) e2.textContent = '0'; });
+        if (actualCredits === 0) return;
+        var start = null;
+        function step(ts) {
+          if (!start) start = ts;
+          var progress = Math.min((ts - start) / 1200, 1);
+          var eased = 1 - Math.pow(1 - progress, 3);
+          ids.forEach(function(id) { var e2 = document.getElementById(id); if (e2) e2.textContent = Math.round(eased * actualCredits); });
+          if (progress < 1) requestAnimationFrame(step);
+        }
+        requestAnimationFrame(step);
+      }, 100);
+      return;
+    }
+
+    // Animation is already playing — ignore duplicate taps
+    if (_rnCreditsClaiming) return;
+    _rnCreditsClaiming = true;
+
     var svgEl = wrap ? wrap.querySelector('svg') : null;
     if (svgEl) {
-      svgEl.unpauseAnimations();
-      // Close after animation has had time to play (~2.5 s)
+      // Play the chest animation
+      try { svgEl.unpauseAnimations(); } catch(e) {}
+      // After animation finishes (~2.5s) show "10 free credits" text in same overlay
       setTimeout(function() {
-        var el = document.getElementById('rn-credits-prompt');
-        if (el) el.style.display = 'none';
-        if (typeof _unlockScroll === 'function') _unlockScroll();
-        if (typeof window._rnShowCoinsOverlayDirect === 'function') window._rnShowCoinsOverlayDirect();
+        _rnCreditsClaiming = false;
+        if (claimText) {
+          claimText.style.display = 'block';
+          requestAnimationFrame(function() { claimText.style.opacity = '1'; });
+        }
       }, 2500);
     } else {
-      // No SVG yet — close immediately
-      var el = document.getElementById('rn-credits-prompt');
-      if (el) el.style.display = 'none';
-      if (typeof _unlockScroll === 'function') _unlockScroll();
-      if (typeof window._rnShowCoinsOverlayDirect === 'function') window._rnShowCoinsOverlayDirect();
+      // No SVG — show text immediately
+      _rnCreditsClaiming = false;
+      if (claimText) {
+        claimText.style.display = 'block';
+        requestAnimationFrame(function() { claimText.style.opacity = '1'; });
+      }
     }
   };
 
