@@ -2882,7 +2882,107 @@
       margin-top: 6px;
     }
 
-    .rent-search-bar {
+    /* ── ADVANCED FILTER PANEL ─────────────────────────────────────── */
+.rn-filter-btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 10px 18px; border-radius: 99px;
+  border: 1.5px solid var(--border2); background: var(--white);
+  color: var(--ink); font-size: 14px; font-weight: 600;
+  cursor: pointer; transition: all .18s; white-space: nowrap;
+  font-family: var(--font);
+}
+.rn-filter-btn:hover { border-color: var(--terra); color: var(--terra); }
+.rn-filter-btn.has-filters { background: var(--terra); color: #fff; border-color: var(--terra); }
+.rn-filter-btn .rn-filter-count {
+  background: rgba(255,255,255,.3); color: #fff;
+  font-size: 11px; font-weight: 800; padding: 2px 7px;
+  border-radius: 99px; display: none;
+}
+.rn-filter-btn.has-filters .rn-filter-count { display: inline-block; }
+
+.rn-filter-drawer {
+  display: none; position: fixed; inset: 0; z-index: 9998;
+}
+.rn-filter-drawer.open { display: block; }
+.rn-filter-overlay {
+  position: absolute; inset: 0; background: rgba(0,0,0,.45);
+  backdrop-filter: blur(2px);
+}
+.rn-filter-panel {
+  position: absolute; right: 0; top: 0; bottom: 0;
+  width: min(420px, 100vw);
+  background: var(--white); display: flex; flex-direction: column;
+  box-shadow: -8px 0 40px rgba(0,0,0,.15);
+  animation: rn-panel-slide-in .25s cubic-bezier(.34,1.2,.64,1);
+}
+@keyframes rn-panel-slide-in {
+  from { transform: translateX(100%); } to { transform: translateX(0); }
+}
+.rn-filter-panel-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 20px 24px 16px; border-bottom: 1.5px solid var(--border2);
+}
+.rn-filter-panel-head h3 { font-size: 18px; font-weight: 800; margin: 0; }
+.rn-filter-close {
+  width: 34px; height: 34px; border-radius: 50%;
+  border: none; background: var(--bg2); cursor: pointer;
+  font-size: 18px; display: flex; align-items: center; justify-content: center;
+  color: var(--ink); transition: background .15s;
+}
+.rn-filter-close:hover { background: var(--border2); }
+.rn-filter-body { flex: 1; overflow-y: auto; padding: 20px 24px; }
+.rn-filter-section { margin-bottom: 28px; }
+.rn-filter-label {
+  font-size: 12px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .8px; color: var(--muted); margin-bottom: 12px;
+}
+.rn-filter-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.rn-filter-chip {
+  padding: 8px 16px; border-radius: 99px;
+  border: 1.5px solid var(--border2); background: var(--white);
+  color: var(--soft); font-size: 13px; font-weight: 600;
+  cursor: pointer; transition: all .15s; font-family: var(--font);
+}
+.rn-filter-chip:hover { border-color: var(--terra); color: var(--terra); }
+.rn-filter-chip.selected { background: var(--terra); color: #fff; border-color: var(--terra); }
+
+/* Price range slider */
+.rn-price-range { padding: 8px 0; }
+.rn-price-labels {
+  display: flex; justify-content: space-between;
+  font-size: 13px; font-weight: 700; color: var(--ink);
+  margin-bottom: 14px;
+}
+.rn-price-labels span { background: var(--bg2); padding: 4px 12px; border-radius: 8px; }
+.rn-range-track {
+  position: relative; height: 6px; background: var(--border2);
+  border-radius: 99px; margin: 16px 8px;
+}
+.rn-range-fill {
+  position: absolute; height: 100%; background: var(--terra);
+  border-radius: 99px; pointer-events: none;
+}
+.rn-range-track input[type=range] {
+  position: absolute; width: 100%; height: 100%;
+  opacity: 0; cursor: pointer; margin: 0;
+  -webkit-appearance: none; pointer-events: all;
+}
+.rn-range-thumb {
+  position: absolute; top: 50%; width: 20px; height: 20px;
+  background: var(--terra); border-radius: 50%;
+  border: 3px solid #fff; box-shadow: 0 2px 8px rgba(0,0,0,.2);
+  transform: translate(-50%, -50%); pointer-events: none;
+  transition: transform .1s;
+}
+
+.rn-filter-footer {
+  padding: 16px 24px; border-top: 1.5px solid var(--border2);
+  display: flex; gap: 10px;
+}
+.rn-filter-footer .btn { flex: 1; padding: 12px; font-size: 14px; }
+/* ── END FILTER PANEL ───────────────────────────────────────────── */
+
+.rent-search-bar {
       display: flex;
       gap: 12px;
       margin-bottom: 28px;
@@ -9186,19 +9286,100 @@
         <!-- BROWSE SECTION -->
         <div class="ds-section active" id="rent-section-browse">
           <div style="margin-bottom:28px;">
-            <div class="rent-search-enhanced">
-              <div class="rent-search-wrap">
+            <!-- Search + Filter row -->
+            <div style="display:flex;gap:12px;align-items:center;margin-bottom:16px;">
+              <div class="rent-search-wrap" style="flex:1;">
                 <input type="text" id="rent-search-input" placeholder="Search by title, city, area, state..."
                   oninput="filterRent()">
               </div>
-              <div class="prop-filter-wrap" id="prop-filter-wrap">
-                <button class="prop-filter-chip active" onclick="setPropFilter('all',this)" data-i18n="rent_filter_all">🏘️ All</button>
-                <button class="prop-filter-chip" onclick="setPropFilter('Apartment',this)" data-i18n="rent_filter_apartment">🏢 Apartment</button>
-                <button class="prop-filter-chip" onclick="setPropFilter('House',this)" data-i18n="rent_filter_house">🏠 House</button>
-                <button class="prop-filter-chip" onclick="setPropFilter('Villa',this)" data-i18n="rent_filter_villa">🌟 Villa</button>
-                <button class="prop-filter-chip" onclick="setPropFilter('Office',this)" data-i18n="rent_filter_office">💼 Office</button>
-                <button class="prop-filter-chip" onclick="setPropFilter('PG',this)" data-i18n="rent_filter_pg">🛏️ PG</button>
-                <button class="prop-filter-chip" onclick="setPropFilter('Shop',this)" data-i18n="rent_filter_shop">🏪 Shop</button>
+              <button class="rn-filter-btn" id="rn-filter-open-btn" onclick="openRentFilterPanel()">
+                <span>⚙️ Filters</span>
+                <span class="rn-filter-count" id="rn-filter-count">0</span>
+              </button>
+            </div>
+            <!-- Active filter summary chips -->
+            <div id="rn-active-filter-tags" style="display:flex;flex-wrap:wrap;gap:8px;min-height:0;"></div>
+          </div>
+
+          <!-- FILTER DRAWER -->
+          <div class="rn-filter-drawer" id="rn-filter-drawer">
+            <div class="rn-filter-overlay" onclick="closeRentFilterPanel()"></div>
+            <div class="rn-filter-panel">
+              <div class="rn-filter-panel-head">
+                <h3>🔍 Filters</h3>
+                <button class="rn-filter-close" onclick="closeRentFilterPanel()">✕</button>
+              </div>
+              <div class="rn-filter-body">
+
+                <!-- Property Type -->
+                <div class="rn-filter-section">
+                  <div class="rn-filter-label">Property Type</div>
+                  <div class="rn-filter-chips" id="rn-fc-type">
+                    <button class="rn-filter-chip selected" data-val="all" onclick="rnToggleTypeChip(this)">🏘️ All</button>
+                    <button class="rn-filter-chip" data-val="Apartment" onclick="rnToggleTypeChip(this)">🏢 Apartment</button>
+                    <button class="rn-filter-chip" data-val="House" onclick="rnToggleTypeChip(this)">🏠 House</button>
+                    <button class="rn-filter-chip" data-val="Villa" onclick="rnToggleTypeChip(this)">🌟 Villa</button>
+                    <button class="rn-filter-chip" data-val="PG" onclick="rnToggleTypeChip(this)">🛏️ PG</button>
+                    <button class="rn-filter-chip" data-val="Office" onclick="rnToggleTypeChip(this)">💼 Office</button>
+                    <button class="rn-filter-chip" data-val="Shop" onclick="rnToggleTypeChip(this)">🏪 Shop</button>
+                  </div>
+                </div>
+
+                <!-- Price Range -->
+                <div class="rn-filter-section">
+                  <div class="rn-filter-label">Monthly Rent</div>
+                  <div class="rn-price-range">
+                    <div class="rn-price-labels">
+                      <span id="rn-price-min-label">₹0</span>
+                      <span id="rn-price-max-label">Any</span>
+                    </div>
+                    <div class="rn-range-track" id="rn-range-track">
+                      <div class="rn-range-fill" id="rn-range-fill"></div>
+                      <input type="range" id="rn-price-min" min="0" max="200000" step="1000" value="0" oninput="rnUpdatePriceRange()">
+                      <input type="range" id="rn-price-max" min="0" max="200000" step="1000" value="200000" oninput="rnUpdatePriceRange()">
+                      <div class="rn-range-thumb" id="rn-thumb-min"></div>
+                      <div class="rn-range-thumb" id="rn-thumb-max"></div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Bedrooms -->
+                <div class="rn-filter-section">
+                  <div class="rn-filter-label">Bedrooms</div>
+                  <div class="rn-filter-chips" id="rn-fc-beds">
+                    <button class="rn-filter-chip selected" data-val="any" onclick="rnSelectChip(this,'rn-fc-beds')">Any</button>
+                    <button class="rn-filter-chip" data-val="1" onclick="rnSelectChip(this,'rn-fc-beds')">1 BHK</button>
+                    <button class="rn-filter-chip" data-val="2" onclick="rnSelectChip(this,'rn-fc-beds')">2 BHK</button>
+                    <button class="rn-filter-chip" data-val="3" onclick="rnSelectChip(this,'rn-fc-beds')">3 BHK</button>
+                    <button class="rn-filter-chip" data-val="4" onclick="rnSelectChip(this,'rn-fc-beds')">4+ BHK</button>
+                  </div>
+                </div>
+
+                <!-- Furnishing -->
+                <div class="rn-filter-section">
+                  <div class="rn-filter-label">Furnishing</div>
+                  <div class="rn-filter-chips" id="rn-fc-furnish">
+                    <button class="rn-filter-chip selected" data-val="any" onclick="rnSelectChip(this,'rn-fc-furnish')">Any</button>
+                    <button class="rn-filter-chip" data-val="Fully Furnished" onclick="rnSelectChip(this,'rn-fc-furnish')">🛋️ Fully Furnished</button>
+                    <button class="rn-filter-chip" data-val="Semi Furnished" onclick="rnSelectChip(this,'rn-fc-furnish')">🪑 Semi Furnished</button>
+                    <button class="rn-filter-chip" data-val="Unfurnished" onclick="rnSelectChip(this,'rn-fc-furnish')">📦 Unfurnished</button>
+                  </div>
+                </div>
+
+                <!-- Sort -->
+                <div class="rn-filter-section">
+                  <div class="rn-filter-label">Sort By</div>
+                  <div class="rn-filter-chips" id="rn-fc-sort">
+                    <button class="rn-filter-chip selected" data-val="newest" onclick="rnSelectChip(this,'rn-fc-sort')">🆕 Newest</button>
+                    <button class="rn-filter-chip" data-val="price_asc" onclick="rnSelectChip(this,'rn-fc-sort')">💰 Price: Low → High</button>
+                    <button class="rn-filter-chip" data-val="price_desc" onclick="rnSelectChip(this,'rn-fc-sort')">💎 Price: High → Low</button>
+                  </div>
+                </div>
+
+              </div>
+              <div class="rn-filter-footer">
+                <button class="btn btn-outline" onclick="rnResetFilters()">Reset All</button>
+                <button class="btn btn-terra" onclick="rnApplyFilters()">Show Results</button>
               </div>
             </div>
           </div>
@@ -14749,26 +14930,201 @@
       }
     }
 
+    // ── ADVANCED FILTER STATE ──────────────────────────────────────────────
+    var _rnFilter = {
+      types: [],          // [] = all types
+      priceMin: 0,
+      priceMax: Infinity,
+      beds: 'any',
+      furnish: 'any',
+      sort: 'newest',
+    };
+    var _rnPriceSliderMax = 200000; // updated dynamically from listings
+
+    function openRentFilterPanel() {
+      // Set slider max to highest listed price
+      if (rentAllHouses && rentAllHouses.length) {
+        const maxPrice = Math.max(...rentAllHouses.map(h => h.price || 0));
+        _rnPriceSliderMax = Math.max(maxPrice + 5000, 10000);
+        const minEl = document.getElementById('rn-price-min');
+        const maxEl = document.getElementById('rn-price-max');
+        if (minEl) { minEl.max = _rnPriceSliderMax; }
+        if (maxEl) { maxEl.max = _rnPriceSliderMax; maxEl.value = _rnPriceSliderMax; }
+        if (_rnFilter.priceMax === Infinity) {
+          if (maxEl) maxEl.value = _rnPriceSliderMax;
+        }
+      }
+      rnUpdatePriceRange();
+      document.getElementById('rn-filter-drawer').classList.add('open');
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeRentFilterPanel() {
+      document.getElementById('rn-filter-drawer').classList.remove('open');
+      document.body.style.overflow = '';
+    }
+
+    function rnToggleTypeChip(btn) {
+      const val = btn.dataset.val;
+      const allChip = document.querySelector('#rn-fc-type [data-val="all"]');
+      if (val === 'all') {
+        document.querySelectorAll('#rn-fc-type .rn-filter-chip').forEach(c => c.classList.remove('selected'));
+        btn.classList.add('selected');
+      } else {
+        if (allChip) allChip.classList.remove('selected');
+        btn.classList.toggle('selected');
+        // If nothing selected, revert to All
+        const anySelected = document.querySelectorAll('#rn-fc-type .rn-filter-chip.selected').length > 0;
+        if (!anySelected && allChip) allChip.classList.add('selected');
+      }
+    }
+
+    function rnSelectChip(btn, groupId) {
+      document.querySelectorAll('#' + groupId + ' .rn-filter-chip').forEach(c => c.classList.remove('selected'));
+      btn.classList.add('selected');
+    }
+
+    function rnUpdatePriceRange() {
+      const minEl = document.getElementById('rn-price-min');
+      const maxEl = document.getElementById('rn-price-max');
+      const fill  = document.getElementById('rn-range-fill');
+      const thumbMin = document.getElementById('rn-thumb-min');
+      const thumbMax = document.getElementById('rn-thumb-max');
+      if (!minEl || !maxEl) return;
+
+      let minVal = parseInt(minEl.value);
+      let maxVal = parseInt(maxEl.value);
+      const sliderMax = parseInt(maxEl.max) || _rnPriceSliderMax;
+
+      // Prevent crossing
+      if (minVal > maxVal - 1000) { minVal = maxVal - 1000; minEl.value = minVal; }
+
+      const minPct = (minVal / sliderMax) * 100;
+      const maxPct = (maxVal / sliderMax) * 100;
+
+      if (fill) { fill.style.left = minPct + '%'; fill.style.width = (maxPct - minPct) + '%'; }
+      if (thumbMin) thumbMin.style.left = minPct + '%';
+      if (thumbMax) thumbMax.style.left = maxPct + '%';
+
+      const minLabel = document.getElementById('rn-price-min-label');
+      const maxLabel = document.getElementById('rn-price-max-label');
+      if (minLabel) minLabel.textContent = '₹' + minVal.toLocaleString('en-IN');
+      if (maxLabel) maxLabel.textContent = maxVal >= sliderMax ? 'Any' : '₹' + maxVal.toLocaleString('en-IN');
+    }
+
+    function rnApplyFilters() {
+      // Read types
+      const selectedTypeChips = document.querySelectorAll('#rn-fc-type .rn-filter-chip.selected');
+      const types = [];
+      selectedTypeChips.forEach(c => { if (c.dataset.val !== 'all') types.push(c.dataset.val); });
+      _rnFilter.types = types;
+
+      // Read price
+      const minEl = document.getElementById('rn-price-min');
+      const maxEl = document.getElementById('rn-price-max');
+      _rnFilter.priceMin = minEl ? parseInt(minEl.value) : 0;
+      const rawMax = maxEl ? parseInt(maxEl.value) : _rnPriceSliderMax;
+      _rnFilter.priceMax = rawMax >= _rnPriceSliderMax ? Infinity : rawMax;
+
+      // Read beds
+      const bedChip = document.querySelector('#rn-fc-beds .rn-filter-chip.selected');
+      _rnFilter.beds = bedChip ? bedChip.dataset.val : 'any';
+
+      // Read furnish
+      const furnChip = document.querySelector('#rn-fc-furnish .rn-filter-chip.selected');
+      _rnFilter.furnish = furnChip ? furnChip.dataset.val : 'any';
+
+      // Read sort
+      const sortChip = document.querySelector('#rn-fc-sort .rn-filter-chip.selected');
+      _rnFilter.sort = sortChip ? sortChip.dataset.val : 'newest';
+
+      closeRentFilterPanel();
+      filterRent();
+      rnUpdateFilterBadge();
+    }
+
+    function rnResetFilters() {
+      _rnFilter = { types: [], priceMin: 0, priceMax: Infinity, beds: 'any', furnish: 'any', sort: 'newest' };
+      // Reset UI
+      document.querySelectorAll('#rn-fc-type .rn-filter-chip').forEach(c => c.classList.remove('selected'));
+      const allChip = document.querySelector('#rn-fc-type [data-val="all"]');
+      if (allChip) allChip.classList.add('selected');
+      ['rn-fc-beds','rn-fc-furnish','rn-fc-sort'].forEach(gid => {
+        document.querySelectorAll('#' + gid + ' .rn-filter-chip').forEach(c => c.classList.remove('selected'));
+        const first = document.querySelector('#' + gid + ' .rn-filter-chip');
+        if (first) first.classList.add('selected');
+      });
+      const minEl = document.getElementById('rn-price-min');
+      const maxEl = document.getElementById('rn-price-max');
+      if (minEl) minEl.value = 0;
+      if (maxEl) maxEl.value = _rnPriceSliderMax;
+      rnUpdatePriceRange();
+      closeRentFilterPanel();
+      filterRent();
+      rnUpdateFilterBadge();
+    }
+
+    function rnUpdateFilterBadge() {
+      const btn = document.getElementById('rn-filter-open-btn');
+      const countEl = document.getElementById('rn-filter-count');
+      const tagsEl = document.getElementById('rn-active-filter-tags');
+      let count = 0;
+      const tags = [];
+
+      if (_rnFilter.types.length) { count++; tags.push(..._rnFilter.types.map(t => t)); }
+      if (_rnFilter.priceMin > 0 || _rnFilter.priceMax !== Infinity) {
+        count++;
+        const mn = '₹' + _rnFilter.priceMin.toLocaleString('en-IN');
+        const mx = _rnFilter.priceMax === Infinity ? 'Any' : '₹' + _rnFilter.priceMax.toLocaleString('en-IN');
+        tags.push(mn + ' – ' + mx);
+      }
+      if (_rnFilter.beds !== 'any') { count++; tags.push(_rnFilter.beds === '4' ? '4+ BHK' : _rnFilter.beds + ' BHK'); }
+      if (_rnFilter.furnish !== 'any') { count++; tags.push(_rnFilter.furnish); }
+      if (_rnFilter.sort !== 'newest') { count++; tags.push(_rnFilter.sort === 'price_asc' ? 'Price ↑' : 'Price ↓'); }
+
+      if (btn) btn.classList.toggle('has-filters', count > 0);
+      if (countEl) countEl.textContent = count;
+
+      if (tagsEl) {
+        tagsEl.innerHTML = tags.map(t =>
+          `<span style="display:inline-flex;align-items:center;gap:6px;padding:5px 12px;background:var(--terra-lt);color:var(--terra);border:1px solid var(--terra-mid);border-radius:99px;font-size:12px;font-weight:600;">${t}</span>`
+        ).join('');
+        tagsEl.style.marginBottom = tags.length ? '12px' : '0';
+      }
+    }
+
     function filterRent() {
-      const q = document.getElementById('rent-search-input').value.toLowerCase();
-      const filtered = rentAllHouses.filter(h => {
+      const q = (document.getElementById('rent-search-input')?.value || '').toLowerCase();
+      let filtered = rentAllHouses.filter(h => {
         const matchesSearch = !q ||
           (h.title || '').toLowerCase().includes(q) ||
           (h.city || '').toLowerCase().includes(q) ||
           (h.area || '').toLowerCase().includes(q) ||
           (h.state || '').toLowerCase().includes(q) ||
           (h.address || '').toLowerCase().includes(q);
-        const matchesType = rentPropFilter === 'all' || (h.property_type || '') === rentPropFilter;
-        return matchesSearch && matchesType;
+        const matchesType = !_rnFilter.types.length || _rnFilter.types.includes(h.property_type || '');
+        const price = h.price || 0;
+        const matchesPrice = price >= _rnFilter.priceMin && (_rnFilter.priceMax === Infinity || price <= _rnFilter.priceMax);
+        const beds = parseInt(h.bedrooms || 0);
+        const matchesBeds = _rnFilter.beds === 'any' ||
+          (_rnFilter.beds === '4' ? beds >= 4 : beds === parseInt(_rnFilter.beds));
+        const matchesFurnish = _rnFilter.furnish === 'any' || (h.furnish_status || '') === _rnFilter.furnish;
+        return matchesSearch && matchesType && matchesPrice && matchesBeds && matchesFurnish;
       });
+
+      // Sort
+      if (_rnFilter.sort === 'price_asc') filtered.sort((a,b) => (a.price||0) - (b.price||0));
+      else if (_rnFilter.sort === 'price_desc') filtered.sort((a,b) => (b.price||0) - (a.price||0));
+      // newest = default order from API
+
       renderRentPage(filtered);
     }
 
     function setPropFilter(type, chipEl) {
-      rentPropFilter = type;
-      document.querySelectorAll('.prop-filter-chip').forEach(c => c.classList.remove('active'));
-      if (chipEl) chipEl.classList.add('active');
+      // Legacy compat — no longer used but kept in case anything calls it
+      _rnFilter.types = type === 'all' ? [] : [type];
       filterRent();
+      rnUpdateFilterBadge();
     }
 
     function renderRentPage(data) {
@@ -16883,10 +17239,9 @@
         } catch (_) { /* timed out — use fallback below */ }
 
         if (!session) {
-          // getSession() timed out or returned null (e.g. severe network issue).
-          // Try one more time with a longer window before giving up.
+          // getSession() timed out or returned null — try harder with a longer window
           try {
-            const res = await withTimeout(sb.auth.getSession(), 5000, 'session-retry-timeout');
+            const res = await withTimeout(sb.auth.getSession(), 8000, 'session-retry-timeout');
             session = res?.data?.session ?? null;
           } catch (_) { /* still nothing */ }
         }
@@ -16894,17 +17249,26 @@
         setLoader(false);
         if (session) {
           user = session.user;
-          await initDash(session); // session is fresh — DB calls will succeed
+          await initDash(session);
         } else {
-          // Couldn't get a fresh session after 8s total.
-          // Only show landing page if INITIAL_SESSION hasn't already routed to dashboard.
-          const _curActive = document.querySelector('.page.active')?.id;
-          if (!_curActive || _curActive === 'landing-page') {
-            showPage('landing-page');
-          }
+          // CRITICAL: We know the user WAS logged in (localStorage has tokens).
+          // DO NOT flash the landing page — that causes the jarring "logged out" look.
+          // Instead keep showing a loading indicator and let onAuthStateChange handle it.
+          // onAuthStateChange fires with INITIAL_SESSION even if getSession timed out,
+          // and it will call initDash once the token is refreshed over the network.
+          setLoader(true, 'Connecting to your account...');
+          // Safety fallback: if onAuthStateChange still hasn't resolved after 12s, show landing
+          setTimeout(() => {
+            if (!user) {
+              setLoader(false);
+              showPage('landing-page');
+            }
+          }, 12000);
         }
         syncMobNavAuth();
         hideBootSplash();
+        // Check crown after login — user may be #1
+        setTimeout(function() { if (typeof _checkCrown === 'function') _checkCrown(); }, 2000);
         // Restore last page/section visited before refresh
         try {
           var _savedNav = JSON.parse(localStorage.getItem('rn-last-nav') || 'null');
