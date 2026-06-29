@@ -8766,33 +8766,20 @@
       <button class="btn btn-terra btn-full" onclick="partnerCongratsContinue()">Continue →</button>
     </div>
     <!-- STEP 2: Badge reveal -->
-    <!-- STEP 2: Badge video reveal -->
     <div class="partner-overlay-box hidden" id="partner-badge-step"
-      style="background:transparent;box-shadow:none;padding:0;max-width:340px;position:relative;border-radius:20px;overflow:hidden;">
-      <div style="position:relative;border-radius:20px;overflow:hidden;background:#0f0c08;">
-        <video id="partner-badge-video" src="badge-earning.mp4" playsinline webkit-playsinline muted
-          style="width:100%;display:block;border-radius:20px;"
-          onended="partnerVideoEnded()"></video>
-        <!-- Text + button overlay that fades in after video ends -->
-        <div id="partner-badge-text-overlay"
-          style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;
-          justify-content:flex-end;padding:28px 24px;
-          background:linear-gradient(to top,rgba(15,12,8,.95) 45%,rgba(15,12,8,.2) 80%,transparent);
-          opacity:0;transition:opacity .8s ease;pointer-events:none;">
-          <div style="font-size:22px;font-weight:900;color:#fff;font-family:var(--font-display);margin-bottom:8px;text-align:center;">
-            You’re a Partner! 🎉
-          </div>
-          <div style="font-size:13px;color:rgba(255,255,255,.82);text-align:center;line-height:1.7;margin-bottom:22px;">
-            This badge is now yours. It marks you as a verified<br>Rent Nivas Partner across the platform.
-          </div>
-          <button class="btn btn-terra btn-full"
-            onclick="partnerBadgeContinue()"
-            style="pointer-events:all;max-width:280px;font-size:15px;">
-            Continue to Dashboard →
-          </button>
-        </div>
+      style="max-width:340px;text-align:center;padding:36px 28px;">
+      <img src="partner-badge.jpg" alt="Partner Badge" style="width:140px;height:140px;object-fit:contain;border-radius:50%;margin-bottom:20px;box-shadow:0 4px 24px rgba(194,113,79,.3);">
+      <div style="font-size:22px;font-weight:900;color:var(--ink);font-family:var(--font-display);margin-bottom:8px;">
+        You’re a Partner! 🎉
       </div>
+      <div style="font-size:14px;color:var(--muted);line-height:1.7;margin-bottom:24px;">
+        This badge is now yours. It marks you as a verified Rent Nivas Partner across the platform.
+      </div>
+      <button class="btn btn-terra btn-full" onclick="partnerBadgeContinue()">
+        Continue to Dashboard →
+      </button>
     </div>
+  </div>    </div>
   </div>
 
 
@@ -11208,40 +11195,15 @@
       const step2 = document.getElementById('partner-badge-step');
       if (step1) step1.classList.add('hidden');
       if (step2) step2.classList.remove('hidden');
-      // Reset text overlay
-      const textOverlay = document.getElementById('partner-badge-text-overlay');
-      if (textOverlay) {
-        textOverlay.style.opacity = '0';
-        textOverlay.style.pointerEvents = 'none';
-      }
-      // Autoplay video
-      const vid = document.getElementById('partner-badge-video');
-      if (vid) {
-        vid.currentTime = 0;
-        vid.play().catch(() => {
-          // If autoplay blocked, just show the text overlay immediately
-          partnerVideoEnded();
-        });
-      }
     }
 
     function partnerBadgeContinue() {
       const overlay = document.getElementById('partner-congrats-overlay');
       if (overlay) overlay.classList.add('hidden');
-      const vid = document.getElementById('partner-badge-video');
-      if (vid) { vid.pause(); vid.currentTime = 0; }
       const savedRole = localStorage.getItem('nestly-role');
       if (savedRole === 'partner') {
         showPage('partner-dashboard');
         if (typeof loadPartnerDashboard === 'function') loadPartnerDashboard();
-      }
-    }
-
-    function partnerVideoEnded() {
-      const overlay = document.getElementById('partner-badge-text-overlay');
-      if (overlay) {
-        overlay.style.pointerEvents = 'all';
-        overlay.style.opacity = '1';
       }
     }
 
@@ -18493,16 +18455,8 @@
     </div>
   </div>
 
-  <!-- ══ FIRST-LOGIN WELCOME VIDEO OVERLAY (once per account, after registration) ══ -->
-  <div id="rn-flv-overlay" style="display:none;position:fixed;inset:0;z-index:200000;background:#000;align-items:center;justify-content:center;cursor:pointer;" onclick="window._rnCloseFirstLoginVideo && window._rnCloseFirstLoginVideo()">
-    <video id="rn-flv-video" src="/badge-earning.mp4" playsinline webkit-playsinline muted
-      style="max-width:100%;max-height:100%;width:auto;height:auto;display:block;object-fit:contain;"></video>
-    <div id="rn-flv-hint" style="display:none;position:absolute;bottom:48px;left:50%;transform:translateX(-50%);color:#fff;font-size:17px;font-weight:500;letter-spacing:.5px;text-align:center;opacity:0;transition:opacity .6s ease;pointer-events:none;white-space:nowrap;text-shadow:0 2px 12px rgba(0,0,0,.7);">
-      Click anywhere to close
-    </div>
-  </div>
 
-  <!-- ══ COINS ANIMATION (centered popup, no card, dimmed backdrop) ══ -->
+    <!-- ══ COINS ANIMATION (centered popup, no card, dimmed backdrop) ══ -->
   <div id="rn-coins-overlay" style="display:none;position:fixed;inset:0;z-index:200001;background:rgba(0,0,0,0.55);backdrop-filter:blur(3px);align-items:center;justify-content:center;cursor:pointer;flex-direction:column;" onclick="window._rnCloseCoinsOverlay && window._rnCloseCoinsOverlay()">
     <div id="rn-coins-svg-wrap" style="width:min(420px,85vw);height:min(420px,85vw);display:flex;align-items:center;justify-content:center;pointer-events:none;"></div>
     <div id="rn-coins-hint" style="display:none;margin-top:16px;color:#fff;font-size:17px;font-weight:500;letter-spacing:.5px;text-align:center;opacity:0;transition:opacity .6s ease;pointer-events:none;text-shadow:0 2px 12px rgba(0,0,0,.9);">
@@ -18526,88 +18480,8 @@
         })
         .catch(function(){});
 
-      window._rnShowFirstLoginVideo = function() {
-        var overlay = document.getElementById('rn-flv-overlay');
-        var video   = document.getElementById('rn-flv-video');
-        if (!overlay || !video) return;
-        overlay.style.display = 'flex';
-        if (typeof _lockScroll === 'function') _lockScroll();
-        video.currentTime = 0;
-        video.muted = true;
-        video.onerror = function() { window._rnCloseFirstLoginVideo && window._rnCloseFirstLoginVideo(); };
-        video.play().catch(function(){ window._rnCloseFirstLoginVideo && window._rnCloseFirstLoginVideo(); });
-        video.onended = function() {
-          var hint = document.getElementById('rn-flv-hint');
-          if (!hint) return;
-          hint.style.display = 'block';
-          requestAnimationFrame(function() { hint.style.opacity = '1'; });
-        };
-      };
-
-      window._rnCloseFirstLoginVideo = function() {
-        var overlay = document.getElementById('rn-flv-overlay');
-        var video   = document.getElementById('rn-flv-video');
-        var hint    = document.getElementById('rn-flv-hint');
-        if (!overlay) return;
-        if (video) { try { video.pause(); } catch(e){} }
-        overlay.style.display = 'none';
-        if (hint) { hint.style.display = 'none'; hint.style.opacity = '0'; }
-        // Show coins animation fullscreen overlay
-        setTimeout(function() {
-          var coinsOverlay = document.getElementById('rn-coins-overlay');
-          var wrap = document.getElementById('rn-coins-svg-wrap');
-          if (!coinsOverlay || !wrap) return;
-          // Helper: restart all SVG animations so they begin from frame 0
-          function _rnRestartSvgAnims(svgEl) {
-            if (!svgEl) return;
-            // Use SVG unpause+setCurrentTime to force frame-0 start
-            try { svgEl.setCurrentTime(0); } catch(e){}
-            var anims = svgEl.querySelectorAll('animate, animateTransform, animateMotion, set');
-            anims.forEach(function(a) {
-              try { a.beginElement(); } catch(e){}
-            });
-          }
-          // Inject inline SVG (play-once version)
-          if (_rnCoinsSvgText) {
-            wrap.innerHTML = _rnCoinsSvgText;
-            var svg = wrap.querySelector('svg');
-            if (svg) {
-              svg.style.width='100%';
-              svg.style.height='100%';
-              // Delay one frame so the browser registers the SVG before restarting
-              requestAnimationFrame(function() { _rnRestartSvgAnims(svg); });
-            }
-          } else {
-            // Fallback: fetch now if pre-fetch didn't finish
-            fetch('/coins-animation.svg')
-              .then(function(r){ return r.text(); })
-              .then(function(txt){
-                var once = txt
-                  .replace(/repeatCount="indefinite"/g, 'repeatCount="1" fill="freeze"')
-                  .replace(/\sfill="remove"/g, ' fill="freeze"')
-                  .replace(/(<(?:animate|animateTransform|animateMotion|set)(?![^>]*\sfill=)[^>]*?)(\/?>)/g, '$1 fill="freeze"$2');
-                wrap.innerHTML = once;
-                var svg = wrap.querySelector('svg');
-                if (svg) {
-                  svg.style.width='100%';
-                  svg.style.height='100%';
-                  requestAnimationFrame(function() { _rnRestartSvgAnims(svg); });
-                }
-              });
-          }
-          coinsOverlay.style.display = 'flex';
-          if (typeof _lockScroll === 'function') _lockScroll();
-          // Stop tutorial audio while coins overlay is showing
-          try { if (window._RNTut && typeof window._RNTut.stopAudio === 'function') window._RNTut.stopAudio(); } catch(e) {}
-          // Show "🎉 credits" hint after animation finishes (2.8 s)
-          setTimeout(function() {
-            var h = document.getElementById('rn-coins-hint');
-            if (!h) return;
-            h.style.display = 'block';
-            requestAnimationFrame(function() { h.style.opacity = '1'; });
-          }, 2800);
-        }, 150);
-      };
+      window._rnShowFirstLoginVideo = function() { /* video removed */ };
+      window._rnCloseFirstLoginVideo = function() { /* video removed */ };
 
       // Direct coins animation (for rent users who skip the video)
       window._rnShowCoinsOverlayDirect = function() {
