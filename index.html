@@ -9259,9 +9259,6 @@
           <button class="nav-btn active" id="rnb-browse" onclick="rentShowSection('browse')">
             <span class="icon">🏘️</span><span class="label" data-i18n="rent_nav_browse">Browse Homes</span>
           </button>
-          <button class="nav-btn" id="rnb-purchased" onclick="rentShowSection('purchased')">
-            <span class="icon">🔓</span><span class="label" data-i18n="rent_nav_unlocked">Unlocked Homes</span>
-          </button>
           <button class="nav-btn" id="rnb-profile" onclick="rentShowSection('profile')">
             <span class="icon">👤</span><span class="label" data-i18n="rent_nav_profile">Profile</span>
           </button>
@@ -9407,13 +9404,6 @@
           <div class="rent-grid" id="rent-grid">
             <div style="grid-column:1/-1;text-align:center;padding:64px;color:var(--muted);font-size:15px;">Loading
               listings...</div>
-          </div>
-        </div>
-
-        <!-- UNLOCKED HOMES SECTION (inline, loaded on demand) -->
-        <div class="ds-section" id="rent-section-purchased" style="display:flex;flex-direction:column;align-items:center;">
-          <div id="rent-purchased-inner" style="padding:0;width:100%;display:flex;flex-direction:column;align-items:center;">
-            <div class="rn-empty-state"><div class="rn-empty-icon">⏳</div><p class="rn-empty-desc">Loading unlocked homes...</p></div>
           </div>
         </div>
 
@@ -14799,55 +14789,23 @@
       // Topbar titles
       var _rt = window.t ? {
         browse: [t('rent_browse_t','Browse Homes'), t('rent_browse_s','Verified listings from real hosts across India')],
-        purchased: [t('rent_purchased_t','Unlocked Homes'), t('rent_purchased_s','Properties you have unlocked')],
         profile: [t('sec_profile_t','Profile'), t('sec_profile_s','Your account details and statistics')]
       } : {
         browse: ['Browse Homes', 'Verified listings from real hosts across India'],
-        purchased: ['Unlocked Homes', 'Properties you have unlocked'],
         profile: ['Profile', 'Your account details and statistics']
       };
       var _ri = _rt[sec] || ['Rent Nivas', ''];
       const tt = document.getElementById('rent-topbar-t'); if (tt) tt.textContent = _ri[0];
       const ts = document.getElementById('rent-topbar-s'); if (ts) ts.textContent = _ri[1];
       // Sync bottom nav
-      const mbnMap = { browse: 'mbn-rent', purchased: 'mbn-rent', profile: 'mbn-profile' };
+      const mbnMap = { browse: 'mbn-rent', profile: 'mbn-profile' };
       document.querySelectorAll('.mob-bottom-btn').forEach(b => b.classList.remove('active'));
       const mbnEl = document.getElementById(mbnMap[sec] || 'mbn-rent');
       if (mbnEl) mbnEl.classList.add('active');
       // Load section content
-      if (sec === 'purchased') {
-        const inner = document.getElementById('rent-purchased-inner');
-        if (inner) { inner.innerHTML = '<div style="text-align:center;padding:64px;color:var(--muted);">' + (window.t ? t('t_loading','Loading...') : 'Loading...') + '</div>'; loadPurchasedIntoRent(inner); }
-      }
       if (sec === 'profile') loadRentProfile();
       // Re-apply translations
       if (window.RNi18n) { var _lc = localStorage.getItem('rn_language') || 'en'; setTimeout(function(){ window.RNi18n.apply(_lc); }, 50); }
-    }
-
-    async function loadPurchasedIntoRent(container) {
-      try {
-        if (!user) { container.innerHTML = '<div style="text-align:center;padding:48px;color:var(--muted);">' + (window.t ? t('t_loading','Loading...') : 'Loading...') + '</div>'; return; return; }
-        purgeExpiredUnlocks();
-        await loadUserPurchases();
-        const unlocks = getUnlocks();
-        const ids = unlocks.map(u => u.id);
-        if (!ids.length) { container.innerHTML = '<div class="rn-empty-state"><div class="rn-empty-icon">🔓</div><h3 class="rn-empty-title">No unlocked homes yet</h3><p class="rn-empty-desc">Browse listings and use credits to unlock contact details</p><button class="btn btn-terra rn-empty-btn" onclick="rentShowSection(\'browse\')">Browse Listings →</button></div>'; return; }
-        const { data, error } = await withTimeout(
-          sb.from('houses').select('*').in('id', ids),
-          6000,
-          'Unlocked homes timed out. Please try again.'
-        );
-        if (error || !data?.length) { container.innerHTML = '<div style="text-align:center;padding:48px;color:var(--muted);">Could not load unlocked homes.</div>'; return; }
-        container.innerHTML = '<div class="rent-grid">' + data.map(h => {
-          const unlock = unlocks.find(u => u.id === h.id);
-          const expMs = unlock ? Math.max(0, (unlock.unlockedAt + 7 * 24 * 60 * 60 * 1000) - Date.now()) : 0;
-          const expDays = expMs > 0 ? Math.ceil(expMs / 86400000) : 0;
-          const expBadge = expDays > 0 ? `<span class="unlock-timer-badge${expDays <= 1 ? ' expiring' : ''}">⏳ ${expDays}d left</span>` : `<span class="unlock-timer-badge expired">Expired</span>`;
-          return `<div class="browse-card"><div class="browse-card-img"><img src="${(h.images || [])[0] || 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=600&q=80'}" loading="lazy" alt="${h.title || ''}"></div><div class="browse-card-body"><div class="browse-card-title">${h.title || 'Untitled'}</div><div class="browse-card-loc">📍 ${[h.area, h.city, h.state].filter(Boolean).join(', ')}</div>${expBadge}<div class="browse-price-row" style="margin-top:12px;"><div class="browse-price">₹${(h.price || 0).toLocaleString('en-IN')}<span>/mo</span></div><button class="btn btn-terra btn-sm" onclick="openPropertyDetail('${h.id}')">View Details →</button></div></div></div>`;
-        }).join('') + '</div>';
-      } catch (e) {
-        container.innerHTML = '<div style="text-align:center;padding:48px;color:var(--muted);">Could not load unlocked homes. Please refresh and try again.</div>';
-      }
     }
 
     /* ── Rent sidebar toggle (mobile) ── */
@@ -18989,9 +18947,9 @@ var C={
 var LBL={
   1:{en:"Click here to Get Started!",hi:"\u092f\u0939\u093e\u0901 \u0915\u094d\u0932\u093f\u0915 \u0915\u0930\u0947\u0902"},
   8:{en:"Click here to Add Listing!",hi:"\u092f\u0939\u093e\u0901 \u0915\u094d\u0932\u093f\u0915 \u0915\u0930\u0947\u0902"},
-  12:{en:"Click here for Unlocked Homes!",hi:"\u092f\u0939\u093e\u0901 \u0915\u094d\u0932\u093f\u0915 \u0915\u0930\u0947\u0902"}
+  12:{en:"Your free unlock credits!",hi:"\u0906\u092a\u0915\u0947 \u092e\u0941\u092b\u093c\u094d\u0924 \u0905\u0928\u0932\u0949\u0915 \u0915\u094d\u0930\u0947\u0921\u093f\u091f!"}
 };
-var SPOT1={1:'rn-get-started-btn',8:'nb-add',12:'rnb-purchased'};
+var SPOT1={1:'rn-get-started-btn',8:'nb-add',12:'rent-credits-badge'};
 var SPOT2={3:'signup-verification-code',11:'prop-filter-wrap'};
 var SCROLL_STEPS={3:1,4:1,11:1};
 var FORCE_CONTINUE={0:1,6:1,7:1,8:1,10:1,11:1,12:1};
@@ -19101,14 +19059,6 @@ var T={
   },
   autoScrollFor:function(n){
     var s=this;
-    if(n===12){
-      var sidebar=document.getElementById('rent-ds-sidebar');
-      if(sidebar&&window.innerWidth<=900&&!sidebar.classList.contains('mob-open')){
-        if(typeof window.toggleRentSidebar==='function')window.toggleRentSidebar();
-        setTimeout(function(){if(s.step===n)s.updateSpot();},350);
-      }
-      return;
-    }
     if(!SCROLL_STEPS[n])return;
     var id=SPOT1[n]||SPOT2[n];
     var el=id&&document.getElementById(id);
