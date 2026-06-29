@@ -11180,6 +11180,10 @@
         '&scope=openid%20email%20profile' +
         '&state=' + encodeURIComponent(state);
 
+      console.log("[RN OAuth] domain:", domain);
+      console.log("[RN OAuth] clientId:", clientId);
+      console.log("[RN OAuth] redirectUri:", redirectUri);
+      console.log("[RN OAuth] authorizeUrl:", authorizeUrl);
       window.location.href = authorizeUrl;
     }
 
