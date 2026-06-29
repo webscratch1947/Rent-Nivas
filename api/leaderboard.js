@@ -3,12 +3,12 @@
 // GET /api/leaderboard
 //   -> { data: [ { rank, id, name, avatar_url, credits, xp }, ... ] }
 //
-// KEY FIX: Cross-checks DynamoDB users against Cognito to detect orphan rows
-// (users deleted directly from Cognito console). Orphan rows are excluded from
-// the leaderboard AND auto-deleted from DynamoDB so they never come back.
-//
-// New users who registered but haven't confirmed/logged in yet ARE included —
-// we list ALL Cognito users regardless of status (UNCONFIRMED, CONFIRMED, etc).
+// HOW IT WORKS:
+// 1. Scan DynamoDB for all known users (with credits, names, etc)
+// 2. List ALL Cognito users (ALL statuses — confirmed, unconfirmed, etc)
+// 3. Cross-check: any DynamoDB row with no Cognito match = deleted user = auto-delete + exclude
+// 4. Cross-check: any Cognito user with no DynamoDB row = new user who hasn't logged in yet
+//    → show them with their name from Cognito + default 10 credits
 
 const { DynamoDBClient, ScanCommand, DeleteItemCommand } = require('@aws-sdk/client-dynamodb');
 const { unmarshall, marshall } = require('@aws-sdk/util-dynamodb');
@@ -17,6 +17,7 @@ const { CognitoIdentityProviderClient, ListUsersCommand } = require('@aws-sdk/cl
 const REGION       = process.env.AWS_REGION || process.env.RENT_NIVAS_AWS_REGION || 'eu-north-1';
 const TABLE_USERS  = process.env.TABLE_USERS || 'Users';
 const USER_POOL_ID = process.env.COGNITO_USER_POOL_ID || 'eu-north-1_GM7Zi2xvq';
+const DEFAULT_CREDITS = 10; // credits every new user starts with
 
 const ddb     = new DynamoDBClient({ region: REGION });
 const cognito = new CognitoIdentityProviderClient({ region: REGION });
@@ -29,27 +30,32 @@ function send(res, status, payload) {
   res.end(JSON.stringify(payload));
 }
 
-// ── Fetch ALL Cognito user subs — ALL statuses (confirmed, unconfirmed, etc) ─
-// This is the ground truth of who really has an account.
-async function fetchAllCognitoSubs() {
-  const subs = new Set();
+// ── Fetch ALL Cognito users — every status (CONFIRMED, UNCONFIRMED, etc) ────
+// Returns a Map of sub → { sub, name, email } so we have name/email too
+async function fetchAllCognitoUsers() {
+  const byId = new Map(); // sub UUID → { sub, name, email }
   let paginationToken;
   do {
     const cmd = new ListUsersCommand({
       UserPoolId: USER_POOL_ID,
       Limit: 60,
-      // NO Filter — we want ALL users regardless of status
+      // NO Filter — all users regardless of status
       ...(paginationToken ? { PaginationToken: paginationToken } : {}),
     });
     const page = await cognito.send(cmd);
     for (const u of page.Users || []) {
-      // Grab the sub (UUID) — this is the userId stored in DynamoDB
-      const subAttr = (u.Attributes || []).find(a => a.Name === 'sub');
-      if (subAttr) subs.add(subAttr.Value);
+      const attrs = (u.Attributes || []).reduce((acc, a) => { acc[a.Name] = a.Value; return acc; }, {});
+      const sub = attrs.sub;
+      if (!sub) continue;
+      byId.set(sub, {
+        sub,
+        name:  attrs.name || attrs.given_name || '',
+        email: attrs.email || '',
+      });
     }
     paginationToken = page.PaginationToken;
   } while (paginationToken);
-  return subs;
+  return byId;
 }
 
 // ── Silently delete an orphaned DynamoDB row (fire-and-forget) ──────────────
@@ -77,11 +83,12 @@ module.exports = async function handler(req, res) {
 
   try {
     // Run DynamoDB scan + Cognito list in PARALLEL for speed
-    const [scanned, cognitoSubs] = await Promise.all([
+    const [scanned, cognitoUsers] = await Promise.all([
       ddb.send(new ScanCommand({ TableName: TABLE_USERS })),
-      fetchAllCognitoSubs(),
+      fetchAllCognitoUsers(),
     ]);
 
+    // ── Build DynamoDB map, de-duplicating legacy rows ───────────────────
     const rawRows = (scanned.Items || []).map(item => {
       const r = unmarshall(item);
       const isLegacy = !Object.prototype.hasOwnProperty.call(r, 'userId') &&
@@ -90,7 +97,6 @@ module.exports = async function handler(req, res) {
       return Object.assign({}, r, { id: effectiveId, _isLegacy: isLegacy });
     });
 
-    // De-duplicate: prefer non-legacy (userId-keyed) row's credits
     const byId = {};
     for (const row of rawRows) {
       const uid = String(row.id || '');
@@ -108,8 +114,7 @@ module.exports = async function handler(req, res) {
                       : (currIsLegacy && !prevIsLegacy) ? prev
                       : ((row.updated_at || row.created_at || '') > (prev.updated_at || prev.created_at || '') ? row : prev);
         byId[uid] = {
-          ...prev,
-          ...baseRow,
+          ...prev, ...baseRow,
           id: uid,
           credits,
           name: (prev.name && prev.name.trim()) ? prev.name : (row.name || ''),
@@ -119,38 +124,51 @@ module.exports = async function handler(req, res) {
       }
     }
 
-    const merged = Object.values(byId);
-
-    // ── FILTER 1: Remove ghost rows (email-as-key rows, no real UUID) ────
-    // ── FILTER 2: Cross-check vs Cognito — remove + auto-delete orphans ──
+    // ── FILTER: Remove ghost rows + orphans (deleted from Cognito) ───────
     const orphansToDelete = [];
-    const realUsers = merged.filter(row => {
+    const realUsers = [];
+
+    for (const row of Object.values(byId)) {
       const uid = String(row.id || '');
+      if (!uid || uid.includes('@')) continue; // skip ghost/email-key rows
 
-      // No ID at all — skip
-      if (!uid) return false;
-
-      // Ghost row: key is an email address, not a UUID
-      if (uid.includes('@')) return false;
-
-      // THE KEY FIX: if this userId has no matching Cognito account,
-      // the user was deleted directly from Cognito console → orphan row.
-      // Queue for silent auto-deletion.
-      if (!cognitoSubs.has(uid)) {
+      if (!cognitoUsers.has(uid)) {
+        // No matching Cognito account → user was deleted → auto-remove
         orphansToDelete.push(uid);
         console.log('[Leaderboard] Orphan detected (deleted from Cognito):', uid);
-        return false;
+        continue;
       }
 
-      return true;
-    });
+      realUsers.push(row);
+    }
 
-    // Fire-and-forget: delete orphan rows in background (keeps response fast)
+    // Fire-and-forget: clean up orphan DynamoDB rows in background
     if (orphansToDelete.length > 0) {
       Promise.all(orphansToDelete.map(deleteOrphanRow)).catch(() => {});
     }
 
-    // Sort by credits descending
+    // ── ADD: Cognito users who have no DynamoDB row yet ──────────────────
+    // These are people who signed up but never logged in.
+    // Show them with default credits so they appear on the leaderboard.
+    const dbIds = new Set(realUsers.map(r => r.id));
+    for (const [sub, cogUser] of cognitoUsers) {
+      if (dbIds.has(sub)) continue; // already in DynamoDB → skip
+
+      // Skip if no name and no email (shouldn't happen but be safe)
+      if (!cogUser.name && !cogUser.email) continue;
+
+      realUsers.push({
+        id:         sub,
+        name:       cogUser.name  || '',
+        email:      cogUser.email || '',
+        credits:    DEFAULT_CREDITS,
+        xp:         0,
+        avatar_url: null,
+        _cognitoOnly: true, // flag for debugging only
+      });
+    }
+
+    // ── Sort by credits descending ────────────────────────────────────────
     realUsers.sort((a, b) => (parseFloat(b.credits) || 0) - (parseFloat(a.credits) || 0));
 
     const top = realUsers.slice(0, 300);
@@ -161,13 +179,13 @@ module.exports = async function handler(req, res) {
         ? rawName
         : (row.email ? row.email.split('@')[0] : '');
       return {
-        rank: idx + 1,
-        id:   row.id || '',
-        name: effectiveName,
+        rank:       idx + 1,
+        id:         row.id || '',
+        name:       effectiveName,
         avatar_url: row.avatar_url || null,
-        credits: parseFloat(row.credits) || 0,
-        xp:      parseInt(row.xp || '0', 10),
-        email:   row.email || '',
+        credits:    parseFloat(row.credits) || 0,
+        xp:         parseInt(row.xp || '0', 10),
+        email:      row.email || '',
       };
     });
 
