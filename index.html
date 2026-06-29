@@ -11158,14 +11158,9 @@
     // COGNITO_DOMAIN and GOOGLE_REDIRECT_URI are injected by /env-inject.js
     // (env vars set in Vercel: COGNITO_DOMAIN, GOOGLE_REDIRECT_URI).
     function doGoogleSignIn() {
-      const domain = window.__RN_COGNITO_DOMAIN;
+      const domain = 'eu-north-1gm7zi2xvq.auth.eu-north-1.amazoncognito.com';
       const clientId = window.__RN_COGNITO_CLIENT_ID || 'ckpmh0heco2apoh0temn8hfnl';
-      const redirectUri = (window.__RN_GOOGLE_REDIRECT_URI || window.location.origin).replace(/\/$/, '');
-
-      if (!domain) {
-        toast('Google sign-in is not available right now. Please use email and password.', 'error');
-        return;
-      }
+      const redirectUri = 'https://rentnivas.com';
 
       // CSRF protection — state is verified on callback
       const state = 'rnog_' + Math.random().toString(36).slice(2) + Date.now().toString(36);
@@ -11213,7 +11208,7 @@
 
       setLoader(true, 'Completing Google sign-in…');
       try {
-        const redirectUri = (window.__RN_GOOGLE_REDIRECT_URI || window.location.origin).replace(/\/$/, '');
+        const redirectUri = 'https://rentnivas.com';
         const resp = await fetch('/api/auth', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
