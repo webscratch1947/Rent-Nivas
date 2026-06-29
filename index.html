@@ -13069,7 +13069,9 @@
       }
       if (!session) return showPage('landing-page');
       user = session.user;
+      window.user = user;
       console.log('[Nestly] initDash user:', user.email);
+      if (typeof window._checkCrown === 'function') setTimeout(window._checkCrown, 1500);
 
       // Instant localStorage ban check (0ms, no network)
       const _storedBan = _getStoredBan();
