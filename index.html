@@ -9872,7 +9872,7 @@
                 <div id="pt-fields-residential" class="pt-fields-block">
                   <div class="form-2col" style="margin-bottom:10px;">
                     <div class="fg"><label id="add-price-lbl">Monthly Rent (₹) *</label><input type="number" id="h-price" placeholder="35000"></div>
-                    <div class="fg"><label>Floor Number</label><input type="number" id="h-floor-number" placeholder="e.g. 2" min="0"></div>
+                    <div class="fg"><label>Floor</label><input type="text" id="h-floor-number" placeholder="e.g. 2nd, Ground, 3"></div>
                   </div>
                   <div class="form-2col">
                     <div class="fg"><label id="add-beds-lbl">Bedrooms *</label><input type="number" id="h-beds" placeholder="3" min="0"></div>
@@ -14167,7 +14167,7 @@
         const vAny = id => document.getElementById(id)?.value?.trim() || '';
         if (!selectedPropType || !['Office','PG','Shop'].includes(selectedPropType)) {
           const floorNum = vAny('h-floor-number');
-          if (floorNum !== '') extraDetails = { floor_number: parseInt(floorNum) };
+          if (floorNum !== '') extraDetails = { floor_number: floorNum };
         }
         if (selectedPropType === 'Office') {
           extraDetails = {
