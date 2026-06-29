@@ -19777,13 +19777,12 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
       return n || e; /* keep if either name or email exists */
     });
     var html = '';
-    var listRank = 2; /* start at 2 — rank 1 is already shown in hero above */
-    filtered.forEach(function (r) {
-      var rank    = listRank++;
+    filtered.forEach(function (r, idx) {
+      var rank    = idx + 1; /* real rank from sorted array — always correct */
       var isMe    = uid && (r.id === uid || r.userId === uid || r.email === (window.user && window.user.email));
       var isHero  = (r === top); /* already shown in hero section above */
 
-      /* Hero user is shown above — skip from list but rank was already incremented */
+      /* Hero (rank 1) is shown above — skip it from the list */
       if (isHero) return;
 
       var name    = displayName(r);
