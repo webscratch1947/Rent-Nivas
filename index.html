@@ -9903,6 +9903,15 @@
                       </select>
                     </div>
                   </div>
+                  <!-- ══ FLOORS SECTION ══ -->
+                  <div style="margin-top:18px;border-top:1.5px solid var(--border2);padding-top:16px;">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+                      <div style="font-size:14px;font-weight:700;color:var(--soft);">🏢 Floors <span style="font-weight:400;font-size:12px;color:var(--muted2);">(Optional)</span></div>
+                      <button type="button" onclick="window._rnAddFloor()" class="btn btn-soft btn-sm" style="padding:6px 14px;font-size:13px;">+ Add Floor</button>
+                    </div>
+                    <div id="rn-floors-list" style="display:flex;flex-direction:column;gap:10px;"></div>
+                    <div id="rn-floors-empty" style="font-size:12px;color:var(--muted2);margin-top:2px;">Add floors if this property has multiple levels or units with separate rents.</div>
+                  </div>
                 </div>
                 <!-- Office -->
                 <div id="pt-fields-office" class="pt-fields-block" style="display:none;">
@@ -11236,7 +11245,7 @@
 
     // ══ STATE ══
     let user = null, allHouses = [], rentAllHouses = [], selectedFiles = [], currentEditId = null, editMode = false;
-    const RENT_BROWSE_COLS = 'id,title,description,price,phone,address,images,bedrooms,bathrooms,kitchen,living_room,balcony,parking,custom_rooms,conditions,property_type,extra_details,city,state,area,owner_id,status,created_at,furnish_status,tenant_type';
+    const RENT_BROWSE_COLS = 'id,title,description,price,phone,address,images,bedrooms,bathrooms,kitchen,living_room,balcony,parking,custom_rooms,floors_data,conditions,property_type,extra_details,city,state,area,owner_id,status,created_at,furnish_status,tenant_type';
     let editExistingImages = [];
     let selectedPropType = '';   // currently selected property type in add form
     let rentPropFilter = 'all';  // currently active filter chip in rent page
@@ -13574,6 +13583,14 @@
         try { customRooms = Array.isArray(h.custom_rooms) ? h.custom_rooms : JSON.parse(h.custom_rooms); } catch { customRooms = []; }
       }
       renderCustomRooms();
+      // Load floors data if editing
+      if (typeof _rnLoadFloors === 'function') {
+        let floorsArr = [];
+        if (h.floors_data) {
+          try { floorsArr = Array.isArray(h.floors_data) ? h.floors_data : JSON.parse(h.floors_data); } catch { floorsArr = []; }
+        }
+        _rnLoadFloors(floorsArr);
+      }
       // Restore property type chip
       selectedPropType = h.property_type || '';
       document.querySelectorAll('#prop-type-chips .prop-type-chip').forEach(c => {
@@ -13659,6 +13676,7 @@
       selectedConditions = new Set();
       customRooms = [];
       renderCustomRooms();
+      if (typeof _rnResetFloors === 'function') _rnResetFloors();
       customConditions = [];
       renderCustomConditions();
       listingQuestionsDraft = [];
@@ -13722,6 +13740,128 @@
       document.getElementById('custom-rooms-list').innerHTML = customRooms.map((r, i) =>
         `<div class="custom-room-item"><span>🏠 ${r.name} × ${r.count}</span><button onclick="removeCustomRoom(${i})">✕</button></div>`
       ).join('');
+    }
+
+    // ══ FLOORS SYSTEM ══
+    let _rnFloors = []; // [{rent, rooms, label}]
+    let _rnFloorCounter = 0;
+
+    window._rnAddFloor = function() {
+      _rnFloorCounter++;
+      const id = _rnFloorCounter;
+      _rnFloors.push({ id, rent: '', rooms: '', label: '' });
+      _rnRenderFloors();
+    };
+
+    window._rnRemoveFloor = function(id) {
+      _rnFloors = _rnFloors.filter(f => f.id !== id);
+      _rnRenderFloors();
+    };
+
+    function _rnRenderFloors() {
+      const list = document.getElementById('rn-floors-list');
+      const empty = document.getElementById('rn-floors-empty');
+      if (!list) return;
+      if (_rnFloors.length === 0) {
+        list.innerHTML = '';
+        if (empty) empty.style.display = '';
+        return;
+      }
+      if (empty) empty.style.display = 'none';
+      list.innerHTML = _rnFloors.map((f, idx) => {
+        const floorNum = idx + 1;
+        const label = f.label || `Floor ${floorNum}`;
+        return `<div style="background:var(--card);border:1.5px solid var(--border2);border-radius:12px;padding:14px 14px 10px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+            <div style="font-size:13px;font-weight:700;color:var(--ink);">🏢 Floor ${floorNum}</div>
+            <button type="button" onclick="window._rnRemoveFloor(${f.id})" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:16px;line-height:1;padding:2px 6px;" title="Remove floor">✕</button>
+          </div>
+          <div class="form-2col" style="gap:8px;">
+            <div class="fg" style="margin:0;">
+              <label style="font-size:12px;">Floor Label <span style="font-weight:400;color:var(--muted2);">(e.g. Ground, 1st)</span></label>
+              <input type="text" placeholder="Floor ${floorNum}" value="${_rnEscAttr(f.label)}"
+                oninput="window._rnFloorUpdate(${f.id},'label',this.value)"
+                style="padding:9px 12px;border:1.5px solid var(--border2);border-radius:8px;font-size:13px;width:100%;box-sizing:border-box;font-family:var(--font);color:var(--ink);background:var(--white);outline:none;">
+            </div>
+            <div class="fg" style="margin:0;">
+              <label style="font-size:12px;">Monthly Rent (₹) <span style="font-weight:400;color:var(--muted2);">for this floor</span></label>
+              <input type="number" placeholder="e.g. 12000" value="${_rnEscAttr(f.rent)}"
+                oninput="window._rnFloorUpdate(${f.id},'rent',this.value)"
+                style="padding:9px 12px;border:1.5px solid var(--border2);border-radius:8px;font-size:13px;width:100%;box-sizing:border-box;font-family:var(--font);color:var(--ink);background:var(--white);outline:none;">
+            </div>
+            <div class="fg" style="margin:0;">
+              <label style="font-size:12px;">No. of Rooms</label>
+              <input type="number" placeholder="e.g. 2" min="0" value="${_rnEscAttr(f.rooms)}"
+                oninput="window._rnFloorUpdate(${f.id},'rooms',this.value)"
+                style="padding:9px 12px;border:1.5px solid var(--border2);border-radius:8px;font-size:13px;width:100%;box-sizing:border-box;font-family:var(--font);color:var(--ink);background:var(--white);outline:none;">
+            </div>
+            <div class="fg" style="margin:0;">
+              <label style="font-size:12px;">Bathrooms</label>
+              <input type="number" placeholder="e.g. 1" min="0" value="${_rnEscAttr(f.baths||'')}"
+                oninput="window._rnFloorUpdate(${f.id},'baths',this.value)"
+                style="padding:9px 12px;border:1.5px solid var(--border2);border-radius:8px;font-size:13px;width:100%;box-sizing:border-box;font-family:var(--font);color:var(--ink);background:var(--white);outline:none;">
+            </div>
+            <div class="fg" style="margin:0;">
+              <label style="font-size:12px;">Kitchen</label>
+              <input type="number" placeholder="e.g. 1" min="0" value="${_rnEscAttr(f.kitchen||'')}"
+                oninput="window._rnFloorUpdate(${f.id},'kitchen',this.value)"
+                style="padding:9px 12px;border:1.5px solid var(--border2);border-radius:8px;font-size:13px;width:100%;box-sizing:border-box;font-family:var(--font);color:var(--ink);background:var(--white);outline:none;">
+            </div>
+            <div class="fg" style="margin:0;">
+              <label style="font-size:12px;">Balcony</label>
+              <input type="number" placeholder="e.g. 0" min="0" value="${_rnEscAttr(f.balcony||'')}"
+                oninput="window._rnFloorUpdate(${f.id},'balcony',this.value)"
+                style="padding:9px 12px;border:1.5px solid var(--border2);border-radius:8px;font-size:13px;width:100%;box-sizing:border-box;font-family:var(--font);color:var(--ink);background:var(--white);outline:none;">
+            </div>
+          </div>
+          <div class="fg" style="margin:8px 0 0;">
+            <label style="font-size:12px;">Additional Notes <span style="font-weight:400;color:var(--muted2);">(Optional)</span></label>
+            <input type="text" placeholder="e.g. East facing, attached bathroom..." value="${_rnEscAttr(f.notes||'')}"
+              oninput="window._rnFloorUpdate(${f.id},'notes',this.value)"
+              style="padding:9px 12px;border:1.5px solid var(--border2);border-radius:8px;font-size:13px;width:100%;box-sizing:border-box;font-family:var(--font);color:var(--ink);background:var(--white);outline:none;">
+          </div>
+        </div>`;
+      }).join('');
+    }
+
+    function _rnEscAttr(v) {
+      return String(v||'').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+    }
+
+    window._rnFloorUpdate = function(id, field, value) {
+      const f = _rnFloors.find(x => x.id === id);
+      if (f) f[field] = value;
+    };
+
+    function _rnGetFloorsData() {
+      return _rnFloors.filter(f => f.rent || f.rooms).map((f, idx) => ({
+        label: f.label || `Floor ${idx+1}`,
+        rent: parseFloat(f.rent)||0,
+        rooms: parseInt(f.rooms)||0,
+        baths: parseInt(f.baths)||0,
+        kitchen: parseInt(f.kitchen)||0,
+        balcony: parseInt(f.balcony)||0,
+        notes: f.notes||''
+      }));
+    }
+
+    function _rnResetFloors() {
+      _rnFloors = [];
+      _rnFloorCounter = 0;
+      _rnRenderFloors();
+      const empty = document.getElementById('rn-floors-empty');
+      if (empty) empty.style.display = '';
+    }
+
+    function _rnLoadFloors(floorsData) {
+      _rnFloors = [];
+      _rnFloorCounter = 0;
+      if (!Array.isArray(floorsData)) return;
+      floorsData.forEach(f => {
+        _rnFloorCounter++;
+        _rnFloors.push({ id: _rnFloorCounter, ...f });
+      });
+      _rnRenderFloors();
     }
 
     // ══ IMAGE HANDLING ══
@@ -14065,6 +14205,7 @@
           balcony: parseInt(v('h-balcony')) || 0,
           parking: parseInt(v('h-parking')) || 0,
           custom_rooms: customRooms.length > 0 ? customRooms : null,
+          floors_data: (typeof _rnGetFloorsData === 'function' && _rnGetFloorsData().length > 0) ? _rnGetFloorsData() : null,
           conditions: condArr.length > 0 ? condArr : null,
           property_type: selectedPropType || null,
           furnish_status: (selectedPropType && !['Office','PG','Shop'].includes(selectedPropType)) ? (document.getElementById('h-furnish-status')?.value || null) : null,
@@ -15367,6 +15508,31 @@
       }
       if (!['Office', 'PG', 'Shop'].includes(h.property_type || '') && customRoomsList.length) {
         spaceDetailsHtml += `<div class="detail-section-title" style="margin-top:16px;">Custom Spaces</div><div class="detail-custom-rooms">${customRoomsList.map(r => `<div class="detail-custom-tag">🏠 ${r.name} ×${r.count}</div>`).join('')}</div>`;
+      }
+      // Floors display
+      let floorsList = [];
+      if (h.floors_data) {
+        try { floorsList = Array.isArray(h.floors_data) ? h.floors_data : JSON.parse(h.floors_data); } catch { floorsList = []; }
+      }
+      if (!['Office', 'PG', 'Shop'].includes(h.property_type || '') && floorsList.length > 0) {
+        const floorsHtml = floorsList.map((f, i) => {
+          const lbl = f.label || `Floor ${i+1}`;
+          const details = [
+            f.rooms ? `${f.rooms} room${f.rooms>1?'s':''}` : null,
+            f.baths ? `${f.baths} bath` : null,
+            f.kitchen ? `${f.kitchen} kitchen` : null,
+            f.rent ? `₹${Number(f.rent).toLocaleString('en-IN')}/mo` : null
+          ].filter(Boolean).join(' · ');
+          return `<div style="background:var(--bg2);border-radius:10px;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+            <div>
+              <div style="font-size:13px;font-weight:700;color:var(--ink);">🏢 ${esc(lbl)}</div>
+              ${details ? `<div style="font-size:12px;color:var(--soft);margin-top:2px;">${esc(details)}</div>` : ''}
+              ${f.notes ? `<div style="font-size:11px;color:var(--muted);margin-top:2px;">${esc(f.notes)}</div>` : ''}
+            </div>
+            ${f.rent ? `<div style="font-size:14px;font-weight:800;color:var(--terra);white-space:nowrap;">₹${Number(f.rent).toLocaleString('en-IN')}</div>` : ''}
+          </div>`;
+        }).join('');
+        spaceDetailsHtml += `<div class="detail-section-title" style="margin-top:16px;">🏢 Floor Details</div><div style="display:flex;flex-direction:column;gap:8px;margin-top:8px;">${floorsHtml}</div>`;
       }
 
       const conds = Array.isArray(h.conditions) ? h.conditions
@@ -18382,11 +18548,26 @@
           var coinsOverlay = document.getElementById('rn-coins-overlay');
           var wrap = document.getElementById('rn-coins-svg-wrap');
           if (!coinsOverlay || !wrap) return;
+          // Helper: restart all SVG animations so they begin from frame 0
+          function _rnRestartSvgAnims(svgEl) {
+            if (!svgEl) return;
+            // Use SVG unpause+setCurrentTime to force frame-0 start
+            try { svgEl.setCurrentTime(0); } catch(e){}
+            var anims = svgEl.querySelectorAll('animate, animateTransform, animateMotion, set');
+            anims.forEach(function(a) {
+              try { a.beginElement(); } catch(e){}
+            });
+          }
           // Inject inline SVG (play-once version)
           if (_rnCoinsSvgText) {
             wrap.innerHTML = _rnCoinsSvgText;
             var svg = wrap.querySelector('svg');
-            if (svg) { svg.style.width='100%'; svg.style.height='100%'; }
+            if (svg) {
+              svg.style.width='100%';
+              svg.style.height='100%';
+              // Delay one frame so the browser registers the SVG before restarting
+              requestAnimationFrame(function() { _rnRestartSvgAnims(svg); });
+            }
           } else {
             // Fallback: fetch now if pre-fetch didn't finish
             fetch('/coins-animation.svg')
@@ -18398,7 +18579,11 @@
                   .replace(/(<(?:animate|animateTransform|animateMotion|set)(?![^>]*\sfill=)[^>]*?)(\/?>)/g, '$1 fill="freeze"$2');
                 wrap.innerHTML = once;
                 var svg = wrap.querySelector('svg');
-                if (svg) { svg.style.width='100%'; svg.style.height='100%'; }
+                if (svg) {
+                  svg.style.width='100%';
+                  svg.style.height='100%';
+                  requestAnimationFrame(function() { _rnRestartSvgAnims(svg); });
+                }
               });
           }
           coinsOverlay.style.display = 'flex';
@@ -18420,10 +18605,20 @@
         var coinsOverlay = document.getElementById('rn-coins-overlay');
         var wrap = document.getElementById('rn-coins-svg-wrap');
         if (!coinsOverlay || !wrap) return;
+        function _restartAnims(svgEl) {
+          if (!svgEl) return;
+          try { svgEl.setCurrentTime(0); } catch(e){}
+          svgEl.querySelectorAll('animate, animateTransform, animateMotion, set').forEach(function(a) {
+            try { a.beginElement(); } catch(e){}
+          });
+        }
         if (_rnCoinsSvgText) {
           wrap.innerHTML = _rnCoinsSvgText;
           var svg = wrap.querySelector('svg');
-          if (svg) { svg.style.width='100%'; svg.style.height='100%'; }
+          if (svg) {
+            svg.style.width='100%'; svg.style.height='100%';
+            requestAnimationFrame(function() { _restartAnims(svg); });
+          }
         } else {
           fetch('/coins-animation.svg')
             .then(function(r){ return r.text(); })
@@ -18434,7 +18629,10 @@
                 .replace(/(<(?:animate|animateTransform|animateMotion|set)(?![^>]*\sfill=)[^>]*?)(\/?>)/g, '$1 fill="freeze"$2');
               wrap.innerHTML = once;
               var svg = wrap.querySelector('svg');
-              if (svg) { svg.style.width='100%'; svg.style.height='100%'; }
+              if (svg) {
+                svg.style.width='100%'; svg.style.height='100%';
+                requestAnimationFrame(function() { _restartAnims(svg); });
+              }
             }).catch(function(){});
         }
         coinsOverlay.style.display = 'flex';
