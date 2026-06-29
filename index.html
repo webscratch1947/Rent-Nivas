@@ -1620,6 +1620,12 @@
       animation: fadeUp .3s var(--ease);
     }
 
+    #rent-section-purchased.active {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
     /* DASHBOARD HOME */
     .dash-greeting {
       margin-bottom: 28px;
@@ -9411,7 +9417,7 @@
         </div>
 
         <!-- UNLOCKED HOMES SECTION (inline, loaded on demand) -->
-        <div class="ds-section" id="rent-section-purchased" style="display:flex;flex-direction:column;align-items:center;">
+        <div class="ds-section" id="rent-section-purchased">
           <div id="rent-purchased-inner" style="padding:0;width:100%;display:flex;flex-direction:column;align-items:center;">
             <div class="rn-empty-state"><div class="rn-empty-icon">⏳</div><p class="rn-empty-desc">Loading unlocked homes...</p></div>
           </div>
