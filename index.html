@@ -10157,6 +10157,7 @@
             <button class="admin-tab" onclick="adminTab(this,'adm-partners');loadAdminPartners()">🤝 Partner Requests</button>
             <button class="admin-tab" onclick="adminTab(this,'adm-announce');loadAdminAnnouncements()">📢 Announcements</button>
             <button class="admin-tab" onclick="adminTab(this,'adm-tasks');loadAdminTasksTab()">📋 Tasks</button>
+            <button class="admin-tab" onclick="adminTab(this,'adm-settings');loadAdminSettings()">⚙️ Settings</button>
           </div>
 
           <!-- USERS TAB -->
@@ -10330,6 +10331,36 @@
               </div>
             </div>
           </div>
+
+          <!-- SETTINGS TAB -->
+          <div class="admin-sub" id="adm-settings">
+            <div style="max-width:520px;">
+              <h3 style="font-size:18px;font-weight:700;margin-bottom:6px;">⚙️ Platform Settings</h3>
+              <p style="font-size:13px;color:var(--muted);margin-bottom:24px;">Control how credits flow between renters and owners.</p>
+
+              <div style="background:var(--white);border:1.5px solid var(--border2);border-radius:var(--r);padding:24px;margin-bottom:20px;">
+                <div style="font-size:15px;font-weight:700;margin-bottom:6px;">🔓 Unlock Owner Reward Rate</div>
+                <p style="font-size:13px;color:var(--muted);margin-bottom:16px;line-height:1.6;">
+                  When Person B unlocks Person A's listing using 1 credit, how many credits does Person A (the owner) receive?<br>
+                  Default is <strong>1</strong>. Set to <strong>0.8</strong> means platform keeps 0.2, owner gets 0.8.
+                </p>
+                <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+                  <input type="number" id="adm-unlock-rate-input" min="0" max="10" step="0.05"
+                    style="width:120px;padding:10px 14px;border:1.5px solid var(--border2);border-radius:var(--r);font-size:16px;font-weight:700;font-family:var(--font);color:var(--ink);background:var(--bg);"
+                    placeholder="1">
+                  <button class="btn btn-terra" id="adm-unlock-rate-btn" onclick="adminSaveUnlockRate()">Save Rate</button>
+                  <span id="adm-unlock-rate-status" style="font-size:13px;color:var(--muted);"></span>
+                </div>
+                <div style="margin-top:14px;font-size:12px;color:var(--muted);background:var(--bg);padding:10px 14px;border-radius:8px;line-height:1.7;">
+                  <strong>Examples:</strong><br>
+                  1 → owner gets 1 full credit per unlock<br>
+                  0.8 → owner gets 0.8 credits per unlock<br>
+                  0 → owner gets nothing (platform keeps all)
+                </div>
+              </div>
+            </div>
+          </div>
+          <!-- /SETTINGS TAB -->
 
         </div>
       </main>
@@ -11047,6 +11078,8 @@
         catch (e) { console.warn('[Nestly] setCredits DB sync error:', e); }
       }
       window._rnCreditsSyncPaused = false;
+      // Re-check crown after credits change — user may have become #1 or lost #1
+      setTimeout(function() { if (typeof _checkCrown === 'function') _checkCrown(); }, 800);
     }
 
     function updateCreditsBadges() {
@@ -15766,6 +15799,44 @@
       }
     }
 
+    async function loadAdminSettings() {
+      const input = document.getElementById('adm-unlock-rate-input');
+      const status = document.getElementById('adm-unlock-rate-status');
+      if (!input) return;
+      status.textContent = 'Loading...';
+      try {
+        const { data, error } = await sb.rpc('get_unlock_reward_rate', {});
+        if (error) throw error;
+        input.value = (data && data.rate !== undefined) ? data.rate : 1;
+        status.textContent = 'Current rate: ' + input.value;
+      } catch (e) {
+        input.value = 1;
+        status.textContent = 'Could not load — defaulting to 1';
+      }
+    }
+
+    async function adminSaveUnlockRate() {
+      const input = document.getElementById('adm-unlock-rate-input');
+      const btn   = document.getElementById('adm-unlock-rate-btn');
+      const status = document.getElementById('adm-unlock-rate-status');
+      const rate = parseFloat(input.value);
+      if (isNaN(rate) || rate < 0 || rate > 10) {
+        toast('Rate must be between 0 and 10', 'error'); return;
+      }
+      btn.disabled = true; btn.textContent = 'Saving...';
+      try {
+        const { data, error } = await sb.rpc('set_unlock_reward_rate', { rate });
+        if (error) throw error;
+        status.textContent = '✅ Saved! Owners now get ' + rate + ' credit(s) per unlock.';
+        toast('✅ Unlock reward rate set to ' + rate, 'success');
+      } catch (e) {
+        toast('Failed to save: ' + (e.message || e), 'error');
+        status.textContent = '❌ Failed to save';
+      } finally {
+        btn.disabled = false; btn.textContent = 'Save Rate';
+      }
+    }
+
     async function adminDeleteUser(userId, userName) {
       openAdminModal({
         title: '🗑️ Permanently Delete User',
@@ -16586,10 +16657,23 @@
               await setCredits(currentCredits);
               throw new Error('Unlock failed: ' + error.message);
             }
-            upsertPurchaseCache(house.id, purchase?.id || 'local-' + Date.now(), purchase?.created_at || new Date().toISOString());
+            const purchaseId = purchase?.id || 'local-' + Date.now();
+            upsertPurchaseCache(house.id, purchaseId, purchase?.created_at || new Date().toISOString());
             updateCreditsBadges();
             toast('🔓 Unlocked! Full contact details are now visible.', 'success');
             renderDetailPage(house);
+
+            // Reward the property owner asynchronously — don't block the UI
+            if (purchase?.id && house.owner_id && house.owner_id !== user.id) {
+              sb.rpc('reward_owner_for_unlock', {
+                property_id: house.id,
+                purchase_id: purchase.id,
+                buyer_id: user.id
+              }).then(({ error: rewardErr }) => {
+                if (rewardErr) console.warn('[UnlockReward] Owner reward failed:', rewardErr.message);
+                else console.log('[UnlockReward] Owner rewarded for unlock of', house.id);
+              }).catch(e => console.warn('[UnlockReward] Owner reward error:', e.message));
+            }
           } catch(e) {
             await setCredits(currentCredits).catch(()=>{});
             throw e;
@@ -18861,11 +18945,17 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
   z-index: 300;
   pointer-events: none;
   filter: drop-shadow(0 2px 8px rgba(200,150,0,.6));
-  animation: rn-crown-float 2.4s ease-in-out infinite;
+  animation: rn-crown-popin 0.5s cubic-bezier(.34,1.56,.64,1) both,
+             rn-crown-float 2.4s ease-in-out 0.5s infinite;
+}
+@keyframes rn-crown-popin {
+  0%   { transform: translateX(-50%) scale(0) rotate(-20deg); opacity:0; }
+  60%  { transform: translateX(-50%) scale(1.15) rotate(5deg); opacity:1; }
+  100% { transform: translateX(-50%) scale(1) rotate(0deg); opacity:1; }
 }
 @keyframes rn-crown-float {
   0%,100% { transform: translateX(-50%) translateY(0px); }
-  50%      { transform: translateX(-50%) translateY(-4px); }
+  50%      { transform: translateX(-50%) translateY(-5px); }
 }
 
 /* ─── HERO AVATAR ─── */
