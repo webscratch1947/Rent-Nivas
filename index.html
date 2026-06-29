@@ -10072,6 +10072,26 @@
               </div>
             </div>
 
+            <!-- AVAILABILITY DATE SECTION -->
+            <div class="add-col" style="width:100%;">
+              <div class="form-sec">
+                <div class="form-sec-title"><span class="form-sec-icon">📅</span> Property Availability <span style="color:var(--terra);font-size:13px;">*</span></div>
+                <div style="display:flex;flex-direction:column;gap:10px;">
+                  <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:12px 16px;border:1.5px solid var(--border2);border-radius:var(--r);background:var(--bg);">
+                    <input type="radio" name="avail-type" id="avail-anytime" value="anytime" checked onchange="toggleAvailDate()" style="accent-color:var(--terra);width:16px;height:16px;">
+                    <div><div style="font-size:14px;font-weight:600;color:var(--ink);">Available Anytime</div><div style="font-size:12px;color:var(--muted);">Property is ready for immediate move-in</div></div>
+                  </label>
+                  <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:12px 16px;border:1.5px solid var(--border2);border-radius:var(--r);background:var(--bg);">
+                    <input type="radio" name="avail-type" id="avail-date" value="date" onchange="toggleAvailDate()" style="accent-color:var(--terra);width:16px;height:16px;">
+                    <div><div style="font-size:14px;font-weight:600;color:var(--ink);">Available From a Specific Date</div><div style="font-size:12px;color:var(--muted);">Property will be available from a future date</div></div>
+                  </label>
+                  <div id="avail-date-wrap" style="display:none;">
+                    <input type="date" id="h-available-from" style="width:100%;padding:11px 14px;border:1.5px solid var(--border2);border-radius:var(--r);font-family:var(--font);font-size:14px;color:var(--ink);background:var(--white);outline:none;">
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <!-- REFERRAL CODE SECTION -->
             <div class="add-col" style="width:100%;">
               <div class="form-sec">
@@ -10130,6 +10150,8 @@
               </div>
               <div class="form-sec">
                 <div class="form-sec-title"><span class="form-sec-icon">📸</span> <span id="add-photos-h">Property Images</span></div>
+                <!-- Existing images shown when editing -->
+                <div id="h-existing-previews" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;"></div>
                 <div class="upload-zone" id="upload-zone" style="min-height:120px;">
                   <input type="file" id="h-files" multiple accept="image/*" onchange="handleFiles(this.files)">
                   <div class="upload-zone-em">📷</div>
@@ -10364,6 +10386,7 @@
           <div class="admin-tabs">
             <button class="admin-tab active" onclick="adminTab(this,'adm-users')">👥 Users</button>
             <button class="admin-tab" onclick="adminTab(this,'adm-houses');loadAdminHouses()">🏠 All Listings</button>
+            <button class="admin-tab" onclick="adminTab(this,'adm-sold');loadAdminSoldHouses()">🏷️ Sold Houses</button>
             <button class="admin-tab" onclick="adminTab(this,'adm-bans');loadAdminBans()">🚫 Bans</button>
             <button class="admin-tab" onclick="adminTab(this,'adm-appeals');loadAdminAppeals()">📩 Appeals</button>
             <button class="admin-tab" onclick="adminTab(this,'adm-partners');loadAdminPartners()">🤝 Partner Requests</button>
@@ -10544,6 +10567,16 @@
             </div>
           </div>
 
+          <!-- SOLD HOUSES TAB -->
+          <div class="admin-sub" id="adm-sold">
+            <div style="display:flex;justify-content:flex-end;margin-bottom:12px;">
+              <button class="btn btn-sm" style="background:var(--bg2);color:var(--ink);" onclick="loadAdminSoldHouses()">🔄 Refresh</button>
+            </div>
+            <div id="adm-sold-list">
+              <div style="text-align:center;padding:32px;color:var(--muted);">Loading sold houses...</div>
+            </div>
+          </div>
+
           <!-- SETTINGS TAB -->
           <div class="admin-sub" id="adm-settings">
             <div style="max-width:520px;">
@@ -10642,6 +10675,14 @@
       window.addEventListener('focus', pingAuthLock);
       window.addEventListener('pageshow', pingAuthLock);
     })();
+
+    // ══ AVAILABILITY DATE TOGGLE ══
+    function toggleAvailDate() {
+      const isDate = document.getElementById('avail-date')?.checked;
+      const wrap = document.getElementById('avail-date-wrap');
+      if (wrap) wrap.style.display = isDate ? '' : 'none';
+      if (!isDate) { const el = document.getElementById('h-available-from'); if (el) el.value = ''; }
+    }
 
     // ══ ADMIN TAB SWITCHER ══
     function adminTab(btn, panelId) {
@@ -11244,8 +11285,10 @@
 
     // ══ STATE ══
     let user = null, allHouses = [], rentAllHouses = [], selectedFiles = [], currentEditId = null, editMode = false;
-    const RENT_BROWSE_COLS = 'id,title,description,price,phone,address,images,bedrooms,bathrooms,kitchen,living_room,balcony,parking,custom_rooms,floors_data,conditions,property_type,extra_details,city,state,area,owner_id,status,created_at,furnish_status,tenant_type';
+    const RENT_BROWSE_COLS = 'id,title,description,price,phone,address,images,bedrooms,bathrooms,kitchen,living_room,balcony,parking,custom_rooms,floors_data,conditions,property_type,extra_details,city,state,area,owner_id,status,created_at,furnish_status,tenant_type,available_from,sold_at,sold_type,sold_buyer_id';
     let editExistingImages = [];
+    let imagesToDelete = [];
+    let _soldDeleteDraft = null;
     let selectedPropType = '';   // currently selected property type in add form
     let rentPropFilter = 'all';  // currently active filter chip in rent page
     let tChart = null, pChart = null, sChart = null;
@@ -13412,9 +13455,10 @@
                 <div style="font-size:12px;color:var(--muted2);margin-top:2px;">${fmtDate(h.created_at)}</div>
               </div>
               <div class="l-foot-btns">
-                <button class="btn btn-sm ${h.status === 'published' ? 'btn-danger-soft' : 'btn-success-soft'}" onclick="toggleStatus('${h.id}','${h.status}')">
-                  ${h.status === 'published' ? 'Delete' : 'Publish'}
-                </button>
+                ${h.status === 'published'
+                  ? `<button class="btn btn-sm btn-danger-soft" onclick="showSoldDeleteModal('${h.id}')">🏷️ Sold / Delete</button>`
+                  : `<button class="btn btn-sm btn-success-soft" onclick="toggleStatus('${h.id}','${h.status}')">Publish</button>`
+                }
                 <button class="btn btn-soft btn-sm" onclick="editHouse('${h.id}')">Edit</button>
               </div>
             </div>
@@ -13457,6 +13501,171 @@
         })();
       }
     }
+
+    // ══ SOLD / DELETE MODAL ══
+    async function showSoldDeleteModal(houseId) {
+      const h = allHouses.find(x => x.id === houseId);
+      if (!h) return;
+      const draft = _soldDeleteDraft && _soldDeleteDraft.houseId === houseId ? _soldDeleteDraft : null;
+      const overlay = document.createElement('div');
+      overlay.id = 'sold-delete-overlay';
+      overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;';
+      overlay.innerHTML = `
+        <div style="background:var(--white);border-radius:18px;padding:28px 24px;max-width:420px;width:100%;box-shadow:var(--sh3);animation:fadeUp .25s var(--ease);">
+          <div style="font-size:22px;font-weight:800;color:var(--ink);margin-bottom:6px;">🏷️ What happened to this listing?</div>
+          <div style="font-size:13px;color:var(--muted);margin-bottom:20px;">"${esc(h.title)}"</div>
+          <div style="display:flex;flex-direction:column;gap:10px;">
+            <button class="btn btn-outline" style="justify-content:flex-start;font-size:15px;padding:13px 16px;" onclick="_soldOption('${houseId}','rent_nivas')">✅ Sold through Rent Nivas</button>
+            <button class="btn btn-outline" style="justify-content:flex-start;font-size:15px;padding:13px 16px;" onclick="_soldOption('${houseId}','outside')">🤝 Sold Outside Rent Nivas</button>
+            <button class="btn btn-outline" style="justify-content:flex-start;font-size:15px;padding:13px 16px;" onclick="_soldOption('${houseId}','other')">📝 Other</button>
+            <button class="btn" style="justify-content:flex-start;font-size:15px;padding:13px 16px;background:var(--red-bg);color:var(--red);" onclick="_soldOption('${houseId}','delete')">🗑️ Delete Property</button>
+          </div>
+          <button onclick="document.getElementById('sold-delete-overlay').remove()" style="margin-top:18px;width:100%;padding:11px;border:none;background:var(--bg2);border-radius:var(--r);font-family:var(--font);font-size:14px;cursor:pointer;color:var(--muted);">Cancel</button>
+        </div>`;
+      document.body.appendChild(overlay);
+      overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+    }
+
+    async function _soldOption(houseId, type) {
+      const overlay = document.getElementById('sold-delete-overlay');
+      if (overlay) overlay.remove();
+      if (type === 'delete') {
+        showModal('🗑️', 'Delete Listing', 'This will permanently delete the listing and all its images. This cannot be undone.', 'Yes, Delete It', 'btn-danger-soft', async () => {
+          await deleteHouse(houseId);
+        });
+        return;
+      }
+      if (type === 'rent_nivas') {
+        await _showBuyerSelectModal(houseId);
+        return;
+      }
+      // outside or other — just mark sold
+      setLoader(true, 'Marking as sold...');
+      try {
+        await withTimeout(
+          sb.from('houses').update({ status: 'sold', sold_type: type, sold_at: new Date().toISOString() }).eq('id', houseId),
+          15000, 'Request timed out'
+        );
+        await fetchHouses(true);
+        renderCards();
+        loadHome();
+        toast('✅ Listing marked as sold.', 'success');
+      } catch (e) {
+        toast('Error: ' + (e.message || 'Something went wrong'), 'error');
+      } finally { setLoader(false); }
+    }
+
+    async function _showBuyerSelectModal(houseId) {
+      const h = allHouses.find(x => x.id === houseId);
+      if (!h) return;
+      const draft = _soldDeleteDraft && _soldDeleteDraft.houseId === houseId ? _soldDeleteDraft : null;
+
+      const overlay = document.createElement('div');
+      overlay.id = 'sold-buyer-overlay';
+      overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;';
+      overlay.innerHTML = `
+        <div style="background:var(--white);border-radius:18px;padding:28px 24px;max-width:480px;width:100%;box-shadow:var(--sh3);animation:fadeUp .25s var(--ease);max-height:80vh;display:flex;flex-direction:column;">
+          <div style="font-size:20px;font-weight:800;color:var(--ink);margin-bottom:4px;">✅ Sold through Rent Nivas</div>
+          <div style="font-size:13px;color:var(--muted);margin-bottom:16px;">Select the buyer from the list of users who unlocked this property.</div>
+          <div id="buyer-list-inner" style="overflow-y:auto;flex:1;border:1.5px solid var(--border2);border-radius:var(--r);padding:8px;margin-bottom:16px;">
+            <div style="text-align:center;padding:24px;color:var(--muted);">Loading unlocked users...</div>
+          </div>
+          <div id="buyer-selected-banner" style="display:none;padding:10px 14px;background:var(--green-bg);border:1.5px solid #bbf7d0;border-radius:var(--r);margin-bottom:12px;font-size:13px;color:var(--green);font-weight:600;"></div>
+          <div style="display:flex;gap:10px;">
+            <button class="btn btn-terra" style="flex:1;" id="confirm-buyer-btn" onclick="_confirmBuyer('${houseId}')" disabled>✅ Confirm Sale</button>
+            <button class="btn btn-outline" onclick="document.getElementById('sold-buyer-overlay').remove()">Cancel</button>
+          </div>
+        </div>`;
+      document.body.appendChild(overlay);
+
+      // Restore draft selection if any
+      if (draft) {
+        overlay.querySelector('#buyer-selected-banner').textContent = '⏳ Previous selection restored: ' + (draft.buyerName || draft.buyerId);
+        overlay.querySelector('#buyer-selected-banner').style.display = '';
+        overlay.querySelector('#confirm-buyer-btn').disabled = false;
+        overlay.querySelector('#confirm-buyer-btn').dataset.buyerId = draft.buyerId;
+        overlay.querySelector('#confirm-buyer-btn').dataset.buyerName = draft.buyerName || '';
+      }
+
+      // Load buyers
+      try {
+        const { data: unlocks } = await withTimeout(
+          sb.from('user_house_unlocks').select('user_id, unlocked_at').eq('house_id', houseId),
+          12000, 'Loading buyers timed out'
+        );
+        if (!unlocks || !unlocks.length) {
+          overlay.querySelector('#buyer-list-inner').innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted);">No users have unlocked this property yet.</div>';
+          return;
+        }
+        const userIds = [...new Set(unlocks.map(u => u.user_id))];
+        const { data: profiles } = await withTimeout(
+          sb.from('profiles').select('id,full_name,email').in('id', userIds),
+          12000, 'Loading profiles timed out'
+        );
+        const profileMap = {};
+        (profiles || []).forEach(p => { profileMap[p.id] = p; });
+        overlay.querySelector('#buyer-list-inner').innerHTML = userIds.map(uid => {
+          const p = profileMap[uid] || {};
+          const name = p.full_name || p.email || uid;
+          return `<div class="buyer-row" data-uid="${uid}" data-name="${esc(name)}" onclick="_selectBuyer(this,'${houseId}')" style="padding:12px 14px;border-radius:var(--r);cursor:pointer;display:flex;align-items:center;gap:12px;margin-bottom:4px;border:1.5px solid transparent;transition:background .15s;">
+            <div style="width:36px;height:36px;border-radius:50%;background:var(--terra-lt);color:var(--terra);font-weight:800;font-size:15px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${(name[0]||'?').toUpperCase()}</div>
+            <div><div style="font-size:14px;font-weight:600;color:var(--ink);">${esc(name)}</div><div style="font-size:12px;color:var(--muted);">${esc(p.email||'')}</div></div>
+          </div>`;
+        }).join('');
+      } catch (e) {
+        overlay.querySelector('#buyer-list-inner').innerHTML = `<div style="padding:24px;text-align:center;color:var(--red);">Failed to load buyers: ${e.message}</div>`;
+      }
+    }
+
+    function _selectBuyer(el, houseId) {
+      document.querySelectorAll('.buyer-row').forEach(r => { r.style.background = ''; r.style.borderColor = 'transparent'; });
+      el.style.background = 'var(--terra-lt)';
+      el.style.borderColor = 'var(--terra)';
+      const uid = el.dataset.uid;
+      const name = el.dataset.name;
+      const btn = document.getElementById('confirm-buyer-btn');
+      if (btn) { btn.disabled = false; btn.dataset.buyerId = uid; btn.dataset.buyerName = name; }
+      const banner = document.getElementById('buyer-selected-banner');
+      if (banner) { banner.textContent = `Selected buyer: ${name}`; banner.style.display = ''; }
+      // Save draft so progress is not lost
+      _soldDeleteDraft = { houseId, buyerId: uid, buyerName: name, savedAt: Date.now() };
+      try { localStorage.setItem('rn_sold_draft', JSON.stringify(_soldDeleteDraft)); } catch (_) { }
+    }
+
+    async function _confirmBuyer(houseId) {
+      const btn = document.getElementById('confirm-buyer-btn');
+      if (!btn || !btn.dataset.buyerId) return toast('Please select a buyer first', 'error');
+      const buyerId = btn.dataset.buyerId;
+      const buyerName = btn.dataset.buyerName || '';
+      setLoader(true, 'Finalising sale...');
+      try {
+        await withTimeout(
+          sb.from('houses').update({
+            status: 'sold', sold_type: 'rent_nivas', sold_at: new Date().toISOString(),
+            sold_buyer_id: buyerId
+          }).eq('id', houseId),
+          15000, 'Request timed out'
+        );
+        _soldDeleteDraft = null;
+        try { localStorage.removeItem('rn_sold_draft'); } catch (_) { }
+        const overlay = document.getElementById('sold-buyer-overlay');
+        if (overlay) overlay.remove();
+        await fetchHouses(true);
+        renderCards();
+        loadHome();
+        toast('🎉 Property marked as sold through Rent Nivas!', 'success');
+      } catch (e) {
+        toast('Error: ' + (e.message || 'Something went wrong'), 'error');
+      } finally { setLoader(false); }
+    }
+
+    // Restore any in-progress sold draft on load
+    (function _restoreSoldDraft() {
+      try {
+        const raw = localStorage.getItem('rn_sold_draft');
+        if (raw) { const d = JSON.parse(raw); if (d && d.houseId) _soldDeleteDraft = d; }
+      } catch (_) { }
+    })();
 
     // ══ Shared helper: wipe every storage file for a house ══
     // Used by both the owner delete flow and the admin delete flow so
@@ -13589,7 +13798,8 @@
         if (h.floors_data) {
           try { floorsArr = Array.isArray(h.floors_data) ? h.floors_data : JSON.parse(h.floors_data); } catch { floorsArr = []; }
         }
-        _rnLoadFloors(floorsArr);
+        // Pass property data as fallback for default floor
+        _rnLoadFloors(floorsArr, h);
       }
       // Restore property type chip
       selectedPropType = h.property_type || '';
@@ -13622,9 +13832,24 @@
         setV('h-shop-desc', ed.layout);
       }
       selectedFiles = [];
+      imagesToDelete = [];
       editExistingImages = Array.isArray(h.images) ? [...h.images] : [];
-      document.getElementById('h-previews').innerHTML = '';
-      document.getElementById('img-lbl').textContent = h.images?.length ? `${h.images.length} existing image(s). Upload new to replace.` : '';
+      renderExistingImages();
+      // availability
+      const availFrom = h.available_from;
+      const availAnytime = document.getElementById('avail-anytime');
+      const availDate = document.getElementById('avail-date');
+      const availInput = document.getElementById('h-available-from');
+      if (availFrom && availFrom !== 'anytime') {
+        if (availDate) { availDate.checked = true; }
+        if (availAnytime) { availAnytime.checked = false; }
+        if (availInput) availInput.value = availFrom;
+        toggleAvailDate();
+      } else {
+        if (availAnytime) { availAnytime.checked = true; }
+        if (availDate) { availDate.checked = false; }
+        toggleAvailDate();
+      }
       const qs = await loadListingQuestions(id);
       listingQuestionsDraft = qs.map(q => q.question_text);
       renderListingQuestionFields();
@@ -13686,10 +13911,19 @@
       // FIX 3: Reset ALL image state — array, previews, AND the file input element
       selectedFiles = [];
       editExistingImages = [];
+      imagesToDelete = [];
       document.getElementById('h-previews').innerHTML = '';
+      const existingWrap = document.getElementById('h-existing-previews');
+      if (existingWrap) existingWrap.innerHTML = '';
       document.getElementById('img-lbl').textContent = '';
       const fileInput = document.getElementById('h-files');
       if (fileInput) fileInput.value = '';  // FIX 3: clear browser file selection
+      // Reset availability
+      const availAnytime = document.getElementById('avail-anytime');
+      if (availAnytime) { availAnytime.checked = true; }
+      const availDate = document.getElementById('avail-date');
+      if (availDate) { availDate.checked = false; }
+      toggleAvailDate();
 
       document.getElementById('loc-display').textContent = 'Click "Use Current Location" to auto-fill area, city & state';
 
@@ -13867,15 +14101,72 @@
       if (empty) empty.style.display = _rnFloors.length ? 'none' : '';
     }
 
-    function _rnLoadFloors(floorsData) {
+    function _rnLoadFloors(floorsData, defaultFloorData) {
       _rnFloors = [];
       _rnFloorCounter = 0;
-      if (!Array.isArray(floorsData)) return;
-      floorsData.forEach(f => {
-        _rnFloorCounter++;
-        _rnFloors.push({ id: _rnFloorCounter, ...f });
-      });
+      if (Array.isArray(floorsData) && floorsData.length > 0) {
+        floorsData.forEach(f => {
+          _rnFloorCounter++;
+          _rnFloors.push({ id: _rnFloorCounter, ...f });
+        });
+      } else if (defaultFloorData) {
+        // No extra floors saved — create a default floor from the main property data
+        _rnFloorCounter = 1;
+        _rnFloors.push({
+          id: 1,
+          label: 'Ground Floor',
+          rent: defaultFloorData.price || '',
+          rooms: defaultFloorData.bedrooms || '',
+          baths: defaultFloorData.bathrooms || '',
+          kitchen: defaultFloorData.kitchen || '',
+          living: defaultFloorData.living_room || '',
+          balcony: defaultFloorData.balcony || '',
+          notes: ''
+        });
+      }
       _rnRenderFloors();
+    }
+
+    // ══ EXISTING IMAGES DISPLAY (edit mode) ══
+    function renderExistingImages() {
+      const wrap = document.getElementById('h-existing-previews');
+      if (!wrap) return;
+      wrap.innerHTML = '';
+      if (!editExistingImages.length) {
+        document.getElementById('img-lbl').textContent = '';
+        return;
+      }
+      document.getElementById('img-lbl').textContent = `${editExistingImages.length} existing image(s). Add new below or remove existing.`;
+      editExistingImages.forEach((url, i) => {
+        const div = document.createElement('div');
+        div.className = 'img-prev-wrap';
+        div.style.cssText = 'position:relative;width:90px;height:90px;border-radius:10px;overflow:hidden;border:2px solid var(--border2);flex-shrink:0;';
+        const img = document.createElement('img');
+        img.src = url;
+        img.alt = `existing ${i+1}`;
+        img.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block;';
+        img.onerror = function() { this.style.background = '#eee'; };
+        const badge = document.createElement('div');
+        badge.style.cssText = 'position:absolute;top:4px;left:4px;background:rgba(0,0,0,.55);color:#fff;font-size:10px;padding:2px 5px;border-radius:4px;';
+        badge.textContent = i === 0 ? 'Cover' : `#${i+1}`;
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.style.cssText = 'position:absolute;top:3px;right:3px;width:22px;height:22px;border-radius:50%;background:rgba(220,38,38,.9);color:#fff;border:none;cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;line-height:1;';
+        btn.textContent = '✕';
+        btn.setAttribute('aria-label', 'Remove image');
+        btn.addEventListener('click', () => removeExistingImage(i));
+        div.appendChild(img);
+        div.appendChild(badge);
+        div.appendChild(btn);
+        wrap.appendChild(div);
+      });
+    }
+
+    function removeExistingImage(i) {
+      const url = editExistingImages[i];
+      if (url) imagesToDelete.push(url);
+      editExistingImages.splice(i, 1);
+      renderExistingImages();
     }
 
     // ══ IMAGE HANDLING ══
@@ -14129,12 +14420,13 @@
         if (!baths) return toast('Please enter number of bathrooms', 'error');
       }
 
-      const existingRow = currentEditId ? allHouses.find(h => h.id === currentEditId) : null;
-      const existingImgCount = existingRow?.images?.length || 0;
       if (status === 'published' && !currentEditId && selectedFiles.length === 0)
         return toast('Please upload at least 1 image to publish', 'error');
-      if (status === 'published' && currentEditId && selectedFiles.length === 0 && existingImgCount === 0)
+      if (status === 'published' && currentEditId && selectedFiles.length === 0 && editExistingImages.length === 0)
         return toast('Please upload at least 1 image to publish', 'error');
+      // validate availability date if specific date is selected
+      if (document.getElementById('avail-date')?.checked && !document.getElementById('h-available-from')?.value?.trim())
+        return toast('Please select an availability date', 'error');
 
       const questions = listingQuestionsDraft
         .map(q => (q || '').trim())
@@ -14233,8 +14525,21 @@
           status,
           expires_at: expiresAt,
           referral_code: (document.getElementById('h-referral-code')?.value?.trim()) || null,
+          available_from: (() => {
+            const isDateType = document.getElementById('avail-date')?.checked;
+            const dateVal = document.getElementById('h-available-from')?.value?.trim();
+            if (isDateType && dateVal) return dateVal;
+            return 'anytime';
+          })(),
         };
-        if (imgUrls.length) payload.images = imgUrls;
+        // ── Merge existing + new images (instead of replacing all) ──
+        if (imgUrls.length) {
+          payload.images = [...editExistingImages, ...imgUrls];
+        } else if (isEdit) {
+          // keep whatever is left of editExistingImages (user may have removed some)
+          payload.images = editExistingImages.length ? editExistingImages : undefined;
+          if (payload.images === undefined) delete payload.images;
+        }
 
         // ── SELF-REFERRAL GUARD ──
         // Don't let someone use their own referral code on their own listing.
@@ -14300,8 +14605,9 @@
           }
         }
 
-        if (isEdit && imgUrls.length && editExistingImages.length) {
-          await removeReplacedListingImages(editExistingImages);
+        // Delete only the images the user explicitly removed
+        if (isEdit && imagesToDelete.length) {
+          await removeReplacedListingImages(imagesToDelete);
         }
 
         await withTimeout(syncListingQuestions(houseId, questions || []), 20000, 'Saving listing questions timed out.');
@@ -14328,6 +14634,7 @@
         }
         currentEditId = null;
         editExistingImages = [];
+        imagesToDelete = [];
         editMode = false;
         showSection('listings');
       } catch (e) {
@@ -15613,6 +15920,7 @@
               <div class="detail-title">${h.title}</div>
               <div class="detail-loc">📍 ${cityState}</div>
               <div class="detail-price">₹${parseInt(h.price || 0).toLocaleString('en-IN')}<span>/mo</span></div>
+              ${h.available_from ? `<div style="margin-top:8px;display:inline-flex;align-items:center;gap:6px;padding:6px 12px;background:var(--blue-bg);border:1px solid #bfdbfe;border-radius:20px;font-size:12px;font-weight:600;color:var(--blue);">📅 ${h.available_from === 'anytime' ? 'Available Anytime' : 'Available from ' + new Date(h.available_from).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'})}</div>` : ''}
               ${timerHtml}
               <div id="answer-questions-banner"></div>
 
@@ -16722,6 +17030,48 @@
       });
     }
 
+
+    async function loadAdminSoldHouses() {
+      const el = document.getElementById('adm-sold-list');
+      if (!el) return;
+      el.innerHTML = '<div style="text-align:center;padding:32px;color:var(--muted);">Loading...</div>';
+      try {
+        const { data, error } = await withTimeout(
+          sb.from('houses').select('id,title,city,area,price,status,sold_type,sold_at,sold_buyer_id,owner_id,created_at,images').eq('status','sold').order('sold_at', { ascending: false }).limit(200),
+          10000, 'Sold houses load timed out'
+        );
+        if (error) throw error;
+        if (!data?.length) { el.innerHTML = '<div style="padding:32px;text-align:center;color:var(--muted);">No sold houses yet.</div>'; return; }
+        // Collect unique owner + buyer IDs for profile lookup
+        const userIds = [...new Set([...data.map(h=>h.owner_id), ...data.map(h=>h.sold_buyer_id)].filter(Boolean))];
+        let profileMap = {};
+        if (userIds.length) {
+          const { data: profiles } = await withTimeout(sb.from('profiles').select('id,full_name,email').in('id', userIds), 8000, 'Profile load timed out');
+          (profiles||[]).forEach(p => { profileMap[p.id] = p; });
+        }
+        const soldTypeLabel = { rent_nivas: '✅ Sold through Rent Nivas', outside: '🤝 Sold Outside Rent Nivas', other: '📝 Other' };
+        el.innerHTML = data.map(h => {
+          const owner = profileMap[h.owner_id] || {};
+          const buyer = h.sold_buyer_id ? (profileMap[h.sold_buyer_id] || {}) : null;
+          const coverImg = (h.images||[])[0] || '';
+          return `<div style="border:1.5px solid var(--border2);border-radius:14px;margin-bottom:12px;background:var(--white);padding:16px;display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap;">
+            ${coverImg ? `<img src="${esc(coverImg)}" style="width:80px;height:80px;border-radius:10px;object-fit:cover;flex-shrink:0;" onerror="this.style.display='none'">` : ''}
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:15px;font-weight:700;color:var(--ink);margin-bottom:4px;">${esc(h.title||'Untitled')}</div>
+              <div style="font-size:12px;color:var(--muted);margin-bottom:8px;">📍 ${esc(h.city||h.area||'—')} &nbsp;·&nbsp; ₹${parseInt(h.price||0).toLocaleString('en-IN')}/mo</div>
+              <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:6px;">
+                <span style="padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;background:var(--red-bg);color:var(--red);">${soldTypeLabel[h.sold_type]||h.sold_type||'Sold'}</span>
+                ${h.sold_at ? `<span style="padding:3px 10px;border-radius:20px;font-size:11px;background:var(--bg2);color:var(--muted);">📅 ${new Date(h.sold_at).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'})}</span>` : ''}
+              </div>
+              <div style="font-size:13px;color:var(--soft);margin-bottom:2px;">🏠 <strong>Seller:</strong> ${esc(owner.full_name||owner.email||h.owner_id||'—')}</div>
+              ${buyer ? `<div style="font-size:13px;color:var(--soft);">🤝 <strong>Buyer:</strong> ${esc(buyer.full_name||buyer.email||h.sold_buyer_id||'—')}</div>` : ''}
+            </div>
+          </div>`;
+        }).join('');
+      } catch(e) {
+        el.innerHTML = `<div style="padding:24px;text-align:center;color:var(--muted);">Failed to load: ${esc(e.message)}</div>`;
+      }
+    }
 
       async function loadAdminBans() {
         const el = document.getElementById('adm-ban-list');
