@@ -10735,7 +10735,7 @@
       setTimeout(() => el.remove(), 400);
     }
     // Safety net: never let the splash get stuck forever
-    setTimeout(hideBootSplash, 8000);
+    setTimeout(hideBootSplash, 2000);
 
     // setLoader — shows/hides the full-screen loading spinner
     // SAFETY NET: if "show" is called, we always arm a hard timeout that
@@ -17378,8 +17378,10 @@
       } else {
         // ── RETURNING USER ────────────────────────────────────────────────
         // Stored session found. Get a fresh verified token before loading data.
-        // 3s timeout covers: valid token (~50ms local) + token refresh (~500ms).
-        // NEVER falls back to showing landing-page — only the dashboard or role picker.
+        // Hide the boot splash immediately — show the loader instead so the
+        // user sees progress rather than the frozen splash screen.
+        hideBootSplash();
+        syncMobNavAuth();
         setLoader(true, 'Loading Rent Nivas...');
         let session = null;
         try {
@@ -17414,8 +17416,6 @@
             }
           }, 12000);
         }
-        syncMobNavAuth();
-        hideBootSplash();
         // Check crown after login — user may be #1
         setTimeout(function() { if (typeof window._checkCrown === 'function') window._checkCrown(); }, 2000);
         // Restore last page/section visited before refresh
