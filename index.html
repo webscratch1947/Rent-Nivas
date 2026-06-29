@@ -11160,7 +11160,7 @@
     function doGoogleSignIn() {
       const domain = 'eu-north-1gm7zi2xvq.auth.eu-north-1.amazoncognito.com';
       const clientId = window.__RN_COGNITO_CLIENT_ID || 'ckpmh0heco2apoh0temn8hfnl';
-      const redirectUri = 'https://rentnivas.com';
+      const redirectUri = 'https://eu-north-1gm7zi2xvq.auth.eu-north-1.amazoncognito.com/oauth2/idpresponse';
 
       // CSRF protection — state is verified on callback
       const state = 'rnog_' + Math.random().toString(36).slice(2) + Date.now().toString(36);
@@ -11214,7 +11214,7 @@
 
       setLoader(true, 'Completing Google sign-in…');
       try {
-        const redirectUri = 'https://rentnivas.com';
+        const redirectUri = 'https://eu-north-1gm7zi2xvq.auth.eu-north-1.amazoncognito.com/oauth2/idpresponse';
         const resp = await fetch('/api/auth', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
