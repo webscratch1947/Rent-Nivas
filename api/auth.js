@@ -56,7 +56,7 @@ module.exports = async function handler(req, res) {
       const redirectUri = body.redirectUri;
       if (!code || !redirectUri) throw new Error('Missing code or redirectUri');
 
-      const cognitoDomain = process.env.COGNITO_DOMAIN;
+      const cognitoDomain = process.env.COGNITO_DOMAIN || 'eu-north-1gm7zi2xvq.auth.eu-north-1.amazoncognito.com';
       if (!cognitoDomain) throw new Error('Google sign-in is not configured on this server (COGNITO_DOMAIN missing).');
       if (!CLIENT_SECRET) throw new Error('COGNITO_CLIENT_SECRET environment variable is required');
 
