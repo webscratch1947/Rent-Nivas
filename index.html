@@ -1177,6 +1177,41 @@
       font-weight: 600;
     }
 
+    /* ── Google OAuth button ── */
+    .rn-google-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      width: 100%;
+      padding: 13px 20px;
+      background: #fff;
+      border: 1.5px solid var(--border2, #e0e0e0);
+      border-radius: var(--r, 10px);
+      font-family: var(--font);
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--ink);
+      cursor: pointer;
+      transition: background .15s, box-shadow .15s;
+      margin-top: 14px;
+      box-sizing: border-box;
+    }
+    .rn-google-btn:hover { background: #f7f7f7; box-shadow: 0 2px 8px rgba(0,0,0,.10); }
+    .rn-google-btn:active { background: #efefef; }
+    .rn-google-btn:disabled { opacity: .6; cursor: not-allowed; }
+    .rn-or-divider {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 18px 0 4px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 500;
+    }
+    .rn-or-divider::before,
+    .rn-or-divider::after { content: ''; flex: 1; height: 1px; background: var(--border2, #e0e0e0); }
+
     .auth-link:hover {
       text-decoration: underline;
     }
@@ -9143,6 +9178,16 @@
             </div>
           </div>
           <button class="btn btn-terra btn-lg btn-full" id="login-btn" onclick="doLogin()">Sign In →</button>
+          <div class="rn-or-divider">or</div>
+          <button type="button" class="rn-google-btn" id="google-login-btn" onclick="doGoogleSignIn()">
+            <svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/>
+              <path d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z" fill="#34A853"/>
+              <path d="M3.964 10.706A5.41 5.41 0 013.682 9c0-.593.102-1.17.282-1.706V4.962H.957A8.996 8.996 0 000 9c0 1.452.348 2.827.957 4.038l3.007-2.332z" fill="#FBBC05"/>
+              <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 00.957 4.962L3.964 6.294C4.672 4.169 6.656 3.58 9 3.58z" fill="#EA4335"/>
+            </svg>
+            Continue with Google
+          </button>
           <p style="text-align:center;margin-top:20px;font-size:15px;color:var(--muted);">New to Rent Nivas? <span
               class="auth-link" onclick="showPage('signup-page')">Create account</span></p>
           <p style="text-align:center;margin-top:10px;font-size:14px;"><span class="auth-link"
@@ -9199,6 +9244,16 @@
           <div id="signup-referral-result" style="display:none;font-size:12.5px;color:var(--green);font-weight:600;margin:-8px 0 14px;">✅ Valid code — you were referred by <span id="signup-referral-name">—</span></div>
           <div id="signup-referral-error" style="display:none;font-size:12.5px;color:var(--red);font-weight:600;margin:-8px 0 14px;">❌ That referral code doesn't match any account</div>
           <button class="btn btn-terra btn-lg btn-full" onclick="doSignup()">Create Account →</button>
+          <div class="rn-or-divider">or</div>
+          <button type="button" class="rn-google-btn" id="google-signup-btn" onclick="doGoogleSignIn()">
+            <svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/>
+              <path d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z" fill="#34A853"/>
+              <path d="M3.964 10.706A5.41 5.41 0 013.682 9c0-.593.102-1.17.282-1.706V4.962H.957A8.996 8.996 0 000 9c0 1.452.348 2.827.957 4.038l3.007-2.332z" fill="#FBBC05"/>
+              <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 00.957 4.962L3.964 6.294C4.672 4.169 6.656 3.58 9 3.58z" fill="#EA4335"/>
+            </svg>
+            Continue with Google
+          </button>
           <p style="text-align:center;margin-top:20px;font-size:15px;color:var(--muted);">Already have an account? <span
               class="auth-link" onclick="showPage('login-page')">Sign in</span></p>
           <p style="text-align:center;margin-top:10px;font-size:14px;"><span class="auth-link"
@@ -10072,60 +10127,6 @@
               </div>
             </div>
 
-            <!-- AVAILABILITY DATE SECTION -->
-            <div class="add-col" style="width:100%;">
-              <div class="form-sec">
-                <div class="form-sec-title"><span class="form-sec-icon">📅</span> Property Availability <span style="color:var(--terra);font-size:13px;">*</span></div>
-                <div style="display:flex;flex-direction:column;gap:10px;">
-                  <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:12px 16px;border:1.5px solid var(--border2);border-radius:var(--r);background:var(--bg);">
-                    <input type="radio" name="avail-type" id="avail-anytime" value="anytime" checked onchange="toggleAvailDate()" style="accent-color:var(--terra);width:16px;height:16px;">
-                    <div><div style="font-size:14px;font-weight:600;color:var(--ink);">Available Anytime</div><div style="font-size:12px;color:var(--muted);">Property is ready for immediate move-in</div></div>
-                  </label>
-                  <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:12px 16px;border:1.5px solid var(--border2);border-radius:var(--r);background:var(--bg);">
-                    <input type="radio" name="avail-type" id="avail-date" value="date" onchange="toggleAvailDate()" style="accent-color:var(--terra);width:16px;height:16px;">
-                    <div><div style="font-size:14px;font-weight:600;color:var(--ink);">Available From a Specific Date</div><div style="font-size:12px;color:var(--muted);">Property will be available from a future date</div></div>
-                  </label>
-                  <div id="avail-date-wrap" style="display:none;">
-                    <input type="date" id="h-available-from" style="width:100%;padding:11px 14px;border:1.5px solid var(--border2);border-radius:var(--r);font-family:var(--font);font-size:14px;color:var(--ink);background:var(--white);outline:none;">
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- REFERRAL CODE SECTION -->
-            <div class="add-col" style="width:100%;">
-              <div class="form-sec">
-                <div class="form-sec-title"><span class="form-sec-icon">🎟️</span> Referral Code <span style="font-weight:400;font-size:13px;color:var(--muted);">(Optional)</span></div>
-                <div style="font-size:14px;color:var(--muted);margin-bottom:14px;">If someone referred you to Rent Nivas, enter their 8-digit referral code below.</div>
-                <div class="fg">
-                  <label>Enter Referral Code</label>
-                  <div style="display:flex;gap:8px;align-items:center;">
-                    <input type="text" id="h-referral-code" maxlength="8" placeholder="e.g. 12345678"
-                      style="flex:1;letter-spacing:3px;font-weight:700;text-align:center;font-size:18px;"
-                      oninput="this.value=this.value.replace(/[^0-9]/g,'');onReferralCodeInput(this.value)">
-                    <button type="button" class="btn btn-soft btn-sm" onclick="verifyReferralCode()" style="flex-shrink:0;">Verify</button>
-                  </div>
-                </div>
-                <div id="referral-result" style="display:none;padding:12px 16px;border-radius:var(--r);background:var(--green-bg);border:1.5px solid #bbf7d0;margin-bottom:14px;">
-                  <div style="font-size:12px;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">✅ Referral code verified!</div>
-                  <div style="font-size:14px;color:var(--ink);font-weight:600;" id="referral-result-name">—</div>
-                  <div style="font-size:13px;color:var(--muted);" id="referral-result-email">—</div>
-                </div>
-                <div id="referral-error" style="display:none;padding:10px 14px;border-radius:var(--r);background:var(--red-bg);border:1.5px solid #fecaca;margin-bottom:14px;font-size:13px;color:var(--red);font-weight:600;">
-                  ❌ Invalid referral code. Please check and try again.
-                </div>
-                <div style="background:var(--bg2);border-radius:var(--r);padding:14px 16px;border:1px solid var(--border);">
-                  <div style="font-size:13px;font-weight:700;color:var(--soft);margin-bottom:8px;">📋 How to get a referral code</div>
-                  <ol style="padding-left:18px;margin:0;display:flex;flex-direction:column;gap:6px;">
-                    <li style="font-size:13px;color:var(--muted);">Log in to your Rent Nivas account on any device.</li>
-                    <li style="font-size:13px;color:var(--muted);">Look at the left sidebar — just below your email address you will see your personal <strong style="color:var(--terra);">Ref. Code</strong> displayed (e.g. RC: 12345678).</li>
-                    <li style="font-size:13px;color:var(--muted);">Click the code to instantly copy it to your clipboard.</li>
-                    <li style="font-size:13px;color:var(--muted);">Share that 8-digit code with people you refer to the platform.</li>
-                    <li style="font-size:13px;color:var(--muted);">When they create a new listing, they paste your code in this field to acknowledge you as the referrer.</li>
-                  </ol>
-                </div>
-              </div>
-            </div>
 
             <div class="add-col">
               <div class="form-sec">
@@ -10162,6 +10163,61 @@
                 <div id="img-lbl" style="font-size:13px;color:var(--muted);margin-top:10px;"></div>
               </div>
             </div>
+            <!-- AVAILABILITY DATE SECTION -->
+            <div class="add-col" style="width:100%;grid-column:1 / -1;">
+              <div class="form-sec">
+                <div class="form-sec-title"><span class="form-sec-icon">📅</span> Property Availability <span style="color:var(--terra);font-size:13px;">*</span></div>
+                <div style="display:flex;flex-direction:column;gap:10px;">
+                  <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:12px 16px;border:1.5px solid var(--border2);border-radius:var(--r);background:var(--bg);">
+                    <input type="radio" name="avail-type" id="avail-anytime" value="anytime" checked onchange="toggleAvailDate()" style="accent-color:var(--terra);width:16px;height:16px;">
+                    <div><div style="font-size:14px;font-weight:600;color:var(--ink);">Available Anytime</div><div style="font-size:12px;color:var(--muted);">Property is ready for immediate move-in</div></div>
+                  </label>
+                  <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:12px 16px;border:1.5px solid var(--border2);border-radius:var(--r);background:var(--bg);">
+                    <input type="radio" name="avail-type" id="avail-date" value="date" onchange="toggleAvailDate()" style="accent-color:var(--terra);width:16px;height:16px;">
+                    <div><div style="font-size:14px;font-weight:600;color:var(--ink);">Available From a Specific Date</div><div style="font-size:12px;color:var(--muted);">Property will be available from a future date</div></div>
+                  </label>
+                  <div id="avail-date-wrap" style="display:none;">
+                    <input type="date" id="h-available-from" style="width:100%;padding:11px 14px;border:1.5px solid var(--border2);border-radius:var(--r);font-family:var(--font);font-size:14px;color:var(--ink);background:var(--white);outline:none;">
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- REFERRAL CODE SECTION -->
+            <div class="add-col" style="width:100%;grid-column:1 / -1;">
+              <div class="form-sec">
+                <div class="form-sec-title"><span class="form-sec-icon">🎟️</span> Referral Code <span style="font-weight:400;font-size:13px;color:var(--muted);">(Optional)</span></div>
+                <div style="font-size:14px;color:var(--muted);margin-bottom:14px;">If someone referred you to Rent Nivas, enter their 8-digit referral code below.</div>
+                <div class="fg">
+                  <label>Enter Referral Code</label>
+                  <div style="display:flex;gap:8px;align-items:center;">
+                    <input type="text" id="h-referral-code" maxlength="8" placeholder="e.g. 12345678"
+                      style="flex:1;letter-spacing:3px;font-weight:700;text-align:center;font-size:18px;"
+                      oninput="this.value=this.value.replace(/[^0-9]/g,'');onReferralCodeInput(this.value)">
+                    <button type="button" class="btn btn-soft btn-sm" onclick="verifyReferralCode()" style="flex-shrink:0;">Verify</button>
+                  </div>
+                </div>
+                <div id="referral-result" style="display:none;padding:12px 16px;border-radius:var(--r);background:var(--green-bg);border:1.5px solid #bbf7d0;margin-bottom:14px;">
+                  <div style="font-size:12px;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">✅ Referral code verified!</div>
+                  <div style="font-size:14px;color:var(--ink);font-weight:600;" id="referral-result-name">—</div>
+                  <div style="font-size:13px;color:var(--muted);" id="referral-result-email">—</div>
+                </div>
+                <div id="referral-error" style="display:none;padding:10px 14px;border-radius:var(--r);background:var(--red-bg);border:1.5px solid #fecaca;margin-bottom:14px;font-size:13px;color:var(--red);font-weight:600;">
+                  ❌ Invalid referral code. Please check and try again.
+                </div>
+                <div style="background:var(--bg2);border-radius:var(--r);padding:14px 16px;border:1px solid var(--border);">
+                  <div style="font-size:13px;font-weight:700;color:var(--soft);margin-bottom:8px;">📋 How to get a referral code</div>
+                  <ol style="padding-left:18px;margin:0;display:flex;flex-direction:column;gap:6px;">
+                    <li style="font-size:13px;color:var(--muted);">Log in to your Rent Nivas account on any device.</li>
+                    <li style="font-size:13px;color:var(--muted);">Look at the left sidebar — just below your email address you will see your personal <strong style="color:var(--terra);">Ref. Code</strong> displayed (e.g. RC: 12345678).</li>
+                    <li style="font-size:13px;color:var(--muted);">Click the code to instantly copy it to your clipboard.</li>
+                    <li style="font-size:13px;color:var(--muted);">Share that 8-digit code with people you refer to the platform.</li>
+                    <li style="font-size:13px;color:var(--muted);">When they create a new listing, they paste your code in this field to acknowledge you as the referrer.</li>
+                  </ol>
+                </div>
+              </div>
+            </div>
+
           </div>
           <div class="form-actions">
             <button class="btn btn-soft" id="add-cancel-btn" onclick="showSection('listings')">Cancel</button>
@@ -11097,6 +11153,112 @@
     }
 
     // ══ AUTH FUNCTIONS ══
+    // ══ GOOGLE OAUTH ══════════════════════════════════════════════════════════
+    // Redirects to Cognito's Hosted UI → Google identity provider.
+    // COGNITO_DOMAIN and GOOGLE_REDIRECT_URI are injected by /env-inject.js
+    // (env vars set in Vercel: COGNITO_DOMAIN, GOOGLE_REDIRECT_URI).
+    function doGoogleSignIn() {
+      const domain = window.__RN_COGNITO_DOMAIN;
+      const clientId = window.__RN_COGNITO_CLIENT_ID || 'ckpmh0heco2apoh0temn8hfnl';
+      const redirectUri = (window.__RN_GOOGLE_REDIRECT_URI || window.location.origin).replace(/\/$/, '');
+
+      if (!domain) {
+        toast('Google sign-in is not available right now. Please use email and password.', 'error');
+        return;
+      }
+
+      // CSRF protection — state is verified on callback
+      const state = 'rnog_' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+      sessionStorage.setItem('rn-oauth-state', state);
+
+      const url = new URL('https://' + domain + '/oauth2/authorize');
+      url.searchParams.set('response_type', 'code');
+      url.searchParams.set('client_id', clientId);
+      url.searchParams.set('redirect_uri', redirectUri);
+      url.searchParams.set('identity_provider', 'Google');
+      url.searchParams.set('scope', 'openid email profile');
+      url.searchParams.set('state', state);
+
+      window.location.href = url.toString();
+    }
+
+    // Called from AUTO-INIT when ?code= is detected in the URL.
+    // Exchanges the authorization code for Cognito tokens (server-side),
+    // stores the session, and routes the user into the dashboard.
+    async function handleGoogleOAuthCallback() {
+      const params = new URLSearchParams(window.location.search);
+      const code  = params.get('code');
+      const state = params.get('state');
+      const error = params.get('error');
+
+      // Strip ?code=…&state=… from the address bar immediately
+      window.history.replaceState({}, '', window.location.pathname);
+
+      if (error) {
+        toast('Google sign-in was cancelled or failed. Please try again.', 'error');
+        showPage('login-page');
+        return;
+      }
+
+      if (!code) return; // shouldn't happen, but guard anyway
+
+      // Verify CSRF state (relaxed — only check if both sides have a value)
+      const expectedState = sessionStorage.getItem('rn-oauth-state');
+      sessionStorage.removeItem('rn-oauth-state');
+      if (expectedState && state !== expectedState) {
+        toast('Sign-in failed: security check mismatch. Please try again.', 'error');
+        showPage('login-page');
+        return;
+      }
+
+      setLoader(true, 'Completing Google sign-in…');
+      try {
+        const redirectUri = (window.__RN_GOOGLE_REDIRECT_URI || window.location.origin).replace(/\/$/, '');
+        const resp = await fetch('/api/auth', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ target: 'GoogleTokenExchange', code, redirectUri })
+        });
+        const json = await resp.json().catch(function () { return {}; });
+
+        if (!resp.ok || json.error) {
+          const msg = (json.error && json.error.message) || 'Google sign-in failed. Please try again.';
+          toast(msg, 'error');
+          showPage('login-page');
+          return;
+        }
+
+        const ar = json.data.AuthenticationResult;
+        // sb.auth.setSession() calls storeSession() + fires SIGNED_IN event internally
+        const { data: sessionData, error: sessionErr } = await sb.auth.setSession({
+          access_token:  ar.AccessToken,
+          id_token:      ar.IdToken,
+          refresh_token: ar.RefreshToken,
+          expires_in:    ar.ExpiresIn
+        });
+        if (sessionErr) throw sessionErr;
+
+        user = sessionData.user;
+        window.user = user;
+        await loadCreditsFromDB();
+        syncMobNavAuth();
+        const banned = await checkUserBan();
+        if (banned) return;
+        const savedRole = localStorage.getItem('nestly-role');
+        if (savedRole) {
+          await selectRole(savedRole);
+        } else {
+          showPage('role-page');
+        }
+      } catch (err) {
+        toast(err.message || 'Google sign-in failed. Please try again.', 'error');
+        showPage('login-page');
+      } finally {
+        setLoader(false);
+      }
+    }
+    // ══ END GOOGLE OAUTH ═══════════════════════════════════════════════════════
+
     async function doLogin() {
       const emailEl = document.getElementById('login-email');
       const passEl = document.getElementById('login-password');
@@ -17781,12 +17943,19 @@
 
       if (!_userWasLoggedIn) {
         // ── NOT LOGGED IN ─────────────────────────────────────────────────
-        // No stored session at all — show landing page instantly, no network needed.
-        setLoader(false);
-        showPage('landing-page');
-        syncMobNavAuth();
-        hideBootSplash();
-        // onAuthStateChange will handle any SIGNED_IN events from OAuth redirects
+        // Check for Google OAuth callback (?code= in URL) before showing landing page.
+        // Cognito redirects back here after the user approves Google sign-in.
+        if (window.location.search.includes('code=') && typeof handleGoogleOAuthCallback === 'function') {
+          syncMobNavAuth();
+          hideBootSplash();
+          await handleGoogleOAuthCallback();
+        } else {
+          // No stored session — show landing page instantly, no network needed.
+          setLoader(false);
+          showPage('landing-page');
+          syncMobNavAuth();
+          hideBootSplash();
+        }
       } else {
         // ── RETURNING USER ────────────────────────────────────────────────
         // Stored session found. Get a fresh verified token before loading data.
