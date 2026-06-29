@@ -13856,9 +13856,15 @@
     function _rnResetFloors() {
       _rnFloors = [];
       _rnFloorCounter = 0;
+      // Auto-add a default Floor 1 for new residential listings
+      const type = selectedPropType || '';
+      if (!['Office', 'PG', 'Shop'].includes(type)) {
+        _rnFloorCounter = 1;
+        _rnFloors.push({ id: 1, label: 'Ground Floor', rent: '', rooms: '', baths: '', kitchen: '', living: '', balcony: '', notes: '' });
+      }
       _rnRenderFloors();
       const empty = document.getElementById('rn-floors-empty');
-      if (empty) empty.style.display = '';
+      if (empty) empty.style.display = _rnFloors.length ? 'none' : '';
     }
 
     function _rnLoadFloors(floorsData) {
@@ -14018,12 +14024,15 @@
       const ext = (f.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '');
       const filename = `${Date.now()}_${Math.random().toString(36).slice(2)}.${ext || 'jpg'}`;
       const storagePath = `houses/${houseId}/${filename}`;
-      const { error: ue } = await withTimeout(
+      const { data: uploadData, error: ue } = await withTimeout(
         sb.storage.from('images').upload(storagePath, f, { cacheControl: '3600', upsert: false }),
         HOUSE_IMG_UPLOAD_MS,
         `Image "${f.name}" upload timed out. Try a smaller file or check your connection.`
       );
       if (ue) throw new Error('Image upload failed: ' + ue.message);
+      // Prefer the publicUrl from the upload response (direct S3 URL from api/storage.js).
+      // Fall back to the getPublicUrl shim only if the API didn't return one.
+      if (uploadData && uploadData.publicUrl) return uploadData.publicUrl;
       const { data: ud } = sb.storage.from('images').getPublicUrl(storagePath);
       return ud.publicUrl;
     }
@@ -14035,6 +14044,8 @@
       chipEl.classList.add('selected');
       selectedPropType = chipEl.dataset.val;
       _updatePropTypeFields(selectedPropType);
+      // Auto-manage default floor: residential types get a default floor, others don't
+      if (!editMode && typeof _rnResetFloors === 'function') _rnResetFloors();
     }
 
     function _updatePropTypeFields(type) {
@@ -15525,19 +15536,20 @@
       if (!['Office', 'PG', 'Shop'].includes(h.property_type || '') && floorsList.length > 0) {
         const floorsHtml = floorsList.map((f, i) => {
           const lbl = f.label || `Floor ${i+1}`;
-          const details = [
-            f.rooms ? `${f.rooms} room${f.rooms>1?'s':''}` : null,
-            f.baths ? `${f.baths} bath` : null,
-            f.kitchen ? `${f.kitchen} kitchen` : null,
-            f.rent ? `₹${Number(f.rent).toLocaleString('en-IN')}/mo` : null
-          ].filter(Boolean).join(' · ');
-          return `<div style="background:var(--bg2);border-radius:10px;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
-            <div>
+          const chips = [
+            f.rooms   ? `🛏️ ${f.rooms} Bed${f.rooms>1?'s':''}` : null,
+            f.baths   ? `🚿 ${f.baths} Bath${f.baths>1?'s':''}` : null,
+            f.kitchen ? `🍳 ${f.kitchen} Kitchen${f.kitchen>1?'s':''}` : null,
+            f.living  ? `🛋️ ${f.living} Living Rm` : null,
+            f.balcony ? `🌿 ${f.balcony} Balcony${f.balcony>1?'s':''}` : null,
+          ].filter(Boolean);
+          return `<div style="background:var(--bg2);border-radius:12px;padding:12px 14px;border:1.5px solid var(--border2);">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:${chips.length?'8px':'0'};">
               <div style="font-size:13px;font-weight:700;color:var(--ink);">🏢 ${esc(lbl)}</div>
-              ${details ? `<div style="font-size:12px;color:var(--soft);margin-top:2px;">${esc(details)}</div>` : ''}
-              ${f.notes ? `<div style="font-size:11px;color:var(--muted);margin-top:2px;">${esc(f.notes)}</div>` : ''}
+              ${f.rent ? `<div style="font-size:14px;font-weight:800;color:var(--terra);white-space:nowrap;">₹${Number(f.rent).toLocaleString('en-IN')}/mo</div>` : ''}
             </div>
-            ${f.rent ? `<div style="font-size:14px;font-weight:800;color:var(--terra);white-space:nowrap;">₹${Number(f.rent).toLocaleString('en-IN')}</div>` : ''}
+            ${chips.length ? `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:${f.notes?'8px':'0'};">${chips.map(c=>`<span style="background:var(--card);border:1px solid var(--border2);border-radius:20px;padding:3px 10px;font-size:12px;color:var(--soft);">${c}</span>`).join('')}</div>` : ''}
+            ${f.notes ? `<div style="font-size:12px;color:var(--muted);margin-top:2px;">📝 ${esc(f.notes)}</div>` : ''}
           </div>`;
         }).join('');
         spaceDetailsHtml += `<div class="detail-section-title" style="margin-top:16px;">🏢 Floor Details</div><div style="display:flex;flex-direction:column;gap:8px;margin-top:8px;">${floorsHtml}</div>`;
