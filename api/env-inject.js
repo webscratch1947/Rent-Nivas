@@ -18,10 +18,18 @@ module.exports = function handler(req, res) {
     process.env.S3_PUBLIC_BASE_URL ||
     (bucket ? `https://${bucket}.s3.${region}.amazonaws.com` : '');
 
+  // Google OAuth — set COGNITO_DOMAIN to your Cognito Hosted UI domain
+  // (e.g. rentnivas.auth.eu-north-1.amazoncognito.com) and GOOGLE_REDIRECT_URI
+  // to the exact URL registered in the Cognito App Client (e.g. https://rentnivas.com).
+  const cognitoDomain    = process.env.COGNITO_DOMAIN        || '';
+  const googleRedirectUri = process.env.GOOGLE_REDIRECT_URI   || '';
+
   res.end(
     `window.__RN_AWS_REGION = '${region}';\n` +
     `window.__RN_COGNITO_USER_POOL_ID = '${userPoolId}';\n` +
     `window.__RN_COGNITO_CLIENT_ID = '${clientId}';\n` +
-    `window.__RN_S3_PUBLIC_BASE_URL = '${s3PublicBase}';\n`
+    `window.__RN_S3_PUBLIC_BASE_URL = '${s3PublicBase}';\n` +
+    `window.__RN_COGNITO_DOMAIN = '${cognitoDomain}';\n` +
+    `window.__RN_GOOGLE_REDIRECT_URI = '${googleRedirectUri}';\n`
   );
 };
