@@ -11281,7 +11281,7 @@
       }
       window._rnCreditsSyncPaused = false;
       // Re-check crown after credits change — user may have become #1 or lost #1
-      setTimeout(function() { if (typeof _checkCrown === 'function') _checkCrown(); }, 800);
+      setTimeout(function() { if (typeof window._checkCrown === 'function') window._checkCrown(); }, 800);
     }
 
     function updateCreditsBadges() {
@@ -11638,7 +11638,7 @@
       showSection('home');
       loadHome();
       // Ensure crown shows immediately if user is #1
-      setTimeout(function() { if (typeof _checkCrown === 'function') _checkCrown(); }, 500);
+      setTimeout(function() { if (typeof window._checkCrown === 'function') window._checkCrown(); }, 500);
     }
 
     // ══ PARTNER PROGRAM ══
@@ -12963,7 +12963,7 @@
         user = session.user;
         window.user = user;
         syncMobNavAuth();
-        if (typeof _checkCrown === 'function') setTimeout(_checkCrown, 1500);
+        if (typeof window._checkCrown === 'function') setTimeout(window._checkCrown, 1500);
         const banned = await checkUserBan();
         if (banned) return;
         const savedRole = localStorage.getItem('nestly-role');
@@ -17289,7 +17289,7 @@
         syncMobNavAuth();
         hideBootSplash();
         // Check crown after login — user may be #1
-        setTimeout(function() { if (typeof _checkCrown === 'function') _checkCrown(); }, 2000);
+        setTimeout(function() { if (typeof window._checkCrown === 'function') window._checkCrown(); }, 2000);
         // Restore last page/section visited before refresh
         try {
           var _savedNav = JSON.parse(localStorage.getItem('rn-last-nav') || 'null');
@@ -17374,7 +17374,7 @@
           window.user = user;
           await loadCreditsFromDB();
           syncMobNavAuth();
-          if (typeof _checkCrown === 'function') setTimeout(_checkCrown, 1500);
+          if (typeof window._checkCrown === 'function') setTimeout(window._checkCrown, 1500);
           const banned = await checkUserBan();
           if (banned) return;
           const activePageId = document.querySelector('.page.active')?.id;
@@ -19880,7 +19880,8 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
     var myName  = ((window.user.name || (window.user.user_metadata && window.user.user_metadata.name) || window.user.given_name) || '').toLowerCase().trim();
     if (!myEmail && !mySub) return;
 
-    fetch('/api/leaderboard?limit=50', { headers: _getHeaders() })
+    // Public endpoint — no auth needed
+    fetch('/api/leaderboard?limit=5')
       .then(function (r) { return r.json(); })
       .then(function (json) {
         var rows = json.data || json.leaderboard || (Array.isArray(json) ? json : []);
@@ -19897,23 +19898,36 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
           (myName  && topName  && myName  === topName  && myName.length > 2)
         );
 
-        console.log('[Crown] mySub=' + mySub + ' topId=' + topId + ' myEmail=' + myEmail + ' topEmail=' + topEmail + ' => isTop=' + isTop);
+        console.log('[Crown] myEmail=' + myEmail + ' topEmail=' + topEmail + ' mySub=' + mySub + ' topId=' + topId + ' => isTop=' + isTop);
 
-        var hc = document.getElementById('host-crown-badge');
-        var rc = document.getElementById('rent-crown-badge');
-        if (hc) hc.style.display = isTop ? 'block' : 'none';
-        if (rc) rc.style.display = isTop ? 'block' : 'none';
+        // Show/hide crown on BOTH sidebars (host + rent)
+        ['host-crown-badge', 'rent-crown-badge'].forEach(function(id) {
+          var el = document.getElementById(id);
+          if (!el) return;
+          if (isTop) {
+            el.style.display = 'block';
+            // Reset animation so it pops in every time
+            el.style.animation = 'none';
+            void el.offsetWidth; // force reflow
+            el.style.animation = '';
+          } else {
+            el.style.display = 'none';
+          }
+        });
 
         if (window._rnApplyCrownToTopUser) window._rnApplyCrownToTopUser(topId || topEmail, mySub || myEmail);
       })
-      .catch(function () {});
+      .catch(function (e) { console.warn('[Crown] fetch failed:', e); });
   }
+
+  // Expose globally so initDash and setCredits can call it
+  window._checkCrown = _checkCrown;
 
   /* Start checking immediately, retry every 500ms until user is ready (up to 20s) */
   setTimeout(function () {
-    if (window.user) { _checkCrown(); return; }
+    if (window.user) { window._checkCrown(); return; }
     var n = 0, iv = setInterval(function () {
-      if (window.user || ++n > 40) { clearInterval(iv); if (window.user) _checkCrown(); }
+      if (window.user || ++n > 40) { clearInterval(iv); if (window.user) window._checkCrown(); }
     }, 500);
   }, 500);
 
