@@ -1209,7 +1209,163 @@ async function handleRpc(spec, claims) {
     return { merged: true, keeperUserId, loserUserId, keeperPatch, repointed, cognitoLoginDeleted: cognitoDeleted };
   }
 
-  // ── get_leaderboard ───────────────────────────────────────────────────────
+  // ── get_unlock_reward_rate ────────────────────────────────────────────────
+  // Returns the platform setting: how many credits the property OWNER receives
+  // when a renter unlocks their listing. Default = 1 (full credit passes through).
+  // Admin can set this to e.g. 0.8 meaning owner gets 0.8 credits per unlock.
+  // Stored in DynamoDB Users table under a special row userId='__platform_settings__'
+  if (spec.name === 'get_unlock_reward_rate') {
+    try {
+      const settingsRow = await readItems({
+        table: 'profiles',
+        op: 'select',
+        select: 'unlock_owner_reward_rate',
+        filters: [{ op: 'eq', column: 'id', value: '__platform_settings__' }],
+        maybeSingle: true,
+      });
+      const rate = settingsRow && settingsRow.unlock_owner_reward_rate !== undefined
+        ? parseFloat(settingsRow.unlock_owner_reward_rate)
+        : 1;
+      return { rate: isNaN(rate) ? 1 : rate };
+    } catch (e) {
+      return { rate: 1 };
+    }
+  }
+
+  // ── set_unlock_reward_rate ────────────────────────────────────────────────
+  // Admin-only. Sets how many credits the owner receives per unlock.
+  if (spec.name === 'set_unlock_reward_rate') {
+    const isAdminCaller = (claims['cognito:groups'] || []).includes('admin') ||
+      (process.env.ADMIN_EMAILS || '').split(',').map(v => v.trim().toLowerCase()).filter(Boolean)
+        .includes(String(claims.email || '').toLowerCase());
+    if (!isAdminCaller) throw new Error('Admin access required');
+    const rate = parseFloat((spec.params && spec.params.rate) || 1);
+    if (isNaN(rate) || rate < 0 || rate > 10) throw new Error('Rate must be a number between 0 and 10');
+    // Store in a special platform settings row
+    const TBL = tableName('profiles');
+    const { marshall } = require('@aws-sdk/util-dynamodb');
+    const { PutItemCommand } = require('@aws-sdk/client-dynamodb');
+    await ddb.send(new PutItemCommand({
+      TableName: TBL,
+      Item: marshall({ userId: '__platform_settings__', unlock_owner_reward_rate: rate }),
+    }));
+    console.log('[SetUnlockRate] unlock_owner_reward_rate set to', rate);
+    return { rate };
+  }
+
+  // ── reward_owner_for_unlock ───────────────────────────────────────────────
+  // Called by the frontend immediately after a successful unlock purchase.
+  // Finds the property owner and adds credits * unlock_owner_reward_rate to them.
+  // Idempotent via the purchase_id check — won't double-reward if called twice.
+  if (spec.name === 'reward_owner_for_unlock') {
+    const { property_id, purchase_id, buyer_id } = spec.params || {};
+    if (!property_id || !purchase_id) throw new Error('reward_owner_for_unlock requires property_id and purchase_id');
+
+    // Verify caller is the buyer (or admin)
+    const isAdminCaller = (claims['cognito:groups'] || []).includes('admin') ||
+      (process.env.ADMIN_EMAILS || '').split(',').map(v => v.trim().toLowerCase()).filter(Boolean)
+        .includes(String(claims.email || '').toLowerCase());
+    if (!isAdminCaller && claims.sub !== buyer_id) throw new Error('Unauthorized');
+
+    // Get the property to find owner_id
+    const property = await readItems({
+      table: 'properties',
+      op: 'select',
+      select: 'id,owner_id',
+      filters: [{ op: 'eq', column: 'id', value: property_id }],
+      maybeSingle: true,
+    });
+    if (!property || !property.owner_id) {
+      console.warn('[RewardOwner] property not found or no owner_id:', property_id);
+      return { rewarded: false, reason: 'property_not_found' };
+    }
+
+    const ownerId = property.owner_id;
+
+    // Don't reward if owner == buyer
+    if (ownerId === claims.sub || ownerId === buyer_id) {
+      return { rewarded: false, reason: 'self_unlock' };
+    }
+
+    // Check if this purchase was already rewarded (idempotency)
+    const purchase = await readItems({
+      table: 'purchases',
+      op: 'select',
+      select: 'id,owner_rewarded',
+      filters: [{ op: 'eq', column: 'id', value: purchase_id }],
+      maybeSingle: true,
+    });
+    if (purchase && purchase.owner_rewarded) {
+      return { rewarded: false, reason: 'already_rewarded' };
+    }
+
+    // Get reward rate
+    let rate = 1;
+    try {
+      const settingsRow = await readItems({
+        table: 'profiles',
+        op: 'select',
+        select: 'unlock_owner_reward_rate',
+        filters: [{ op: 'eq', column: 'id', value: '__platform_settings__' }],
+        maybeSingle: true,
+      });
+      if (settingsRow && settingsRow.unlock_owner_reward_rate !== undefined) {
+        rate = parseFloat(settingsRow.unlock_owner_reward_rate);
+        if (isNaN(rate)) rate = 1;
+      }
+    } catch (e) { rate = 1; }
+
+    // Get owner's current credits
+    const ownerProfile = await readItems({
+      table: 'profiles',
+      op: 'select',
+      select: 'id,credits,listing_referrals',
+      filters: [{ op: 'eq', column: 'id', value: ownerId }],
+      maybeSingle: true,
+    });
+    if (!ownerProfile) {
+      console.warn('[RewardOwner] owner profile not found:', ownerId);
+      return { rewarded: false, reason: 'owner_not_found' };
+    }
+
+    const currentCredits = parseFloat(ownerProfile.credits || 0);
+    const currentListingReferrals = parseInt(ownerProfile.listing_referrals || 0, 10);
+    const newCredits = Math.round((currentCredits + rate) * 100) / 100;
+
+    // Update owner credits atomically
+    const { UpdateItemCommand } = require('@aws-sdk/client-dynamodb');
+    const { marshall } = require('@aws-sdk/util-dynamodb');
+    const TBL = tableName('profiles');
+    await ddb.send(new UpdateItemCommand({
+      TableName: TBL,
+      Key: marshall({ userId: ownerId }),
+      UpdateExpression: 'SET credits = :c, listing_referrals = :lr, updated_at = :ua',
+      ExpressionAttributeValues: marshall({
+        ':c': newCredits,
+        ':lr': currentListingReferrals + 1,
+        ':ua': new Date().toISOString(),
+      }),
+      ConditionExpression: 'attribute_exists(userId)',
+    }));
+
+    // Mark purchase as owner-rewarded so we never double-pay
+    try {
+      const PurchaseTBL = tableName('purchases');
+      await ddb.send(new UpdateItemCommand({
+        TableName: PurchaseTBL,
+        Key: marshall({ id: purchase_id }),
+        UpdateExpression: 'SET owner_rewarded = :t, owner_reward_rate = :r, owner_id = :oid',
+        ExpressionAttributeValues: marshall({ ':t': true, ':r': rate, ':oid': ownerId }),
+      }));
+    } catch (e) {
+      console.warn('[RewardOwner] Could not mark purchase as rewarded:', e.message);
+    }
+
+    console.log('[RewardOwner] Owner', ownerId, 'rewarded', rate, 'credits for unlock of', property_id, '(purchase', purchase_id + ')');
+    return { rewarded: true, owner_id: ownerId, credits_added: rate, new_credits: newCredits };
+  }
+
+    // ── get_leaderboard ───────────────────────────────────────────────────────
   // Returns users sorted by credits descending (numeric), with rank numbers.
   // This RPC is the single source of truth for leaderboard data because it:
   //   1. Sorts numerically (parseFloat) — fixes "9.5" > "25" string-sort bug
