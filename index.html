@@ -11166,15 +11166,21 @@
       const state = 'rnog_' + Math.random().toString(36).slice(2) + Date.now().toString(36);
       sessionStorage.setItem('rn-oauth-state', state);
 
-      const url = new URL('https://' + domain + '/oauth2/authorize');
-      url.searchParams.set('response_type', 'code');
-      url.searchParams.set('client_id', clientId);
-      url.searchParams.set('redirect_uri', redirectUri);
-      url.searchParams.set('identity_provider', 'Google');
-      url.searchParams.set('scope', 'openid email profile');
-      url.searchParams.set('state', state);
+      // IMPORTANT: Do NOT use URLSearchParams / url.searchParams for the scope
+      // parameter. URLSearchParams encodes spaces as '+' (application/x-www-form-urlencoded),
+      // but Cognito's OAuth2 /authorize endpoint requires space-separated scopes
+      // encoded as '%20'. Using '+' causes Cognito to return error=invalid_scope.
+      // Build the URL manually with encodeURIComponent() to guarantee %20 encoding.
+      const authorizeUrl =
+        'https://' + domain + '/oauth2/authorize' +
+        '?response_type=code' +
+        '&client_id=' + encodeURIComponent(clientId) +
+        '&redirect_uri=' + encodeURIComponent(redirectUri) +
+        '&identity_provider=Google' +
+        '&scope=openid%20email%20profile' +
+        '&state=' + encodeURIComponent(state);
 
-      window.location.href = url.toString();
+      window.location.href = authorizeUrl;
     }
 
     // Called from AUTO-INIT when ?code= is detected in the URL.
