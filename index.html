@@ -9863,18 +9863,14 @@
                 <div class="fg"><label id="add-desc-lbl">Description</label><textarea id="h-desc"
                     placeholder="Describe your property — key features, nearby landmarks, amenities..."></textarea>
                 </div>
-                <div class="form-2col">
-                  <div class="fg"><label id="add-price-lbl">Monthly Rent (₹) *</label><input type="number" id="h-price"
-                      placeholder="35000"></div>
-                  <div class="fg"><label id="add-phone-lbl">Contact Phone *</label><input type="tel" id="h-phone" placeholder="9876543210">
-                  </div>
-                </div>
+                <div class="fg"><label id="add-phone-lbl">Contact Phone *</label><input type="tel" id="h-phone" placeholder="9876543210"></div>
               </div>
               <div class="form-sec" id="prop-details-sec">
                 <div class="form-sec-title"><span class="form-sec-icon" id="prop-details-icon">🛏</span> <span id="add-rooms-h">Space Details</span></div>
                 <!-- ══ DYNAMIC PROPERTY TYPE FIELDS ══ -->
                 <!-- House / Apartment / Villa (default) -->
                 <div id="pt-fields-residential" class="pt-fields-block">
+                  <div class="fg" style="margin-bottom:10px;"><label id="add-price-lbl">Monthly Rent (₹) *</label><input type="number" id="h-price" placeholder="35000"></div>
                   <div class="form-2col">
                     <div class="fg"><label id="add-beds-lbl">Bedrooms *</label><input type="number" id="h-beds" placeholder="3" min="0"></div>
                     <div class="fg"><label id="add-baths-lbl">Bathrooms *</label><input type="number" id="h-baths" placeholder="2" min="0"></div>
@@ -9915,6 +9911,7 @@
                 </div>
                 <!-- Office -->
                 <div id="pt-fields-office" class="pt-fields-block" style="display:none;">
+                  <div class="fg" style="margin-bottom:10px;"><label>Monthly Rent (₹) *</label><input type="number" id="h-price-office" placeholder="35000" oninput="document.getElementById('h-price').value=this.value" onfocus="this.value=document.getElementById('h-price').value"></div>
                   <div class="form-2col">
                     <div class="fg"><label>Total Cabins</label><input type="number" id="h-cabins" placeholder="0" min="0"></div>
                     <div class="fg"><label>Open Workstations / Seats</label><input type="number" id="h-workstations" placeholder="0" min="0"></div>
@@ -9943,6 +9940,7 @@
                 </div>
                 <!-- PG -->
                 <div id="pt-fields-pg" class="pt-fields-block" style="display:none;">
+                  <div class="fg" style="margin-bottom:10px;"><label>Monthly Rent (₹) *</label><input type="number" id="h-price-pg" placeholder="35000" oninput="document.getElementById('h-price').value=this.value" onfocus="this.value=document.getElementById('h-price').value"></div>
                   <div class="form-2col">
                     <div class="fg"><label>Total Rooms / Beds *</label><input type="number" id="h-pg-beds" placeholder="10" min="1"></div>
                     <div class="fg"><label>Bathrooms</label><input type="number" id="h-baths-pg" placeholder="2" min="0"></div>
@@ -9992,6 +9990,7 @@
                 </div>
                 <!-- Shop -->
                 <div id="pt-fields-shop" class="pt-fields-block" style="display:none;">
+                  <div class="fg" style="margin-bottom:10px;"><label>Monthly Rent (₹) *</label><input type="number" id="h-price-shop" placeholder="35000" oninput="document.getElementById('h-price').value=this.value" onfocus="this.value=document.getElementById('h-price').value"></div>
                   <div class="form-2col">
                     <div class="fg"><label>Shop Area (sq ft)</label><input type="number" id="h-shop-area" placeholder="500" min="0"></div>
                     <div class="fg"><label>Floors / Level</label><input type="number" id="h-shop-floors" placeholder="1" min="1"></div>
@@ -13556,6 +13555,7 @@
       document.getElementById('h-title').value = h.title || '';
       document.getElementById('h-desc').value = h.description || '';
       document.getElementById('h-price').value = h.price || '';
+      ['h-price-office','h-price-pg','h-price-shop'].forEach(id => { const el = document.getElementById(id); if (el) el.value = h.price || ''; });
       document.getElementById('h-phone').value = h.phone || '';
       document.getElementById('h-address').value = h.address || '';
       document.getElementById('h-area').value = h.area || '';
@@ -13639,7 +13639,8 @@
 
       // Clear all text inputs
       ['h-title', 'h-desc', 'h-price', 'h-phone', 'h-address', 'h-area', 'h-city', 'h-state',
-        'h-beds', 'h-baths', 'h-kitchen', 'h-living', 'h-balcony', 'h-parking', 'h-conditions-extra'].forEach(id => {
+        'h-beds', 'h-baths', 'h-kitchen', 'h-living', 'h-balcony', 'h-parking', 'h-conditions-extra',
+        'h-price-office', 'h-price-pg', 'h-price-shop'].forEach(id => {
           const el = document.getElementById(id);
           if (el) el.value = '';
         });
