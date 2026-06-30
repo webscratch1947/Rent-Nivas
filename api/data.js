@@ -6,8 +6,8 @@ const { marshall, unmarshall } = require('@aws-sdk/util-dynamodb');
 const { CognitoIdentityProviderClient, ListUsersCommand, AdminDeleteUserCommand } = require('@aws-sdk/client-cognito-identity-provider');
 
 const REGION = process.env.AWS_REGION || process.env.RENT_NIVAS_AWS_REGION || 'eu-north-1';
-const USER_POOL_ID = process.env.COGNITO_USER_POOL_ID || 'eu-north-1_GM7Zi2xvq';
-const APP_CLIENT_ID = process.env.COGNITO_APP_CLIENT_ID || 'ckpmh0heco2apoh0temn8hfnl';
+const USER_POOL_ID = process.env.COGNITO_USER_POOL_ID;
+const APP_CLIENT_ID = process.env.COGNITO_CLIENT_ID;
 const ISSUER = `https://cognito-idp.${REGION}.amazonaws.com/${USER_POOL_ID}`;
 const JWKS_URL = `${ISSUER}/.well-known/jwks.json`;
 
