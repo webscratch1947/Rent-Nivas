@@ -8855,6 +8855,22 @@
     <div id="modal-box-inner" class="modal-box"></div>
   </div>
 
+  <!-- ══ FURNISHING ITEMS MODAL ══ -->
+  <div class="modal-bg" id="furnish-items-modal-bg">
+    <div class="modal-box" style="max-width:680px;width:94%;text-align:left;padding:28px 24px;">
+      <button type="button" onclick="closeFurnishItemsModal()"
+        style="position:absolute;top:14px;right:14px;background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted);line-height:1;padding:4px;">✕</button>
+      <div style="font-size:19px;font-weight:800;color:var(--ink);font-family:var(--font-display);margin-bottom:4px;">🛋️ Add Furnishing Items</div>
+      <div style="font-size:13px;color:var(--muted);margin-bottom:18px;">Select the furniture & appliances included with this property. At least 1 item is required since you marked this property as furnished.</div>
+      <div id="furnish-items-grid"
+        style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;max-height:55vh;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-right:4px;"></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:20px;gap:10px;">
+        <div style="font-size:13px;color:var(--muted);"><span id="furnish-items-modal-count">0</span> item type(s) added</div>
+        <button type="button" class="btn btn-terra" onclick="closeFurnishItemsModal()">Done</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ══ LANDING PAGE ══ -->
   <div class="page active" id="landing-page">
     <nav class="lp-nav" id="lp-nav">
@@ -9949,7 +9965,7 @@
                   <div class="form-2col" style="margin-top:10px;">
                     <div class="fg">
                       <label>Furnishing Status</label>
-                      <select id="h-furnish-status">
+                      <select id="h-furnish-status" onchange="onFurnishStatusChange(true)">
                         <option value="">— Select —</option>
                         <option value="Fully Furnished">Fully Furnished</option>
                         <option value="Semi-Furnished">Semi-Furnished</option>
@@ -9964,6 +9980,17 @@
                         <option value="Bachelor">Bachelor</option>
                         <option value="Company Lease">Company Lease</option>
                       </select>
+                    </div>
+                  </div>
+                  <div class="fg" id="furnish-items-btn-wrap" style="display:none;margin-top:2px;">
+                    <button type="button" class="btn btn-soft btn-sm" onclick="openFurnishItemsModal()"
+                      id="furnish-items-btn"
+                      style="width:100%;text-align:left;display:flex;align-items:center;justify-content:space-between;">
+                      <span>🛋️ Furnishing Items</span>
+                      <span id="furnish-items-count-badge" style="font-weight:700;">0 selected</span>
+                    </button>
+                    <div id="furnish-items-warn" style="display:none;font-size:12px;color:var(--red,#c0392b);margin-top:6px;">
+                      Please add at least 1 furnishing item.
                     </div>
                   </div>
                   <!-- ══ FLOORS SECTION ══ -->
@@ -10104,7 +10131,6 @@
                 <div class="form-sec-title"><span class="form-sec-icon">📋</span> <span id="add-cond-h">Property Conditions</span></div>
                 <div style="font-size:14px;color:var(--muted);margin-bottom:14px;" id="add-cond-p">Select all that apply</div>
                 <div class="cond-tags" id="cond-tags">
-                  <div class="cond-tag" onclick="toggleCond(this)" data-val="Furnished">🛋️ Furnished</div>
                   <div class="cond-tag" onclick="toggleCond(this)" data-val="No smoking">🚭 No smoking</div>
                   <div class="cond-tag" onclick="toggleCond(this)" data-val="Family only">👨‍👩‍👧 Family only</div>
                   <div class="cond-tag" onclick="toggleCond(this)" data-val="Pets allowed">🐾 Pets allowed</div>
@@ -11517,7 +11543,7 @@
 
     // ══ STATE ══
     let user = null, allHouses = [], rentAllHouses = [], selectedFiles = [], currentEditId = null, editMode = false;
-    const RENT_BROWSE_COLS = 'id,title,description,price,phone,address,images,bedrooms,bathrooms,kitchen,living_room,balcony,parking,custom_rooms,floors_data,conditions,property_type,extra_details,city,state,area,owner_id,status,created_at,furnish_status,tenant_type,available_from,sold_at,sold_type,sold_buyer_id';
+    const RENT_BROWSE_COLS = 'id,title,description,price,phone,address,images,bedrooms,bathrooms,kitchen,living_room,balcony,parking,custom_rooms,floors_data,conditions,property_type,extra_details,city,state,area,owner_id,status,created_at,furnish_status,furnish_items,tenant_type,available_from,sold_at,sold_type,sold_buyer_id';
     let editExistingImages = [];
     let imagesToDelete = [];
     let _soldDeleteDraft = null;
@@ -14078,6 +14104,15 @@
         const selV = (id, val) => { const el = document.getElementById(id); if (el && val != null) el.value = val; };
         selV('h-furnish-status', h.furnish_status);
         selV('h-tenant-type', h.tenant_type);
+        // Restore furnishing items (furniture/appliances list) saved on publish
+        furnishItems = {};
+        if (h.furnish_items) {
+          try {
+            const fi = typeof h.furnish_items === 'object' ? h.furnish_items : JSON.parse(h.furnish_items);
+            Object.keys(fi || {}).forEach(k => { const n = parseInt(fi[k]) || 0; if (n > 0) furnishItems[k] = n; });
+          } catch { furnishItems = {}; }
+        }
+        onFurnishStatusChange(false);
       }
       if (selectedPropType === 'PG') {
         setV('h-pg-beds', ed.total_beds); setV('h-baths-pg', ed.bathrooms);
@@ -14154,6 +14189,10 @@
       const tenantEl = document.getElementById('h-tenant-type');
       if (furnishEl) furnishEl.value = '';
       if (tenantEl) tenantEl.value = '';
+      furnishItems = {};
+      const fiWrap = document.getElementById('furnish-items-btn-wrap');
+      if (fiWrap) fiWrap.style.display = 'none';
+      _updateFurnishBadge();
 
       // Clear condition tags
       document.querySelectorAll('.cond-tag').forEach(t => t.classList.remove('selected'));
@@ -14194,6 +14233,114 @@
       const val = el.dataset.val;
       if (selectedConditions.has(val)) selectedConditions.delete(val);
       else selectedConditions.add(val);
+    }
+
+    // ══ FURNISHING ITEMS ══
+    // key -> { label, icon }
+    const FURNISH_ITEMS_LIST = [
+      { key: 'dining_table',    label: 'Dining Table',    icon: '🍽️' },
+      { key: 'sofa',            label: 'Sofa',             icon: '🛋️' },
+      { key: 'bed',             label: 'Bed',              icon: '🛏️' },
+      { key: 'wardrobe',        label: 'Wardrobe',         icon: '🚪' },
+      { key: 'cupboard',        label: 'Cupboard',         icon: '🗄️' },
+      { key: 'tv',              label: 'TV',               icon: '📺' },
+      { key: 'fridge',          label: 'Fridge',           icon: '🧊' },
+      { key: 'washing_machine', label: 'Washing Machine',  icon: '🧺' },
+      { key: 'microwave',       label: 'Microwave',        icon: '📦' },
+      { key: 'stove',           label: 'Stove',            icon: '🔥' },
+      { key: 'modular_kitchen', label: 'Modular Kitchen',  icon: '🍳' },
+      { key: 'chimney',         label: 'Chimney',          icon: '🏭' },
+      { key: 'water_purifier',  label: 'Water Purifier',   icon: '💧' },
+      { key: 'geyser',          label: 'Geyser',           icon: '🔥' },
+      { key: 'ac',              label: 'AC',               icon: '❄️' },
+      { key: 'fan',             label: 'Fan',              icon: '🌀' },
+      { key: 'light',           label: 'Light',            icon: '💡' },
+      { key: 'gas_pipeline',    label: 'Gas Pipeline',     icon: '🔧' },
+      { key: 'curtains',        label: 'Curtains',         icon: '🪟' },
+      { key: 'water_heater',    label: 'Water Heater',     icon: '🚿' },
+    ];
+    // key -> count (only keys with count > 0 are "selected")
+    let furnishItems = {};
+
+    function _furnishStatusIsFurnished() {
+      const val = document.getElementById('h-furnish-status')?.value || '';
+      return val === 'Fully Furnished' || val === 'Semi-Furnished';
+    }
+
+    function _furnishItemsSelectedCount() {
+      return Object.values(furnishItems).filter(c => (c || 0) > 0).length;
+    }
+
+    function _updateFurnishBadge() {
+      const badge = document.getElementById('furnish-items-count-badge');
+      const n = _furnishItemsSelectedCount();
+      if (badge) badge.textContent = n === 0 ? 'Add items' : `${n} item${n > 1 ? 's' : ''} selected`;
+      const modalCount = document.getElementById('furnish-items-modal-count');
+      if (modalCount) modalCount.textContent = String(n);
+      const warn = document.getElementById('furnish-items-warn');
+      if (warn) warn.style.display = (n === 0 && _furnishStatusIsFurnished()) ? '' : 'none';
+    }
+
+    // Called on change of the Furnishing Status select. `autoOpen` = true when
+    // triggered live by the user picking Fully/Semi Furnished, so we can pop
+    // the items modal straight away. Edit-mode restoration calls this with
+    // autoOpen = false so it doesn't interrupt prefill.
+    function onFurnishStatusChange(autoOpen) {
+      const wrap = document.getElementById('furnish-items-btn-wrap');
+      const isFurnished = _furnishStatusIsFurnished();
+      if (wrap) wrap.style.display = isFurnished ? '' : 'none';
+      if (!isFurnished) {
+        // Unfurnished / not selected — items are irrelevant, but we keep any
+        // previously entered data in memory in case the user toggles back.
+        _updateFurnishBadge();
+        return;
+      }
+      _updateFurnishBadge();
+      if (autoOpen) openFurnishItemsModal();
+    }
+
+    function _fiChange(key, delta) {
+      const cur = furnishItems[key] || 0;
+      const next = Math.max(0, cur + delta);
+      if (next === 0) delete furnishItems[key];
+      else furnishItems[key] = next;
+      const countEl = document.getElementById('fi-count-' + key);
+      if (countEl) countEl.textContent = String(next);
+      const card = document.getElementById('fi-card-' + key);
+      if (card) card.classList.toggle('selected', next > 0);
+      _updateFurnishBadge();
+    }
+
+    function openFurnishItemsModal() {
+      const grid = document.getElementById('furnish-items-grid');
+      if (grid) {
+        grid.innerHTML = FURNISH_ITEMS_LIST.map(it => {
+          const count = furnishItems[it.key] || 0;
+          return `<div class="fi-card${count > 0 ? ' selected' : ''}" id="fi-card-${it.key}"
+              style="border:1.5px solid ${count > 0 ? 'var(--terra)' : 'var(--border2)'};background:${count > 0 ? 'var(--terra-lt)' : 'var(--white)'};border-radius:10px;padding:12px 10px;text-align:center;transition:.15s;">
+            <div style="font-size:24px;margin-bottom:6px;">${it.icon}</div>
+            <div style="font-size:12.5px;font-weight:600;color:var(--ink);margin-bottom:8px;line-height:1.25;min-height:32px;display:flex;align-items:center;justify-content:center;">${it.label}</div>
+            <div style="display:flex;align-items:center;justify-content:center;gap:10px;">
+              <button type="button" onclick="_fiChange('${it.key}',-1)"
+                style="width:26px;height:26px;border-radius:50%;border:1.5px solid var(--border2);background:var(--white);font-weight:700;cursor:pointer;line-height:1;">−</button>
+              <span id="fi-count-${it.key}" style="font-weight:700;min-width:14px;display:inline-block;">${count}</span>
+              <button type="button" onclick="_fiChange('${it.key}',1)"
+                style="width:26px;height:26px;border-radius:50%;border:1.5px solid var(--border2);background:var(--terra);color:#fff;font-weight:700;cursor:pointer;line-height:1;">+</button>
+            </div>
+          </div>`;
+        }).join('');
+      }
+      _updateFurnishBadge();
+      const bg = document.getElementById('furnish-items-modal-bg');
+      if (bg) bg.classList.add('open');
+      _lockScroll();
+    }
+
+    function closeFurnishItemsModal() {
+      const bg = document.getElementById('furnish-items-modal-bg');
+      if (bg) bg.classList.remove('open');
+      _unlockScroll();
+      _updateFurnishBadge();
     }
 
     // ══ CUSTOM ROOMS ══
@@ -14638,7 +14785,7 @@
 
     // Which condition data-val values are relevant for each property type
     const _COND_BY_TYPE = {
-      residential: ['Furnished','No smoking','Family only','Pets allowed','Vegetarian only','Bachelors allowed','No parties','Females only','24/7 water','Generator backup','Lift available'],
+      residential: ['No smoking','Family only','Pets allowed','Vegetarian only','Bachelors allowed','No parties','Females only','24/7 water','Generator backup','Lift available'],
       Office:  ['No smoking','Generator backup','Lift available','24/7 water'],
       PG:      ['No smoking','Family only','Vegetarian only','Females only','No parties','24/7 water','Generator backup','Lift available','Bachelors allowed'],
       Shop:    ['No smoking','24/7 water','Generator backup','Lift available'],
@@ -14676,6 +14823,10 @@
       if (isResidential) {
         if (!beds) return toast('Please enter number of bedrooms', 'error');
         if (!baths) return toast('Please enter number of bathrooms', 'error');
+      }
+      if (isResidential && _furnishStatusIsFurnished() && _furnishItemsSelectedCount() === 0) {
+        openFurnishItemsModal();
+        return toast('Please add at least 1 furnishing item since you marked this property as furnished', 'error');
       }
 
       if (status === 'published' && !currentEditId && selectedFiles.length === 0)
@@ -14778,6 +14929,7 @@
           conditions: condArr.length > 0 ? condArr : null,
           property_type: selectedPropType || null,
           furnish_status: (selectedPropType && !['Office','PG','Shop'].includes(selectedPropType)) ? (document.getElementById('h-furnish-status')?.value || null) : null,
+          furnish_items: (selectedPropType && !['Office','PG','Shop'].includes(selectedPropType) && _furnishStatusIsFurnished() && _furnishItemsSelectedCount() > 0) ? furnishItems : null,
           tenant_type: (selectedPropType && !['Office','PG','Shop'].includes(selectedPropType)) ? (document.getElementById('h-tenant-type')?.value || null) : null,
           extra_details: extraDetails,
           status,
