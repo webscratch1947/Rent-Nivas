@@ -11851,12 +11851,13 @@
         // User must click to start the animation — not auto-played
         setTimeout(function() {
           var uid = (user && (user.id || user.sub || user.email)) || null;
-          if (uid && !localStorage.getItem('rn-first-login-video-' + uid)) {
-            localStorage.setItem('rn-first-login-video-' + uid, '1');
-            if (typeof window._rnShowCreditsPrompt === 'function') {
+          if (!uid) return;
+          fetchProfileRow().then(function(prof) {
+            if (prof && !prof.chest_claimed && typeof window._rnShowCreditsPrompt === 'function') {
+              sb.from('profiles').update({ chest_claimed: true }).eq('id', user.id).then(function(){});
               window._rnShowCreditsPrompt();
             }
-          }
+          }).catch(function(){});
         }, 1200);
       }
     }
@@ -13419,7 +13420,7 @@
       // Session is fresh (from AUTO-INIT), so these calls use a valid token.
       // Both complete in ~300-600ms while the page shell is rendering.
       const profilePromise = withTimeout(
-        sb.from('profiles').select('id,credits,xp,referral_code,referred_by_code').eq('id', user.id).maybeSingle(),
+        sb.from('profiles').select('id,credits,xp,referral_code,referred_by_code,chest_claimed').eq('id', user.id).maybeSingle(),
         10000, 'Profile load timed out'
       ).catch(e => { console.warn('[Nestly] Profile fetch:', e.message); return { data: null, error: e }; });
 
@@ -13461,6 +13462,7 @@
           // Refresh credits display with authoritative live value
           localStorage.setItem('nestly-credits', Math.max(0, pr.data.credits || 0));
           updateCreditsBadges();
+          window._rnChestClaimed = !!pr.data.chest_claimed;
         }
       }
 
@@ -13552,13 +13554,13 @@
       // Show a "tap to claim" prompt — user must click before animation starts
       setTimeout(function() {
         var uid = (user && (user.id || user.sub || user.email)) || null;
-        if (uid && !localStorage.getItem('rn-first-login-video-' + uid)) {
-          localStorage.setItem('rn-first-login-video-' + uid, '1');
-          // Use the same click-to-claim prompt as the rent side (not auto-play)
-          if (typeof window._rnShowCreditsPrompt === 'function') {
+        if (!uid) return;
+        fetchProfileRow().then(function(prof) {
+          if (prof && !prof.chest_claimed && typeof window._rnShowCreditsPrompt === 'function') {
+            sb.from('profiles').update({ chest_claimed: true }).eq('id', user.id).then(function(){});
             window._rnShowCreditsPrompt();
           }
-        }
+        }).catch(function(){});
       }, 800);
     }
 
@@ -15400,7 +15402,7 @@
       if (!user) return null;
       try {
         const { data, error } = await sb.from('profiles')
-          .select('id,name,email,avatar_url,credits,xp,partner_xp,created_at,referral_code,referred_by_code,total_referrals,registration_referrals,listing_referrals')
+          .select('id,name,email,avatar_url,credits,xp,partner_xp,created_at,referral_code,referred_by_code,total_referrals,registration_referrals,listing_referrals,chest_claimed')
           .eq('id', user.id).maybeSingle();
         if (error) throw error;
         return data || null;
