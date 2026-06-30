@@ -9568,6 +9568,18 @@
             <div style="position:relative;display:inline-block;flex-shrink:0;">
               <div class="sidebar-avatar" id="sb-av">H</div>
               <img src="/crown.svg" id="host-crown-badge" class="rn-crown-badge" style="display:none;" alt="Crown">
+              <script>
+                // Apply last-known crown state immediately (no network wait) so a
+                // hard refresh doesn't flash "no crown" before the live check runs.
+                try {
+                  if (localStorage.getItem('rn-is-crown-holder') === '1') {
+                    var _rc0 = document.getElementById('rent-crown-badge');
+                    var _hc0 = document.getElementById('host-crown-badge');
+                    if (_rc0) _rc0.style.display = 'block';
+                    if (_hc0) _hc0.style.display = 'block';
+                  }
+                } catch (e) {}
+              </script>
             </div>
             <div class="sidebar-user-info">
               <div class="sidebar-user-name" id="sb-nm">Host</div>
@@ -20631,6 +20643,7 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
     var _rc = document.getElementById('rent-crown-badge');
     if (_hc) _hc.style.display = topIsMe ? 'block' : 'none';
     if (_rc) _rc.style.display = topIsMe ? 'block' : 'none';
+    try { localStorage.setItem('rn-is-crown-holder', topIsMe ? '1' : '0'); } catch (e) {}
 
     var heroHtml = '<div class="rn-lb-hero-av-wrap">';
     heroHtml += '<img src="/crown.svg" class="rn-lb-hero-crown" alt="Crown">';
@@ -20779,6 +20792,11 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
 
         console.log('[Crown] myEmail=' + myEmail + ' topEmail=' + topEmail + ' mySub=' + mySub + ' topId=' + topId + ' => isTop=' + isTop);
 
+        // Cache the result so a future hard refresh can show the crown
+        // instantly (see inline script next to host-crown-badge) instead of
+        // waiting on this network round-trip every single time.
+        try { localStorage.setItem('rn-is-crown-holder', isTop ? '1' : '0'); } catch (e) {}
+
         // Show/hide crown on BOTH sidebars (host + rent)
         ['host-crown-badge', 'rent-crown-badge'].forEach(function(id) {
           var el = document.getElementById(id);
@@ -20808,7 +20826,7 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
     var n = 0, iv = setInterval(function () {
       if (window.user || ++n > 40) { clearInterval(iv); if (window.user) window._checkCrown(); }
     }, 500);
-  }, 500);
+  }, 150);
   /* One extra late re-check, in case credits/profile finished loading after the early checks */
   setTimeout(function () { if (window.user) window._checkCrown(); }, 6000);
 
