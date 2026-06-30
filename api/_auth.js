@@ -2,9 +2,7 @@ const crypto = require('crypto');
 
 const REGION = process.env.AWS_REGION || process.env.RENT_NIVAS_AWS_REGION;
 const USER_POOL_ID = process.env.COGNITO_USER_POOL_ID;
-// NOTE: renamed from the legacy COGNITO_APP_CLIENT_ID — set COGNITO_CLIENT_ID
-// in your environment (Vercel project settings) to the Cognito App Client ID.
-const APP_CLIENT_ID = process.env.COGNITO_CLIENT_ID;
+const APP_CLIENT_ID = process.env.COGNITO_APP_CLIENT_ID;
 const ISSUER = `https://cognito-idp.${REGION}.amazonaws.com/${USER_POOL_ID}`;
 const JWKS_URL = `${ISSUER}/.well-known/jwks.json`;
 let jwksCache = null;
