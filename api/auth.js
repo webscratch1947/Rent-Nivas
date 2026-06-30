@@ -1,5 +1,5 @@
 const crypto = require('crypto');
-const { CognitoIdentityProviderClient, AdminGetUserCommand, ListUsersCommand } = require('@aws-sdk/client-cognito-identity-provider');
+const { CognitoIdentityProviderClient, AdminGetUserCommand, ListUsersCommand, AdminDisableUserCommand } = require('@aws-sdk/client-cognito-identity-provider');
 const { DynamoDBClient, GetItemCommand, PutItemCommand, DeleteItemCommand } = require('@aws-sdk/client-dynamodb');
 const { marshall, unmarshall } = require('@aws-sdk/util-dynamodb');
 const { REGION, USER_POOL_ID, APP_CLIENT_ID, send, parseBody } = require('./_auth');
@@ -74,7 +74,16 @@ async function autoMergeGoogleDuplicateIfAny(idToken) {
     await ddb.send(new DeleteItemCommand({ TableName: PROFILES_TABLE, Key: marshall({ userId: oldSub }) })).catch(() => {});
     await ddb.send(new DeleteItemCommand({ TableName: PROFILES_TABLE, Key: marshall({ id: oldSub }) })).catch(() => {}); // legacy-keyed row, if any
 
-    console.log(`[Auth] Auto-merged Google sign-in duplicate for ${email}: old sub ${oldSub} (${oldCredits} credits) -> new sub ${newSub} (now ${merged.credits} credits)`);
+    // Lock the old duplicate login so it can never be used again to sign in
+    // and re-create another diverged profile. The person's data and identity
+    // now live permanently under the Google-federated account (newSub).
+    try {
+      await adminClient.send(new AdminDisableUserCommand({ UserPoolId: USER_POOL_ID, Username: oldUser.Username }));
+    } catch (e) {
+      console.warn('[Auth] Could not disable old duplicate login', oldUser.Username, ':', e.message);
+    }
+
+    console.log(`[Auth] Auto-merged Google sign-in duplicate for ${email}: old sub ${oldSub} (${oldCredits} credits) -> new sub ${newSub} (now ${merged.credits} credits); old login disabled.`);
   } catch (e) {
     console.warn('[Auth] autoMergeGoogleDuplicateIfAny failed (non-fatal):', e.message);
   }
