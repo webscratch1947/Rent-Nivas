@@ -1,10 +1,84 @@
 const crypto = require('crypto');
-const { CognitoIdentityProviderClient, AdminGetUserCommand } = require('@aws-sdk/client-cognito-identity-provider');
+const { CognitoIdentityProviderClient, AdminGetUserCommand, ListUsersCommand } = require('@aws-sdk/client-cognito-identity-provider');
+const { DynamoDBClient, GetItemCommand, PutItemCommand, DeleteItemCommand } = require('@aws-sdk/client-dynamodb');
+const { marshall, unmarshall } = require('@aws-sdk/util-dynamodb');
 const { REGION, USER_POOL_ID, APP_CLIENT_ID, send, parseBody } = require('./_auth');
 
 const CLIENT_SECRET = process.env.COGNITO_CLIENT_SECRET;
 const COGNITO_URL = `https://cognito-idp.${REGION}.amazonaws.com/`;
 const adminClient = new CognitoIdentityProviderClient({ region: REGION });
+const ddb = new DynamoDBClient({ region: REGION });
+const PROFILES_TABLE = process.env.TABLE_USERS || 'Users';
+
+// ── AUTO-MERGE: Google sign-in creating a duplicate of an existing account ──
+// Cognito Hosted UI federation creates a brand-new user (Username like
+// "Google_<id>") for a Google sign-in, completely separate from any existing
+// email/password account with the same email — by default it does NOT throw
+// a conflict error or auto-link them, it just silently makes a second user.
+// That second user gets a brand-new, empty DynamoDB profile row (10 credits,
+// fresh referral code), while the person's real data sits under their old
+// native account — looking exactly like "my credits got reset".
+//
+// Fix: every time someone completes a Google sign-in, check Cognito for any
+// OTHER user (different sub, not itself a Google-federated user) sharing the
+// same email. If found, merge that other account's profile data onto this
+// session's profile row (keeping the higher credits, filling in any missing
+// referral_code/name), then remove the old duplicate row and disable the old
+// login so it can never silently happen again for this person.
+async function autoMergeGoogleDuplicateIfAny(idToken) {
+  try {
+    const payloadB64 = String(idToken).split('.')[1];
+    const claims = JSON.parse(Buffer.from(payloadB64, 'base64').toString('utf8'));
+    const email = String(claims.email || '').trim().toLowerCase();
+    const newSub = claims.sub;
+    if (!email || !newSub) return;
+
+    const page = await adminClient.send(new ListUsersCommand({
+      UserPoolId: USER_POOL_ID,
+      Filter: `email = "${email}"`,
+      Limit: 10
+    }));
+    const others = (page.Users || []).filter(u => {
+      const a = (u.Attributes || []).reduce((acc, x) => { acc[x.Name] = x.Value; return acc; }, {});
+      return (a.sub || u.Username) !== newSub;
+    });
+    if (!others.length) return; // no duplicate — nothing to do
+
+    // Prefer a native (non-Google) account as the one being merged IN;
+    // if multiple, take the oldest (most likely the original).
+    others.sort((a, b) => new Date(a.UserCreateDate) - new Date(b.UserCreateDate));
+    const oldUser = others[0];
+    const oldAttrs = (oldUser.Attributes || []).reduce((acc, x) => { acc[x.Name] = x.Value; return acc; }, {});
+    const oldSub = oldAttrs.sub || oldUser.Username;
+    if (!oldSub || oldSub === newSub) return;
+
+    const [oldRowRes, newRowRes] = await Promise.all([
+      ddb.send(new GetItemCommand({ TableName: PROFILES_TABLE, Key: marshall({ userId: oldSub }) })),
+      ddb.send(new GetItemCommand({ TableName: PROFILES_TABLE, Key: marshall({ userId: newSub }) })),
+    ]);
+    const oldRow = oldRowRes.Item ? unmarshall(oldRowRes.Item) : null;
+    const newRow = newRowRes.Item ? unmarshall(newRowRes.Item) : null;
+    if (!oldRow) return; // nothing to merge in
+
+    const oldCredits = parseFloat(oldRow.credits) || 0;
+    const newCredits = parseFloat((newRow && newRow.credits)) || 0;
+    const merged = Object.assign({}, oldRow, newRow || {});
+    merged.credits = Math.max(oldCredits, newCredits);
+    if (!merged.referral_code && oldRow.referral_code) merged.referral_code = oldRow.referral_code;
+    if ((!merged.name || merged.name === 'User') && oldRow.name) merged.name = oldRow.name;
+    merged.userId = newSub;
+    merged.email = email;
+    merged.updated_at = new Date().toISOString();
+
+    await ddb.send(new PutItemCommand({ TableName: PROFILES_TABLE, Item: marshall(merged, { removeUndefinedValues: true }) }));
+    await ddb.send(new DeleteItemCommand({ TableName: PROFILES_TABLE, Key: marshall({ userId: oldSub }) })).catch(() => {});
+    await ddb.send(new DeleteItemCommand({ TableName: PROFILES_TABLE, Key: marshall({ id: oldSub }) })).catch(() => {}); // legacy-keyed row, if any
+
+    console.log(`[Auth] Auto-merged Google sign-in duplicate for ${email}: old sub ${oldSub} (${oldCredits} credits) -> new sub ${newSub} (now ${merged.credits} credits)`);
+  } catch (e) {
+    console.warn('[Auth] autoMergeGoogleDuplicateIfAny failed (non-fatal):', e.message);
+  }
+}
 
 // Actions that require SecretHash (App Client is configured with a secret).
 // NOTE: SignUp / ConfirmSignUp / ResendConfirmationCode / ForgotPassword /
@@ -98,6 +172,14 @@ module.exports = async function handler(req, res) {
           });
         }
         return send(res, tokenResp.status || 400, { error: { message: String(errDesc) } });
+      }
+
+      // Auto-merge: if this Google sign-in's email already has data sitting
+      // under a different (older) account, fold it onto this session's
+      // profile now — before the frontend ever loads the dashboard — so the
+      // user never sees a reset-looking empty/10-credit account.
+      if (tokenJson.id_token) {
+        await autoMergeGoogleDuplicateIfAny(tokenJson.id_token);
       }
 
       // Normalize to PascalCase — matches the AuthenticationResult shape that
