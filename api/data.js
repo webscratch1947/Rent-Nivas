@@ -995,7 +995,58 @@ async function handleRpc(spec, claims) {
 
     const TableName = tableName('profiles');
     const scanned = await runDdb('read', 'profiles', () => ddb.send(new ScanCommand({ TableName })));
-    const rows = (scanned.Items || []).map(item => fromDbItem('profiles', unmarshall(item)));
+    const rawItems = (scanned.Items || []).map(item => unmarshall(item));
+
+    // ── MERGE LEGACY-ID-KEYED + USERID-KEYED DUPLICATE ROWS ──
+    // The actual root cause of "admin/leaderboard shows correct credits but
+    // the user's own dashboard is stuck at an old/lower number": some accounts
+    // have TWO physical rows — one stored under the old "id" attribute
+    // (created before the partition key was renamed) and one under "userId"
+    // (created later, sometimes with a stale/lower credits value from the
+    // old auto-create-on-missing-profile bug). The dashboard does a direct
+    // single-row GetItem on the userId key, so it only ever sees the newer
+    // row — even when the legacy row has the real, higher credit balance.
+    // Leaderboard/admin scans see both rows and surface the best value,
+    // which is why they looked "correct" while the dashboard didn't.
+    // This merges every such pair: keeps the higher credits (and fills in
+    // any field missing on the userId row from the legacy row), writes it
+    // onto the canonical userId-keyed row, then deletes the legacy row so
+    // there is only ever one row per user going forward.
+    const legacyById = {};   // id -> raw legacy item (has 'id', no 'userId')
+    const currentById = {};  // id -> raw current item (has 'userId')
+    rawItems.forEach(it => {
+      if (Object.prototype.hasOwnProperty.call(it, 'userId') && it.userId) {
+        currentById[it.userId] = it;
+      } else if (Object.prototype.hasOwnProperty.call(it, 'id') && it.id) {
+        legacyById[it.id] = it;
+      }
+    });
+    let mergedDuplicates = 0;
+    for (const uid of Object.keys(legacyById)) {
+      const legacy = legacyById[uid];
+      const current = currentById[uid];
+      if (!current) continue; // only legacy row exists — readItems fallback already handles this case
+      const legacyCredits = parseFloat(legacy.credits);
+      const currentCredits = parseFloat(current.credits);
+      const bestCredits = Math.max(isNaN(legacyCredits) ? 0 : legacyCredits, isNaN(currentCredits) ? 0 : currentCredits);
+      const merged = Object.assign({}, legacy, current); // current wins on conflicts...
+      merged.credits = bestCredits;                       // ...except credits, always the higher one
+      if (!merged.referral_code && legacy.referral_code) merged.referral_code = legacy.referral_code;
+      if ((!merged.name || merged.name === 'User') && legacy.name) merged.name = legacy.name;
+      delete merged.id; // 'id' isn't a real attribute on the userId-keyed item
+      merged.userId = uid;
+      merged.updated_at = new Date().toISOString();
+      try {
+        await ddb.send(new PutItemCommand({ TableName, Item: marshall(merged, { removeUndefinedValues: true }) }));
+        await ddb.send(new DeleteItemCommand({ TableName, Key: marshall({ id: uid }) }));
+        mergedDuplicates++;
+        console.log(`[Admin] Merged duplicate rows for user ${uid}: credits ${currentCredits} + legacy ${legacyCredits} -> ${bestCredits}`);
+      } catch (e) {
+        console.warn(`[Admin] Failed to merge duplicate rows for user ${uid}:`, e.message);
+      }
+    }
+
+    const rows = rawItems.map(item => fromDbItem('profiles', item));
     let fixed = 0;
     let creditsTopped = 0;
     for (const row of rows) {
@@ -1051,7 +1102,7 @@ async function handleRpc(spec, claims) {
     }
 
     console.log(`[Admin] Backfilled defaults for ${fixed}/${rows.length} profiles; deduped ${dedupedUsers} users' partner applications (${deletedRows} duplicate rows removed)`);
-    return { scanned: rows.length, fixed, dedupedUsers, deletedRows };
+    return { scanned: rows.length, fixed, dedupedUsers, deletedRows, mergedDuplicates };
   }
 
   // ── admin_find_duplicate_accounts ──────────────────────────────────────
