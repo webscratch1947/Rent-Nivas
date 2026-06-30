@@ -1,5 +1,5 @@
 const crypto = require('crypto');
-const { CognitoIdentityProviderClient, AdminGetUserCommand, ListUsersCommand, AdminDisableUserCommand } = require('@aws-sdk/client-cognito-identity-provider');
+const { CognitoIdentityProviderClient, AdminGetUserCommand, ListUsersCommand, AdminDisableUserCommand, AdminDeleteUserCommand } = require('@aws-sdk/client-cognito-identity-provider');
 const { DynamoDBClient, GetItemCommand, PutItemCommand, DeleteItemCommand } = require('@aws-sdk/client-dynamodb');
 const { marshall, unmarshall } = require('@aws-sdk/util-dynamodb');
 const { REGION, USER_POOL_ID, APP_CLIENT_ID, send, parseBody } = require('./_auth');
@@ -74,13 +74,22 @@ async function autoMergeGoogleDuplicateIfAny(idToken) {
     await ddb.send(new DeleteItemCommand({ TableName: PROFILES_TABLE, Key: marshall({ userId: oldSub }) })).catch(() => {});
     await ddb.send(new DeleteItemCommand({ TableName: PROFILES_TABLE, Key: marshall({ id: oldSub }) })).catch(() => {}); // legacy-keyed row, if any
 
-    // Lock the old duplicate login so it can never be used again to sign in
-    // and re-create another diverged profile. The person's data and identity
-    // now live permanently under the Google-federated account (newSub).
+    // Remove the old duplicate login entirely so it can never be used again
+    // to sign in and re-create another diverged profile, AND so it stops
+    // showing up as a second "ghost" account with the same email in the
+    // admin Users list. (Previously this only disabled the login, which left
+    // a dead-but-visible duplicate Cognito user sitting in the pool forever —
+    // exactly the "2 accounts with same email" symptom.) The person's data
+    // and identity now live permanently under the Google-federated account
+    // (newSub), so the old login is no longer needed at all.
     try {
-      await adminClient.send(new AdminDisableUserCommand({ UserPoolId: USER_POOL_ID, Username: oldUser.Username }));
+      await adminClient.send(new AdminDeleteUserCommand({ UserPoolId: USER_POOL_ID, Username: oldUser.Username }));
     } catch (e) {
-      console.warn('[Auth] Could not disable old duplicate login', oldUser.Username, ':', e.message);
+      console.warn('[Auth] Could not delete old duplicate login', oldUser.Username, ':', e.message);
+      // Fallback: at least disable it so it can't be used to sign in again.
+      try {
+        await adminClient.send(new AdminDisableUserCommand({ UserPoolId: USER_POOL_ID, Username: oldUser.Username }));
+      } catch (e2) { /* non-fatal */ }
     }
 
     console.log(`[Auth] Auto-merged Google sign-in duplicate for ${email}: old sub ${oldSub} (${oldCredits} credits) -> new sub ${newSub} (now ${merged.credits} credits); old login disabled.`);
