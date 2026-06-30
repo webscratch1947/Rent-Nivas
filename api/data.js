@@ -358,7 +358,20 @@ async function readItems(spec) {
   const key = spec.filters && spec.filters.length ? tryKey(spec.table, spec.filters) : null;
   if (key && (spec.single || spec.maybeSingle || spec.limit === 1)) {
     const got = await runDdb('read', spec.table, () => ddb.send(new GetItemCommand({ TableName, Key: marshall(key) })));
-    const row = got.Item ? pickColumns(fromDbItem(spec.table, unmarshall(got.Item)), spec.select) : null;
+    let item = got.Item;
+    // LEGACY KEY FALLBACK: mirror the fix already applied in putRows/updateRows.
+    // Some accounts were created before the partition key was renamed from
+    // "id" to "userId". A direct GetItem on {userId: x} finds nothing for
+    // those rows, which previously made the caller think the profile didn't
+    // exist at all and auto-create a fresh one (credits reset to 10, a brand
+    // new random referral_code, etc) — silently shadowing the real row.
+    // Fall back to the old {id: x} key before giving up.
+    if (!item && key.userId && partitionKeyName(spec.table) === 'userId') {
+      const legacyKey = { id: key.userId };
+      const legacyGot = await runDdb('read', spec.table, () => ddb.send(new GetItemCommand({ TableName, Key: marshall(legacyKey) })));
+      item = legacyGot.Item;
+    }
+    const row = item ? pickColumns(fromDbItem(spec.table, unmarshall(item)), spec.select) : null;
     return spec.single || spec.maybeSingle ? row : (row ? [row] : []);
   }
   const scanned = await runDdb('read', spec.table, () => ddb.send(new ScanCommand({ TableName })));
@@ -412,6 +425,7 @@ const NEW_ROW_DEFAULTS = {
     credits: 10,
     xp: 0,
     partner_xp: 0,
+    chest_claimed: false,
     referral_code: freshReferralCode,
     referred_by_code: null,
     total_referrals: 0,
