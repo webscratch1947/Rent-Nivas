@@ -17271,6 +17271,10 @@
             if (userHouses && userHouses.length) {
               for (const h of userHouses) {
                 await purgeHouseStorage(h.id).catch(() => {});
+                // listing_questions are keyed by listing_id, not user_id —
+                // must be cleaned up per-house here, otherwise they're
+                // orphaned referencing a listing_id that no longer exists.
+                await sb.from('listing_questions').delete().eq('listing_id', h.id).catch(() => {});
                 await sb.from('houses').delete().eq('id', h.id).catch(() => {});
                 purgeHouseFromLocalCache(h.id);
                 rentAllHouses = rentAllHouses.filter(x => x.id !== h.id);
@@ -17278,6 +17282,36 @@
               }
             }
           } catch (_) { /* house cleanup best-effort — continue with profile delete */ }
+          // ── Cascade: delete avatar image from storage ──
+          try {
+            const { data: avatarFiles } = await sb.storage.from('images').list(`avatars/${userId}`);
+            if (avatarFiles && avatarFiles.length) {
+              const avatarPaths = avatarFiles.map(f => `avatars/${userId}/${f.name}`);
+              await sb.storage.from('images').remove(avatarPaths).catch(() => {});
+            }
+          } catch (_) { /* avatar cleanup best-effort */ }
+          // ── Cascade: delete everything else this user owns/touched ──
+          // Without this, deleting a user left behind: their unlock purchase
+          // history, favorites, partner applications, notifications, warnings,
+          // and any Q&A they posted on listings — all still referencing a
+          // userId that no longer exists, which is exactly what kept showing
+          // "their text/database still there" after a delete.
+          try {
+            const { data: userPurchases } = await sb.from('purchases').select('id').eq('user_id', userId);
+            if (userPurchases && userPurchases.length) {
+              await Promise.all(userPurchases.map(p => sb.from('answers').delete().eq('purchase_id', p.id).catch(() => {})));
+            }
+          } catch (_) { /* answers cleanup best-effort */ }
+          try {
+            await Promise.all([
+              sb.from('purchases').delete().eq('user_id', userId),
+              sb.from('favorites').delete().eq('user_id', userId),
+              sb.from('user_house_unlocks').delete().eq('user_id', userId),
+              sb.from('partner_requests').delete().eq('user_id', userId),
+              sb.from('notifications').delete().eq('user_id', userId),
+              sb.from('admin_warnings').delete().eq('user_id', userId),
+            ].map(p => p.catch(() => {})));
+          } catch (_) { /* related-row cleanup best-effort — continue */ }
           // ── Delete profile + bans ──
           await sb.from('profiles').delete().eq('id', userId).catch(()=>{});
           await sb.from('admin_bans').update({ active: false }).eq('user_id', userId).catch(()=>{});
