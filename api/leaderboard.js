@@ -169,7 +169,14 @@ module.exports = async function handler(req, res) {
     }
 
     // ── Sort by credits descending ────────────────────────────────────────
-    realUsers.sort((a, b) => (parseFloat(b.credits) || 0) - (parseFloat(a.credits) || 0));
+    // Sort by credits desc; tie-break by id ASC so rank #1 is deterministic
+    // and never flickers between two users who happen to have equal credits
+    // (this was the root cause of the crown badge jumping/disappearing).
+    realUsers.sort((a, b) => {
+      const c = (parseFloat(b.credits) || 0) - (parseFloat(a.credits) || 0);
+      if (c !== 0) return c;
+      return String(a.id || '').localeCompare(String(b.id || ''));
+    });
 
     const top = realUsers.slice(0, 300);
 
