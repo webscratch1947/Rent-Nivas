@@ -84,7 +84,7 @@ module.exports = async function handler(req, res) {
   try {
     // Run DynamoDB scan + Cognito list in PARALLEL for speed
     const [scanned, cognitoUsers] = await Promise.all([
-      ddb.send(new ScanCommand({ TableName: TABLE_USERS })),
+      ddb.send(new ScanCommand({ TableName: TABLE_USERS, ConsistentRead: true })),
       fetchAllCognitoUsers(),
     ]);
 
