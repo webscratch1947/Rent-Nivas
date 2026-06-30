@@ -1116,7 +1116,51 @@ async function handleRpc(spec, claims) {
     }
 
     console.log(`[Admin] Backfilled defaults for ${fixed}/${rows.length} profiles; deduped ${dedupedUsers} users' partner applications (${deletedRows} duplicate rows removed)`);
-    return { scanned: rows.length, fixed, dedupedUsers, deletedRows, mergedDuplicates };
+
+    // ── CREATE TRULY MISSING ROWS ──────────────────────────────────────────
+    // Everything above only fixes/tops-up rows that already exist in
+    // DynamoDB. But several accounts have NO row at all (the fire-and-forget
+    // client-side profile-creation call on first login silently failed for
+    // them at some point) — those show up everywhere as "0 credits" because
+    // there's nothing in the table to read. Find every Cognito user with no
+    // matching Users row and create one now with the normal new-account
+    // defaults (10 credits etc), instead of leaving them permanently broken
+    // until they happen to log out and back in again.
+    let created = 0;
+    try {
+      const knownIds = new Set(rows.map(r => String(r.id || '')));
+      let pt;
+      do {
+        const page = await cognitoAdmin.send(new ListUsersCommand({ UserPoolId: USER_POOL_ID, Limit: 60, PaginationToken: pt }));
+        for (const u of page.Users || []) {
+          const a = (u.Attributes || []).reduce((acc, x) => { acc[x.Name] = x.Value; return acc; }, {});
+          const sub = a.sub;
+          if (!sub || knownIds.has(sub)) continue;
+          try {
+            await putRows({
+              table: 'profiles',
+              values: {
+                id: sub,
+                name: a.name || (a.email ? a.email.split('@')[0] : 'User'),
+                email: a.email || '',
+                created_at: u.UserCreateDate ? new Date(u.UserCreateDate).toISOString() : new Date().toISOString(),
+              },
+              single: true,
+            }, true);
+            knownIds.add(sub);
+            created++;
+            console.log('[Admin] Created missing profile row for Cognito user with no DynamoDB row:', sub, a.email || '');
+          } catch (e) {
+            console.warn('[Admin] Failed to create missing profile row for', sub, ':', e.message);
+          }
+        }
+        pt = page.PaginationToken;
+      } while (pt);
+    } catch (e) {
+      console.warn('[Admin] Could not scan Cognito users to create missing rows:', e.message);
+    }
+
+    return { scanned: rows.length, fixed, dedupedUsers, deletedRows, mergedDuplicates, created };
   }
 
   // ── admin_find_duplicate_accounts ──────────────────────────────────────
