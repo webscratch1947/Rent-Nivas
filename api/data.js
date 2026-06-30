@@ -612,7 +612,21 @@ async function updateRows(spec) {
           console.warn('[RentNivas API] Legacy key lookup failed:', legacyErr.message);
         }
       }
-      // No legacy row found — create it properly (with full NEW_ROW_DEFAULTS)
+      // No legacy row found either. For the Users/profiles table specifically,
+      // DO NOT silently create a brand-new row here: this code path is reached
+      // by plain .update() calls (credits edits, etc) that often have nothing
+      // but {credits: X} to write — no name/email — so a fabricated row here
+      // is exactly how the "Anonymous, 150 credits" ghost rows on the
+      // leaderboard got created (admin gives credits to a userId whose row
+      // was concurrently purged as an orphan/duplicate). Fail loudly instead
+      // so the caller (e.g. Edit Credits) can tell the admin to refresh.
+      if (spec.table === 'profiles' || spec.table === 'users' || spec.table === 'Users') {
+        console.warn(`[RentNivas API] update() target row didn't exist for "${spec.table}" (key=${JSON.stringify(key)}) — refusing to silently create a blank ghost row.`);
+        throw new Error('This user\'s profile row no longer exists (it may have just been auto-removed as a duplicate/orphan). Refresh the user list and try again.');
+      }
+      // Every other table: create it properly (with full NEW_ROW_DEFAULTS) —
+      // this is the legitimate first-write-race case (e.g. favoriting/unlocking
+      // before the profile-creation upsert has finished).
       console.log(`[RentNivas API] update() target row didn't exist for "${spec.table}" — creating via putRows with full defaults instead of a partial row.`);
       const created = await putRows({ table: spec.table, values: Object.assign({}, fromDbItem(spec.table, key), spec.values || {}), single: true }, true);
       return spec.single || spec.maybeSingle ? created : (created ? [created] : []);
@@ -1570,15 +1584,37 @@ async function handleRpc(spec, claims) {
     const items = scanned_result.Items || [];
     let deleted = 0;
 
+    // Also fetch every real Cognito sub so we can catch true orphan rows —
+    // a valid-UUID-keyed row with no matching Cognito user at all. These are
+    // exactly the nameless "Anonymous" ghost rows that admin credit-edits
+    // used to fabricate when targeting a stale/already-removed userId.
+    const validSubs = new Set();
+    try {
+      let pt;
+      do {
+        const page = await cognitoAdmin.send(new ListUsersCommand({ UserPoolId: USER_POOL_ID, Limit: 60, PaginationToken: pt }));
+        (page.Users || []).forEach(u => {
+          const sub = (u.Attributes || []).find(a => a.Name === 'sub');
+          if (sub && sub.Value) validSubs.add(sub.Value);
+        });
+        pt = page.PaginationToken;
+      } while (pt);
+    } catch (err) {
+      console.warn('[PurgeGhosts] Could not list Cognito users for orphan check:', err.message);
+    }
+
     for (const item of items) {
       const row = unmarshall(item);
       const uid = String(row.userId || row.id || '');
       // Ghost rows have userId = email string (contains @)
-      if (uid.includes('@')) {
+      const isEmailKeyed = uid.includes('@');
+      // Orphan rows: a real-looking key but no matching Cognito user anymore
+      const isOrphan = !isEmailKeyed && uid && validSubs.size > 0 && !validSubs.has(uid);
+      if (isEmailKeyed || isOrphan) {
         try {
           const keyToDelete = row.userId ? { userId: uid } : { id: uid };
           await ddb.send(new DeleteItemCommand({ TableName, Key: marshall(keyToDelete) }));
-          console.log('[PurgeGhosts] Deleted ghost row with userId:', uid);
+          console.log('[PurgeGhosts] Deleted', isOrphan ? 'orphan' : 'email-keyed ghost', 'row with userId:', uid);
           deleted++;
         } catch (delErr) {
           console.warn('[PurgeGhosts] Failed to delete ghost row:', uid, delErr.message);
