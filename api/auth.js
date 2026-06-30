@@ -58,14 +58,14 @@ module.exports = async function handler(req, res) {
       const cognitoDomain = process.env.COGNITO_DOMAIN;
       if (!cognitoDomain) throw new Error('Google sign-in is not configured on this server (COGNITO_DOMAIN missing).');
       if (!CLIENT_SECRET) throw new Error('COGNITO_CLIENT_SECRET environment variable is required');
-      if (!APP_CLIENT_ID) throw new Error('COGNITO_CLIENT_ID environment variable is required');
+      if (!APP_CLIENT_ID) throw new Error('COGNITO_APP_CLIENT_ID environment variable is required');
 
       // The redirect_uri must be byte-for-byte identical to the one used in the
       // /oauth2/authorize call. Trusting a client-supplied value here would let a
       // caller redirect the token exchange anywhere, so we always use our own
       // server-side env var instead of body.redirectUri.
-      const redirectUri = process.env.COGNITO_REDIRECT_URI || process.env.GOOGLE_REDIRECT_URI;
-      if (!redirectUri) throw new Error('COGNITO_REDIRECT_URI (or GOOGLE_REDIRECT_URI) environment variable is required');
+      const redirectUri = process.env.COGNITO_REDIRECT_URI;
+      if (!redirectUri) throw new Error('COGNITO_REDIRECT_URI environment variable is required');
 
       const tokenEndpoint = process.env.GOOGLE_TOKEN_URI || `https://${cognitoDomain}/oauth2/token`;
       const params = new URLSearchParams({
