@@ -11859,11 +11859,23 @@
       }
     }
 
+    // While the tutorial is running, the user must finish it before they
+    // can switch between Owner and Rent roles — otherwise the tutorial state
+    // gets confused (it auto-navigates between pages and re-triggers steps).
+    function _rnTutLocksRoleSwitch() {
+      if (window._RNTut && !window._RNTut.done && window._RNTut.step >= 0) {
+        if (typeof toast === 'function') toast('Please finish the tutorial first!', 'info');
+        return true;
+      }
+      return false;
+    }
+
     async function setRoleFromDash(role) {
       if (!user) {
         finishLoggedOutState();
         return;
       }
+      if (_rnTutLocksRoleSwitch()) return;
       if (await checkUserBan()) return;
       localStorage.setItem('nestly-role', role);
       if (role === 'rent') {
@@ -11887,6 +11899,7 @@
         finishLoggedOutState();
         return;
       }
+      if (_rnTutLocksRoleSwitch()) return;
       if (await checkUserBan()) return;
       localStorage.setItem('nestly-role', 'host');
       document.getElementById('role-host-btn')?.classList.add('active');
@@ -19784,7 +19797,7 @@ var SPOT1={1:'rn-get-started-btn',8:'nb-add',12:'rnb-purchased'};
 var SPOT2={3:'signup-verification-code',11:'prop-filter-wrap'};
 var SCROLL_STEPS={3:1,4:1,11:1};
 var FORCE_CONTINUE={0:1,6:1,7:1,8:1,10:1,11:1,12:1};
-var FINISH_STEPS={12:1};
+var FINISH_STEPS={10:1,12:1};
 var T={
   step:-1,lang:'en',isPlaying:false,done:false,
   isLoggedIn:function(){
@@ -20373,14 +20386,18 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
       svgEl.style.width = '100%';
       svgEl.style.height = '100%';
       svgEl.style.display = 'block';
-      // Rewind to frame 0 and PAUSE — user must tap to start
-      try { svgEl.setCurrentTime(0); } catch(e) {}
+      // Rewind to the moment the closed chest is fully formed (frame 0 of the
+      // raw animation is blank — the chest fades/scales in over the first ~1s)
+      // and PAUSE there — user must tap to start the open/burst animation.
       try { svgEl.pauseAnimations(); } catch(e) {}
+      try { svgEl.setCurrentTime(1); } catch(e) {}
     }
 
     function _showOverlay() {
       el.style.display = 'flex';
       if (typeof _lockScroll === 'function') _lockScroll();
+      // Don't let the tutorial's voice-over play underneath the chest popup
+      try { if (window._RNTut && typeof window._RNTut.stopAudio === 'function') window._RNTut.stopAudio(); } catch(e) {}
     }
 
     if (wrap && !wrap.querySelector('svg')) {
@@ -20451,14 +20468,14 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
     if (svgEl) {
       // Play the chest animation
       try { svgEl.unpauseAnimations(); } catch(e) {}
-      // After animation finishes (~2.5s) show "10 free credits" text in same overlay
+      // After animation finishes (~2s remaining from the freeze frame) show "10 free credits" text in same overlay
       setTimeout(function() {
         _rnCreditsClaiming = false;
         if (claimText) {
           claimText.style.display = 'block';
           requestAnimationFrame(function() { claimText.style.opacity = '1'; });
         }
-      }, 2500);
+      }, 2000);
     } else {
       // No SVG — show text immediately
       _rnCreditsClaiming = false;
