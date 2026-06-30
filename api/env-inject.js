@@ -80,7 +80,7 @@ module.exports = async function handler(req, res) {
 
   const region     = process.env.AWS_REGION || process.env.RENT_NIVAS_AWS_REGION;
   const userPoolId = process.env.COGNITO_USER_POOL_ID;
-  const clientId   = process.env.COGNITO_CLIENT_ID;
+  const clientId   = process.env.COGNITO_APP_CLIENT_ID;
   const bucket     = process.env.S3_BUCKET || '';
   const s3PublicBase =
     process.env.S3_PUBLIC_BASE_URL ||
@@ -103,10 +103,10 @@ module.exports = async function handler(req, res) {
   // the Google profile claims — but exposed for completeness/future use.
   const googleUserinfoUri = process.env.GOOGLE_USERINFO_URI || '';
   const googleScopes = process.env.GOOGLE_SCOPES || 'openid email profile';
-  // COGNITO_REDIRECT_URI is the canonical name (this redirect_uri is sent to
-  // Cognito, not Google); GOOGLE_REDIRECT_URI is accepted as an alias so
-  // either name works without two separate code paths.
-  const redirectUri = process.env.COGNITO_REDIRECT_URI || process.env.GOOGLE_REDIRECT_URI || '';
+  // COGNITO_REDIRECT_URI is the redirect_uri sent to Cognito's Hosted UI
+  // (NOT a Google value — Cognito owns this redirect). Use this single env
+  // var consistently; GOOGLE_REDIRECT_URI is no longer read here.
+  const redirectUri = process.env.COGNITO_REDIRECT_URI || '';
 
   const siteVersion = await getSiteVersion();
 
@@ -125,7 +125,7 @@ module.exports = async function handler(req, res) {
     `window.__RN_COGNITO_CLIENT_ID = ${JSON.stringify(clientId || '')};\n` +
     `window.__RN_S3_PUBLIC_BASE_URL = ${JSON.stringify(s3PublicBase || '')};\n` +
     `window.__RN_COGNITO_DOMAIN = ${JSON.stringify(cognitoDomain)};\n` +
-    `window.__RN_GOOGLE_REDIRECT_URI = ${JSON.stringify(redirectUri)};\n` +
+    `window.__RN_COGNITO_REDIRECT_URI = ${JSON.stringify(redirectUri)};\n` +
     `window.__RN_GOOGLE_AUTH_URI = ${JSON.stringify(googleAuthUri)};\n` +
     `window.__RN_GOOGLE_TOKEN_URI = ${JSON.stringify(googleTokenUri)};\n` +
     `window.__RN_GOOGLE_USERINFO_URI = ${JSON.stringify(googleUserinfoUri)};\n` +
