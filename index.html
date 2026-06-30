@@ -11199,7 +11199,12 @@
         '&redirect_uri=' + encodeURIComponent(redirectUri) +
         '&identity_provider=Google' +
         '&scope=' + scopes.split(' ').map(encodeURIComponent).join('%20') +
-        '&state=' + encodeURIComponent(state);
+        '&state=' + encodeURIComponent(state) +
+        // Force Google to always show the account chooser instead of silently
+        // re-using whichever Google account is already signed in on this
+        // browser. Cognito forwards unrecognized params straight through to
+        // the upstream IdP, so this reaches Google's own /authorize call.
+        '&prompt=select_account';
 
       console.log("[RN OAuth] authorizeUrl:", authorizeUrl);
       window.location.href = authorizeUrl;
@@ -11277,8 +11282,23 @@
         // land on that step — it previously got stuck/lost there because
         // the page reload from the OAuth redirect caused tutorial init to
         // bail out (it thought the tutorial was "already started").
+        //
+        // IMPORTANT: only do this for a genuinely brand-new account. Using
+        // localStorage's rn-tutorial-done flag alone is wrong — an existing
+        // user signing in via Google on a new browser/device, or one who
+        // simply never finished/skipped the tutorial long ago, would have
+        // that flag missing too and would wrongly get the tutorial forced
+        // on them again even though they're already fully registered.
+        // A profiles row already existing for this user is the real signal
+        // that they're a returning user, not a new signup.
         try {
-          if (!localStorage.getItem('rn-tutorial-done')) {
+          let _isBrandNewUser = false;
+          try {
+            const { data: _profRow } = await sb.from('profiles').select('id').eq('id', user.id).maybeSingle();
+            _isBrandNewUser = !_profRow;
+          } catch (e2) { _isBrandNewUser = false; }
+
+          if (_isBrandNewUser && !localStorage.getItem('rn-tutorial-done')) {
             var _tutOv = document.getElementById('rn-tutorial');
             if (_tutOv) {
               localStorage.setItem('rn-tutorial-started', '1');
@@ -11291,6 +11311,11 @@
                 setTimeout(function () { window._RNTut.setStep(_tutStep); }, 500);
               }
             }
+          } else if (!_isBrandNewUser) {
+            // Returning user — make sure the tutorial never auto-starts for
+            // them on this browser/device going forward.
+            localStorage.setItem('rn-tutorial-started', '1');
+            localStorage.setItem('rn-tutorial-done', '1');
           }
         } catch (e) {}
         if (savedRole) {
@@ -17957,6 +17982,16 @@
 
     // ══ AUTO-INIT ══
     (async () => {
+      // If we're returning from Google's OAuth redirect (?code=...), immediately
+      // mark the tutorial as "already started" so its own independent auto-init
+      // (T.init(), wired to DOMContentLoaded) can't race ahead and pop the landing
+      // tutorial before we've even determined whether this is a new or returning
+      // user. handleGoogleOAuthCallback() below explicitly re-opens the overlay
+      // itself for genuinely new users, so suppressing the generic auto-start
+      // here is safe either way.
+      if (window.location.search.includes('code=') && !localStorage.getItem('rn-tutorial-done')) {
+        try { localStorage.setItem('rn-tutorial-started', '1'); } catch (e) {}
+      }
       // Clear any leftover old unlock keys from ₹99 era
       localStorage.removeItem('nestly-unlocked');
       localStorage.removeItem('paidUser');
