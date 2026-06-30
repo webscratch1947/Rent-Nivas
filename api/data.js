@@ -1125,12 +1125,37 @@ async function handleRpc(spec, claims) {
     const scanned = await runDdb('read', 'profiles', () => ddb.send(new ScanCommand({ TableName })));
     const rows = (scanned.Items || []).map(item => fromDbItem('profiles', unmarshall(item)));
 
+    // AUTHORITATIVE EMAIL LOOKUP: a profile row's own `email` attribute can be
+    // blank or stale (e.g. rows auto-created mid-race during Google sign-in
+    // never had it filled in), which made this scanner miss real duplicates —
+    // even ones plainly visible with the same email in the admin user list,
+    // because that list gets its emails from Cognito, not from this field.
+    // Pull every user's real email straight from Cognito (by their sub, which
+    // is the same value as the profile row's id) so grouping is correct even
+    // when the DB row itself never recorded an email.
+    const cognitoEmailBySub = {};
+    try {
+      let PaginationToken;
+      do {
+        const page = await cognitoAdmin.send(new ListUsersCommand({ UserPoolId: USER_POOL_ID, Limit: 60, PaginationToken }));
+        (page.Users || []).forEach(u => {
+          const a = (u.Attributes || []).reduce((acc, x) => { acc[x.Name] = x.Value; return acc; }, {});
+          const sub = a.sub || u.Username;
+          if (sub && a.email) cognitoEmailBySub[sub] = String(a.email).trim().toLowerCase();
+        });
+        PaginationToken = page.PaginationToken;
+      } while (PaginationToken);
+    } catch (e) {
+      console.warn('[Admin] Could not fetch Cognito users for duplicate scan, falling back to DB email field only:', e.message);
+    }
+
     const byEmail = {};
     rows.forEach(r => {
-      const email = String(r.email || '').trim().toLowerCase();
+      const dbEmail = String(r.email || '').trim().toLowerCase();
+      const email = cognitoEmailBySub[r.id] || dbEmail; // prefer Cognito's authoritative email
       if (!email) return;
       (byEmail[email] = byEmail[email] || []).push({
-        id: r.id, name: r.name, email: r.email, credits: r.credits,
+        id: r.id, name: r.name, email: r.email || email, credits: r.credits,
         xp: r.xp, partner_xp: r.partner_xp, referral_code: r.referral_code,
         created_at: r.created_at,
       });
