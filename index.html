@@ -11668,11 +11668,18 @@
       return Math.max(0, (rec.unlockedAt + 7 * 24 * 60 * 60 * 1000) - Date.now());
     }
 
-    // ══ NOTIFICATIONS (localStorage) ══
-    function getNotifs() {
-      try { return JSON.parse(localStorage.getItem('nestly-notifs') || '[]'); } catch { return []; }
+    // ══ NOTIFICATIONS (localStorage, scoped per-account) ══
+    // Old behavior used one global 'nestly-notifs' key for everyone on the
+    // device, so logging out and into a different account showed the
+    // previous account's notifications. Now keyed by the current user's id.
+    function _notifKey() {
+      var uid = (user && (user.id || user.sub || user.email)) || null;
+      return uid ? ('nestly-notifs-' + uid) : 'nestly-notifs-anon';
     }
-    function saveNotifs(arr) { localStorage.setItem('nestly-notifs', JSON.stringify(arr)); }
+    function getNotifs() {
+      try { return JSON.parse(localStorage.getItem(_notifKey()) || '[]'); } catch { return []; }
+    }
+    function saveNotifs(arr) { localStorage.setItem(_notifKey(), JSON.stringify(arr)); }
     function pushNotif(icon, text, ann_id) {
       const arr = getNotifs();
       // Dedup: skip if the exact same notification text was added in the last 2 minutes
@@ -11854,7 +11861,9 @@
           if (!uid) return;
           fetchProfileRow().then(function(prof) {
             if (prof && !prof.chest_claimed && typeof window._rnShowCreditsPrompt === 'function') {
-              sb.from('profiles').update({ chest_claimed: true }).eq('id', user.id).then(function(){});
+              sb.from('profiles').update({ chest_claimed: true }).eq('id', user.id).then(function(res){
+                if (res && res.error) console.warn('[Chest] failed to mark claimed:', res.error.message);
+              });
               window._rnShowCreditsPrompt();
             }
           }).catch(function(){});
@@ -12148,18 +12157,25 @@
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 20px;">
           <div class="fg"><label>Full Name</label><input id="pf-name" type="text" value="${name}" placeholder="Your full name"></div>
           <div class="fg"><label>Email Address</label><input id="pf-email" type="email" value="${email}" readonly style="opacity:.7;"></div>
-          <div class="fg"><label>Phone Number</label><input id="pf-phone" type="tel" placeholder="e.g. +91 98765 43210"></div>
+          <div class="fg"><label>Phone Number</label>
+            <div style="display:flex;align-items:center;border:1px solid var(--border);border-radius:var(--r);overflow:hidden;">
+              <span style="padding:0 10px;color:var(--muted);font-weight:600;border-right:1px solid var(--border);">+91</span>
+              <input id="pf-phone" type="tel" inputmode="numeric" maxlength="10" placeholder="98765 43210" style="border:none;border-radius:0;flex:1;" oninput="this.value=this.value.replace(/\D/g,'').slice(0,10)">
+            </div>
+          </div>
           <div class="fg"><label>City / Location</label><input id="pf-city" type="text" placeholder="e.g. Jabalpur"></div>
           <div class="fg"><label>Business / Agency Name</label><input id="pf-business" type="text" placeholder="Optional"></div>
           <div class="fg"><label>Partnership Type</label>
-            <select id="pf-type">
+            <select id="pf-type" onchange="document.getElementById('pf-type-other-wrap').style.display = (this.value === 'Other') ? '' : 'none';">
               <option>Real Estate Agent / Agency</option>
               <option>Property Owner / Developer</option>
               <option>Home Services Provider</option>
               <option>Marketing / Referral Partner</option>
+              <option>Social Media Influencer</option>
               <option>Other</option>
             </select>
           </div>
+          <div class="fg" id="pf-type-other-wrap" style="display:none;"><label>Please specify</label><input id="pf-type-other" type="text" placeholder="Tell us what you do"></div>
           <div class="fg"><label>Years of Experience</label><input id="pf-exp" type="number" min="0" placeholder="e.g. 3"></div>
           <div class="fg"><label>Website / Social Profile</label><input id="pf-web" type="text" placeholder="Optional"></div>
         </div>
@@ -12171,16 +12187,29 @@
     async function submitPartnerApplication() {
       if (!user) return;
       const name = document.getElementById('pf-name').value.trim();
-      const phone = document.getElementById('pf-phone').value.trim();
+      const phoneDigits = document.getElementById('pf-phone').value.trim();
       const city = document.getElementById('pf-city').value.trim();
       const business = document.getElementById('pf-business').value.trim();
-      const type = document.getElementById('pf-type').value;
+      let type = document.getElementById('pf-type').value;
       const exp = document.getElementById('pf-exp').value.trim();
       const web = document.getElementById('pf-web').value.trim();
       const msg = document.getElementById('pf-msg').value.trim();
-      if (!name || !phone || !city) {
+      if (!name || !phoneDigits || !city) {
         toast('Please fill in your name, phone, and city.', 'error');
         return;
+      }
+      if (!/^\d{10}$/.test(phoneDigits)) {
+        toast('Please enter a valid 10-digit phone number.', 'error');
+        return;
+      }
+      const phone = '+91' + phoneDigits;
+      if (type === 'Other') {
+        const otherText = (document.getElementById('pf-type-other').value || '').trim();
+        if (!otherText) {
+          toast('Please specify your partnership type.', 'error');
+          return;
+        }
+        type = otherText;
       }
       setLoader(true, 'Submitting application...');
       try {
@@ -13562,8 +13591,8 @@
       renderNotifBadge();
       renderNotifList();
       // Welcome notif for first-time only (not re-shown after user clears)
-      if (!localStorage.getItem('rn-welcome-notif-shown')) {
-        localStorage.setItem('rn-welcome-notif-shown', '1');
+      if (!localStorage.getItem('rn-welcome-notif-shown-' + ((user && (user.id || user.sub || user.email)) || 'anon'))) {
+        localStorage.setItem('rn-welcome-notif-shown-' + ((user && (user.id || user.sub || user.email)) || 'anon'), '1');
         pushNotif('🎉', 'Welcome to Rent Nivas! Start by adding your first listing.');
         pushNotif('💡', 'Tip: Add 3+ photos to get 2x more inquiries.');
       }
@@ -13577,7 +13606,9 @@
         if (!uid) return;
         fetchProfileRow().then(function(prof) {
           if (prof && !prof.chest_claimed && typeof window._rnShowCreditsPrompt === 'function') {
-            sb.from('profiles').update({ chest_claimed: true }).eq('id', user.id).then(function(){});
+            sb.from('profiles').update({ chest_claimed: true }).eq('id', user.id).then(function(res){
+              if (res && res.error) console.warn('[Chest] failed to mark claimed:', res.error.message);
+            });
             window._rnShowCreditsPrompt();
           }
         }).catch(function(){});
@@ -17349,7 +17380,7 @@
         // NOTE: this backend has no relational joins (unlike Supabase) — fetch
         // partner_requests and profiles separately and join them manually.
         const { data, error } = await withTimeout(
-          sb.from('partner_requests').select('user_id').eq('status', 'accepted'),
+          sb.from('partner_requests').select('user_id,full_name,email').eq('status', 'accepted'),
           6000, 'Partner load timed out'
         );
         if (error) throw error;
@@ -17365,10 +17396,15 @@
         }
         picker.innerHTML = data.map(r => {
           const p = profMap[r.user_id];
+          // Profiles table may not have a synced row for this user (e.g. id
+          // mismatch or never created) — fall back to the name/email that
+          // was captured on the partner_requests row itself before finally
+          // falling back to the raw id.
+          const displayName = p?.name || p?.email || r.full_name || r.email || r.user_id;
           return `
           <label style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;cursor:pointer;font-size:13px;color:var(--ink);">
             <input type="checkbox" value="${esc(r.user_id)}" style="margin:0;">
-            ${esc(p?.name || p?.email || r.user_id)}
+            ${esc(displayName)}
           </label>`;
         }).join('');
       } catch (e) {
@@ -17798,7 +17834,7 @@
         el.innerHTML = '<div style="text-align:center;padding:32px;color:var(--muted);">Loading partner requests...</div>';
         try {
           const { data, error } = await withTimeout(
-            sb.from('partner_requests').select('id,user_id,full_name,email,phone,partner_type,city,status,created_at,revoke_reason').order('created_at', { ascending: false }).limit(200),
+            sb.from('partner_requests').select('id,user_id,full_name,email,phone,partner_type,city,business_name,experience,website,message,status,created_at,revoke_reason').order('created_at', { ascending: false }).limit(200),
             8000, 'Partner requests load timed out'
           );
           if (error) throw error;
@@ -17807,6 +17843,8 @@
             const statusBg = p.status==='pending'?'var(--amber-bg)':p.status==='accepted'?'var(--green-bg)':'var(--red-bg)';
             const statusClr = p.status==='pending'?'var(--amber)':p.status==='accepted'?'var(--green)':'var(--red)';
             const revokeNote = (p.status==='revoked' && p.revoke_reason) ? `<div style="font-size:11px;color:var(--red);margin-top:3px;">Reason: ${esc(p.revoke_reason)}</div>` : '';
+            const extraRow = (label, val) => val ? `<div style="font-size:12px;color:var(--muted);margin-top:2px;"><b style="color:var(--ink);">${label}:</b> ${esc(val)}</div>` : '';
+            const msgRow = p.message ? `<div style="font-size:12px;color:var(--ink);margin-top:6px;padding:8px 10px;background:var(--bg);border-radius:6px;border:1px solid var(--border2);white-space:pre-wrap;">${esc(p.message)}</div>` : '';
             const actionBtns = p.status==='pending'
               ? `<div style="display:flex;gap:6px;">
                   <button class="btn btn-sm" style="background:var(--green-bg);color:var(--green);font-size:12px;" onclick="adminGivePartner('${esc(p.user_id)}','${esc(p.full_name)}','${esc(p.email)}')">✅ Accept</button>
@@ -17820,6 +17858,10 @@
                 <div style="font-size:14px;font-weight:700;color:var(--ink);margin-bottom:2px;">${esc(p.full_name||'—')}</div>
                 <div style="font-size:12px;color:var(--muted);">${esc(p.email||'—')} &nbsp;·&nbsp; ${esc(p.phone||'—')} &nbsp;·&nbsp; ${esc(p.city||'—')}</div>
                 <div style="font-size:12px;color:var(--muted);margin-top:2px;">Type: ${esc(p.partner_type||'—')} &nbsp;·&nbsp; ${fmtDate(p.created_at)}</div>
+                ${extraRow('Business / Agency', p.business_name)}
+                ${extraRow('Experience', p.experience ? (p.experience + ' yrs') : '')}
+                ${extraRow('Website / Social', p.website)}
+                ${msgRow}
                 ${revokeNote}
               </div>
               <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0;">
