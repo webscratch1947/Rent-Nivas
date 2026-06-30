@@ -11262,14 +11262,33 @@
         const banned = await checkUserBan();
         if (banned) return;
         const savedRole = localStorage.getItem('nestly-role');
+        // Resume the tutorial (if it was running) directly at the
+        // post-registration step. Google sign-in never shows the signup
+        // page or the email-verification box, so the tutorial must not
+        // land on that step — it previously got stuck/lost there because
+        // the page reload from the OAuth redirect caused tutorial init to
+        // bail out (it thought the tutorial was "already started").
+        try {
+          if (!localStorage.getItem('rn-tutorial-done')) {
+            var _tutOv = document.getElementById('rn-tutorial');
+            if (_tutOv) {
+              localStorage.setItem('rn-tutorial-started', '1');
+              _tutOv.classList.remove('rn-hidden');
+              document.body.classList.add('rn-tut-open');
+              if (window._RNTut) {
+                window._RNTut.done = false;
+                window._RNTut._patchNav();
+                var _tutStep = savedRole === 'host' ? 6 : savedRole === 'rent' ? 10 : 5;
+                setTimeout(function () { window._RNTut.setStep(_tutStep); }, 500);
+              }
+            }
+          }
+        } catch (e) {}
         if (savedRole) {
           await selectRole(savedRole);
         } else {
           showPage('role-page');
         }
-      } catch (err) {
-        toast(err.message || 'Google sign-in failed. Please try again.', 'error');
-        showPage('login-page');
       } finally {
         setLoader(false);
       }
@@ -20358,7 +20377,14 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
         .then(function(r) { return r.text(); })
         .then(function(svgText) {
           if (!wrap) return;
-          wrap.innerHTML = svgText;
+          // Convert to "play once, freeze on last frame" — the raw file loops
+          // forever (repeatCount="indefinite"), which is why tapping the chest
+          // never settled on the open/coins frame and looked stuck/broken.
+          var onceText = svgText
+            .replace(/repeatCount="indefinite"/g, 'repeatCount="1" fill="freeze"')
+            .replace(/\sfill="remove"/g, ' fill="freeze"')
+            .replace(/(<(?:animate|animateTransform|animateMotion|set)(?![^>]*\sfill=)[^>]*?)(\/?>)/g, '$1 fill="freeze"$2');
+          wrap.innerHTML = onceText;
           _applyFirstFrame(wrap.querySelector('svg'));
           _showOverlay();
         })
@@ -20730,8 +20756,11 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
     var myName  = ((window.user.name || (window.user.user_metadata && window.user.user_metadata.name) || window.user.given_name) || '').toLowerCase().trim();
     if (!myEmail && !mySub) return;
 
-    // Public endpoint — no auth needed
-    fetch('/api/leaderboard?limit=5')
+    // Public endpoint — no auth needed. Cache-bust so a stale/edge-cached
+    // response can't hide a recent #1 change (this was why the crown only
+    // ever updated after opening the full leaderboard page, which fetches
+    // a different URL/params and so always got a fresh response).
+    fetch('/api/leaderboard?limit=5&_=' + Date.now())
       .then(function (r) { return r.json(); })
       .then(function (json) {
         var rows = json.data || json.leaderboard || (Array.isArray(json) ? json : []);
@@ -20780,6 +20809,8 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
       if (window.user || ++n > 40) { clearInterval(iv); if (window.user) window._checkCrown(); }
     }, 500);
   }, 500);
+  /* One extra late re-check, in case credits/profile finished loading after the early checks */
+  setTimeout(function () { if (window.user) window._checkCrown(); }, 6000);
 
 })();
 </script>
