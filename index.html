@@ -11157,14 +11157,14 @@
     // Redirects to Cognito's Hosted UI → Google identity provider.
     // ALL config below comes from window.__RN_* values injected by
     // /env-inject.js, which itself reads them from environment variables
-    // (COGNITO_DOMAIN, COGNITO_CLIENT_ID, COGNITO_REDIRECT_URI /
-    // GOOGLE_REDIRECT_URI, GOOGLE_AUTH_URI, GOOGLE_SCOPES). Nothing is
+    // (COGNITO_DOMAIN, COGNITO_CLIENT_ID, COGNITO_REDIRECT_URI,
+    // GOOGLE_AUTH_URI, GOOGLE_SCOPES). Nothing is
     // hardcoded here — if a required value is missing, sign-in fails with a
     // clear "not configured" toast instead of silently using a baked-in value.
     function doGoogleSignIn() {
       const domain = window.__RN_COGNITO_DOMAIN || '';
       const clientId = window.__RN_COGNITO_CLIENT_ID || '';
-      const redirectUri = window.__RN_GOOGLE_REDIRECT_URI || '';
+      const redirectUri = window.__RN_COGNITO_REDIRECT_URI || '';
       const authorizeBase = window.__RN_GOOGLE_AUTH_URI || (domain ? 'https://' + domain + '/oauth2/authorize' : '');
       const scopes = window.__RN_GOOGLE_SCOPES || 'openid email profile';
 
@@ -11228,7 +11228,7 @@
       setLoader(true, 'Completing Google sign-in…');
       try {
         // NOTE: redirect_uri is NOT sent here — the backend (api/auth.js) uses
-        // its own server-side COGNITO_REDIRECT_URI/GOOGLE_REDIRECT_URI env var
+        // its own server-side COGNITO_REDIRECT_URI env var
         // so the value can never be tampered with or drift from what was sent
         // to Cognito's /authorize endpoint.
         const resp = await fetch('/api/auth', {
