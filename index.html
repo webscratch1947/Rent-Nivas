@@ -8860,7 +8860,7 @@
     <div class="modal-box" style="max-width:680px;width:94%;text-align:left;padding:28px 24px;">
       <button type="button" onclick="closeFurnishItemsModal()"
         style="position:absolute;top:14px;right:14px;background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted);line-height:1;padding:4px;">✕</button>
-      <div style="font-size:19px;font-weight:800;color:var(--ink);font-family:var(--font-display);margin-bottom:4px;">🛋️ Add Furnishing Items</div>
+      <div style="font-size:19px;font-weight:800;color:var(--ink);font-family:var(--font-display);margin-bottom:4px;display:flex;align-items:center;gap:8px;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12V8a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v4"/><path d="M3 12h18v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4Z"/><path d="M5 18v2M19 18v2"/></svg>Add Furnishing Items</div>
       <div style="font-size:13px;color:var(--muted);margin-bottom:18px;">Select the furniture & appliances included with this property. At least 1 item is required since you marked this property as furnished.</div>
       <div id="furnish-items-grid"
         style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;max-height:55vh;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-right:4px;"></div>
@@ -9986,7 +9986,7 @@
                     <button type="button" class="btn btn-soft btn-sm" onclick="openFurnishItemsModal()"
                       id="furnish-items-btn"
                       style="width:100%;text-align:left;display:flex;align-items:center;justify-content:space-between;">
-                      <span>🛋️ Furnishing Items</span>
+                      <span style="display:flex;align-items:center;gap:7px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12V8a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v4"/><path d="M3 12h18v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4Z"/><path d="M5 18v2M19 18v2"/></svg>Furnishing Items</span>
                       <span id="furnish-items-count-badge" style="font-weight:700;">0 selected</span>
                     </button>
                     <div id="furnish-items-warn" style="display:none;font-size:12px;color:var(--red,#c0392b);margin-top:6px;">
@@ -9996,7 +9996,7 @@
                   <!-- ══ FLOORS SECTION ══ -->
                   <div style="margin-top:18px;border-top:1.5px solid var(--border2);padding-top:16px;">
                     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-                      <div style="font-size:14px;font-weight:700;color:var(--soft);">🏢 Floors <span style="font-weight:400;font-size:12px;color:var(--muted2);">(Optional)</span></div>
+                      <div style="font-size:14px;font-weight:700;color:var(--soft);display:flex;align-items:center;gap:6px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="1"/><path d="M8 7h2M14 7h2M8 11h2M14 11h2M8 15h2M14 15h2"/><path d="M10 21v-4h4v4"/></svg>Floors <span style="font-weight:400;font-size:12px;color:var(--muted2);">(Optional)</span></div>
                       <button type="button" onclick="window._rnAddFloor()" class="btn btn-soft btn-sm" style="padding:6px 14px;font-size:13px;">+ Add Floor</button>
                     </div>
                     <div id="rn-floors-list" style="display:flex;flex-direction:column;gap:10px;"></div>
@@ -14235,32 +14235,62 @@
       else selectedConditions.add(val);
     }
 
+    // ══ LINE-ICON SET (replaces emoji for a cleaner, professional look) ══
+    const _SVG_ICONS = {
+      building:        '<rect x="4" y="3" width="16" height="18" rx="1"/><path d="M8 7h2M14 7h2M8 11h2M14 11h2M8 15h2M14 15h2"/><path d="M10 21v-4h4v4"/>',
+      sofa:            '<path d="M5 12V8a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v4"/><path d="M3 12h18v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4Z"/><path d="M5 18v2M19 18v2"/>',
+      dining_table:    '<path d="M3 8h18M5 8v9M19 8v9M9 8V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3"/>',
+      bed:             '<path d="M3 18v-7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v7"/><path d="M3 14h18"/><path d="M7 11V9a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2"/><path d="M3 18v2M21 18v2"/>',
+      wardrobe:        '<rect x="5" y="3" width="14" height="18" rx="1"/><path d="M12 3v18"/><circle cx="10" cy="12" r=".6" fill="currentColor"/><circle cx="14" cy="12" r=".6" fill="currentColor"/>',
+      cupboard:        '<rect x="4" y="5" width="16" height="14" rx="1"/><path d="M12 5v14"/><circle cx="10" cy="12" r=".6" fill="currentColor"/><circle cx="14" cy="12" r=".6" fill="currentColor"/>',
+      tv:              '<rect x="3" y="5" width="18" height="12" rx="1"/><path d="M9 21h6M12 17v4"/>',
+      fridge:          '<rect x="6" y="2" width="12" height="20" rx="1"/><path d="M6 9h12"/><path d="M9 4v3M9 11v3"/>',
+      washing_machine: '<rect x="4" y="3" width="16" height="18" rx="1"/><circle cx="12" cy="13" r="5"/><path d="M8 6h.01M11 6h.01"/>',
+      microwave:       '<rect x="3" y="6" width="18" height="12" rx="1"/><rect x="6" y="9" width="9" height="6" rx="0.5"/><path d="M18 11h.01M18 14h.01"/>',
+      stove:           '<rect x="3" y="4" width="18" height="16" rx="1"/><circle cx="8" cy="10" r="1.6"/><circle cx="16" cy="10" r="1.6"/><circle cx="8" cy="16" r="1.6"/><circle cx="16" cy="16" r="1.6"/>',
+      modular_kitchen: '<path d="M3 20V8a1 1 0 0 1 1-1h16a1 1 0 0 1 1 1v12"/><path d="M3 20h18"/><circle cx="8" cy="12.5" r="2"/><path d="M14 10v5M18 10v5"/>',
+      chimney:         '<path d="M7 21l1-9h8l1 9"/><path d="M6 12h12l-2-7H8l-2 7Z"/>',
+      water_purifier:  '<rect x="7" y="3" width="10" height="14" rx="1"/><path d="M9 21h6M12 17v4M10 7h4"/>',
+      geyser:          '<rect x="7" y="3" width="10" height="17" rx="4"/><path d="M10 8h4"/>',
+      ac:              '<rect x="3" y="6" width="18" height="7" rx="1.5"/><path d="M6 16l-1 3M11 16l-1 3M16 16l-1 3"/>',
+      fan:             '<circle cx="12" cy="12" r="1.6"/><path d="M12 12c0-3 2-6 5-6 1.7 0 2.5 1.4 1.5 3-1 1.6-3.5 3-6.5 3Z"/><path d="M12 12c3 0 6 2 6 5 0 1.7-1.4 2.5-3 1.5-1.6-1-3-3.5-3-6.5Z"/><path d="M12 12c-3 0-6-2-6-5 0-1.7 1.4-2.5 3-1.5 1.6 1 3 3.5 3 6.5Z"/>',
+      light:           '<path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.5 10.9c.5.4.8 1 .8 1.6h5.4c0-.6.3-1.2.8-1.6A6 6 0 0 0 12 3Z"/>',
+      gas_pipeline:    '<path d="M4 6h6l-2 3h6l-2 3h6"/><circle cx="20" cy="16" r="2.4"/><path d="M20 13.6c1 1 1 2.4 0 3.6"/>',
+      curtains:        '<path d="M5 3v18M19 3v18"/><path d="M5 3c2 3 0 6 2 9s-1 5 1 9M19 3c-2 3 0 6-2 9s1 5-1 9"/>',
+      water_heater:    '<rect x="8" y="2" width="8" height="16" rx="3.5"/><path d="M10 22c0-1.2.8-1.8.8-3s-.8-1.8-.8-3M14 22c0-1.2.8-1.8.8-3s-.8-1.8-.8-3"/>',
+    };
+    function _fiSvg(key, size) {
+      const s = size || 22;
+      return `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="display:block;">${_SVG_ICONS[key] || _SVG_ICONS.sofa}</svg>`;
+    }
+
     // ══ FURNISHING ITEMS ══
-    // key -> { label, icon }
     const FURNISH_ITEMS_LIST = [
-      { key: 'dining_table',    label: 'Dining Table',    icon: '🍽️' },
-      { key: 'sofa',            label: 'Sofa',             icon: '🛋️' },
-      { key: 'bed',             label: 'Bed',              icon: '🛏️' },
-      { key: 'wardrobe',        label: 'Wardrobe',         icon: '🚪' },
-      { key: 'cupboard',        label: 'Cupboard',         icon: '🗄️' },
-      { key: 'tv',              label: 'TV',               icon: '📺' },
-      { key: 'fridge',          label: 'Fridge',           icon: '🧊' },
-      { key: 'washing_machine', label: 'Washing Machine',  icon: '🧺' },
-      { key: 'microwave',       label: 'Microwave',        icon: '📦' },
-      { key: 'stove',           label: 'Stove',            icon: '🔥' },
-      { key: 'modular_kitchen', label: 'Modular Kitchen',  icon: '🍳' },
-      { key: 'chimney',         label: 'Chimney',          icon: '🏭' },
-      { key: 'water_purifier',  label: 'Water Purifier',   icon: '💧' },
-      { key: 'geyser',          label: 'Geyser',           icon: '🔥' },
-      { key: 'ac',              label: 'AC',               icon: '❄️' },
-      { key: 'fan',             label: 'Fan',              icon: '🌀' },
-      { key: 'light',           label: 'Light',            icon: '💡' },
-      { key: 'gas_pipeline',    label: 'Gas Pipeline',     icon: '🔧' },
-      { key: 'curtains',        label: 'Curtains',         icon: '🪟' },
-      { key: 'water_heater',    label: 'Water Heater',     icon: '🚿' },
+      { key: 'dining_table',    label: 'Dining Table' },
+      { key: 'sofa',            label: 'Sofa' },
+      { key: 'bed',             label: 'Bed' },
+      { key: 'wardrobe',        label: 'Wardrobe' },
+      { key: 'cupboard',        label: 'Cupboard' },
+      { key: 'tv',              label: 'TV' },
+      { key: 'fridge',          label: 'Fridge' },
+      { key: 'washing_machine', label: 'Washing Machine' },
+      { key: 'microwave',       label: 'Microwave' },
+      { key: 'stove',           label: 'Stove' },
+      { key: 'modular_kitchen', label: 'Modular Kitchen' },
+      { key: 'chimney',         label: 'Chimney' },
+      { key: 'water_purifier',  label: 'Water Purifier' },
+      { key: 'geyser',          label: 'Geyser' },
+      { key: 'ac',              label: 'AC' },
+      { key: 'fan',             label: 'Fan' },
+      { key: 'light',           label: 'Light' },
+      { key: 'gas_pipeline',    label: 'Gas Pipeline' },
+      { key: 'curtains',        label: 'Curtains' },
+      { key: 'water_heater',    label: 'Water Heater' },
     ];
-    // key -> count (only keys with count > 0 are "selected")
+    // Main-property items: key -> count (only keys with count > 0 are "selected")
     let furnishItems = {};
+    // Which target the modal is currently editing: 'main' or a floor's numeric id
+    let _fiTarget = 'main';
 
     function _furnishStatusIsFurnished() {
       const val = document.getElementById('h-furnish-status')?.value || '';
@@ -14271,17 +14301,32 @@
       return Object.values(furnishItems).filter(c => (c || 0) > 0).length;
     }
 
-    function _updateFurnishBadge() {
-      const badge = document.getElementById('furnish-items-count-badge');
-      const n = _furnishItemsSelectedCount();
-      if (badge) badge.textContent = n === 0 ? 'Add items' : `${n} item${n > 1 ? 's' : ''} selected`;
-      const modalCount = document.getElementById('furnish-items-modal-count');
-      if (modalCount) modalCount.textContent = String(n);
-      const warn = document.getElementById('furnish-items-warn');
-      if (warn) warn.style.display = (n === 0 && _furnishStatusIsFurnished()) ? '' : 'none';
+    // Returns the live items object for the given target, creating it on a floor if missing
+    function _fiItemsRef(target) {
+      if (target === 'main' || target == null) return furnishItems;
+      const f = (typeof _rnFloors !== 'undefined') ? _rnFloors.find(x => x.id === target) : null;
+      if (!f) return {};
+      if (!f.furnishItems) f.furnishItems = {};
+      return f.furnishItems;
     }
 
-    // Called on change of the Furnishing Status select. `autoOpen` = true when
+    function _updateFurnishBadge() {
+      const items = _fiItemsRef(_fiTarget);
+      const n = Object.values(items).filter(c => (c || 0) > 0).length;
+      const modalCount = document.getElementById('furnish-items-modal-count');
+      if (modalCount) modalCount.textContent = String(n);
+      if (_fiTarget === 'main') {
+        const badge = document.getElementById('furnish-items-count-badge');
+        if (badge) badge.textContent = n === 0 ? 'Add items' : `${n} item${n > 1 ? 's' : ''} selected`;
+        const warn = document.getElementById('furnish-items-warn');
+        if (warn) warn.style.display = (n === 0 && _furnishStatusIsFurnished()) ? '' : 'none';
+      } else {
+        const badge = document.getElementById('fi-floor-badge-' + _fiTarget);
+        if (badge) badge.textContent = n === 0 ? 'Add items' : `${n} item${n > 1 ? 's' : ''} selected`;
+      }
+    }
+
+    // Called on change of the main Furnishing Status select. `autoOpen` = true when
     // triggered live by the user picking Fully/Semi Furnished, so we can pop
     // the items modal straight away. Edit-mode restoration calls this with
     // autoOpen = false so it doesn't interrupt prefill.
@@ -14289,6 +14334,7 @@
       const wrap = document.getElementById('furnish-items-btn-wrap');
       const isFurnished = _furnishStatusIsFurnished();
       if (wrap) wrap.style.display = isFurnished ? '' : 'none';
+      _fiTarget = 'main';
       if (!isFurnished) {
         // Unfurnished / not selected — items are irrelevant, but we keep any
         // previously entered data in memory in case the user toggles back.
@@ -14296,29 +14342,50 @@
         return;
       }
       _updateFurnishBadge();
-      if (autoOpen) openFurnishItemsModal();
+      if (autoOpen) openFurnishItemsModal('main');
     }
 
+    // Called when a per-floor Furnishing Status select changes
+    window._rnFloorFurnishChange = function(id, val) {
+      const f = _rnFloors.find(x => x.id === id);
+      if (!f) return;
+      f.furnishStatus = val;
+      const wrap = document.getElementById('fi-floor-btn-wrap-' + id);
+      const isFurnished = val === 'Fully Furnished' || val === 'Semi-Furnished';
+      if (wrap) wrap.style.display = isFurnished ? '' : 'none';
+      if (isFurnished) openFurnishItemsModal(id);
+    };
+
     function _fiChange(key, delta) {
-      const cur = furnishItems[key] || 0;
+      const items = _fiItemsRef(_fiTarget);
+      const cur = items[key] || 0;
       const next = Math.max(0, cur + delta);
-      if (next === 0) delete furnishItems[key];
-      else furnishItems[key] = next;
+      if (next === 0) delete items[key];
+      else items[key] = next;
       const countEl = document.getElementById('fi-count-' + key);
       if (countEl) countEl.textContent = String(next);
       const card = document.getElementById('fi-card-' + key);
-      if (card) card.classList.toggle('selected', next > 0);
+      if (card) {
+        card.classList.toggle('selected', next > 0);
+        card.style.borderColor = next > 0 ? 'var(--terra)' : 'var(--border2)';
+        card.style.background = next > 0 ? 'var(--terra-lt)' : 'var(--white)';
+        const iconWrap = card.querySelector('.fi-icon-wrap');
+        if (iconWrap) iconWrap.style.color = next > 0 ? 'var(--terra)' : 'var(--muted)';
+      }
       _updateFurnishBadge();
     }
 
-    function openFurnishItemsModal() {
+    // target: 'main' (default) or a floor's numeric id
+    function openFurnishItemsModal(target) {
+      _fiTarget = (target === undefined) ? 'main' : target;
+      const items = _fiItemsRef(_fiTarget);
       const grid = document.getElementById('furnish-items-grid');
       if (grid) {
         grid.innerHTML = FURNISH_ITEMS_LIST.map(it => {
-          const count = furnishItems[it.key] || 0;
+          const count = items[it.key] || 0;
           return `<div class="fi-card${count > 0 ? ' selected' : ''}" id="fi-card-${it.key}"
               style="border:1.5px solid ${count > 0 ? 'var(--terra)' : 'var(--border2)'};background:${count > 0 ? 'var(--terra-lt)' : 'var(--white)'};border-radius:10px;padding:12px 10px;text-align:center;transition:.15s;">
-            <div style="font-size:24px;margin-bottom:6px;">${it.icon}</div>
+            <div class="fi-icon-wrap" style="margin:0 auto 6px;width:24px;height:24px;color:${count > 0 ? 'var(--terra)' : 'var(--muted)'};">${_fiSvg(it.key)}</div>
             <div style="font-size:12.5px;font-weight:600;color:var(--ink);margin-bottom:8px;line-height:1.25;min-height:32px;display:flex;align-items:center;justify-content:center;">${it.label}</div>
             <div style="display:flex;align-items:center;justify-content:center;gap:10px;">
               <button type="button" onclick="_fiChange('${it.key}',-1)"
@@ -14341,6 +14408,8 @@
       if (bg) bg.classList.remove('open');
       _unlockScroll();
       _updateFurnishBadge();
+      // Refresh floor badges in case a floor's item count changed
+      if (_fiTarget !== 'main' && typeof _rnRenderFloors === 'function') _rnRenderFloors();
     }
 
     // ══ CUSTOM ROOMS ══
@@ -14411,9 +14480,12 @@
       list.innerHTML = _rnFloors.map((f, idx) => {
         const floorNum = idx + 1;
         const label = f.label || `Floor ${floorNum}`;
+        const fFurnishStatus = f.furnishStatus || '';
+        const fIsFurnished = fFurnishStatus === 'Fully Furnished' || fFurnishStatus === 'Semi-Furnished';
+        const fItemCount = Object.values(f.furnishItems || {}).filter(c => (c || 0) > 0).length;
         return `<div style="background:var(--card);border:1.5px solid var(--border2);border-radius:12px;padding:14px 14px 10px;">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-            <div style="font-size:13px;font-weight:700;color:var(--ink);">🏢 Floor ${floorNum}</div>
+            <div style="font-size:13px;font-weight:700;color:var(--ink);display:flex;align-items:center;gap:6px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="1"/><path d="M8 7h2M14 7h2M8 11h2M14 11h2M8 15h2M14 15h2"/><path d="M10 21v-4h4v4"/></svg>Floor ${floorNum}</div>
             <button type="button" onclick="window._rnRemoveFloor(${f.id})" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:16px;line-height:1;padding:2px 6px;" title="Remove floor">✕</button>
           </div>
           <div class="form-2col" style="gap:8px;">
@@ -14466,6 +14538,23 @@
               oninput="window._rnFloorUpdate(${f.id},'notes',this.value)"
               style="padding:9px 12px;border:1.5px solid var(--border2);border-radius:8px;font-size:13px;width:100%;box-sizing:border-box;font-family:var(--font);color:var(--ink);background:var(--white);outline:none;">
           </div>
+          <div class="fg" style="margin:8px 0 0;">
+            <label style="font-size:12px;">Furnishing Status</label>
+            <select onchange="window._rnFloorFurnishChange(${f.id}, this.value)"
+              style="padding:9px 12px;border:1.5px solid var(--border2);border-radius:8px;font-size:13px;width:100%;box-sizing:border-box;font-family:var(--font);color:var(--ink);background:var(--white);outline:none;">
+              <option value="" ${fFurnishStatus===''?'selected':''}>— Select —</option>
+              <option value="Fully Furnished" ${fFurnishStatus==='Fully Furnished'?'selected':''}>Fully Furnished</option>
+              <option value="Semi-Furnished" ${fFurnishStatus==='Semi-Furnished'?'selected':''}>Semi-Furnished</option>
+              <option value="Unfurnished" ${fFurnishStatus==='Unfurnished'?'selected':''}>Unfurnished</option>
+            </select>
+          </div>
+          <div class="fg" id="fi-floor-btn-wrap-${f.id}" style="margin:8px 0 0;display:${fIsFurnished?'':'none'};">
+            <button type="button" onclick="openFurnishItemsModal(${f.id})"
+              style="width:100%;text-align:left;display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border:1.5px solid var(--border2);border-radius:8px;background:var(--white);cursor:pointer;font-family:var(--font);font-size:13px;color:var(--ink);">
+              <span style="display:flex;align-items:center;gap:7px;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12V8a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v4"/><path d="M3 12h18v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4Z"/><path d="M5 18v2M19 18v2"/></svg>Furnishing Items</span>
+              <span id="fi-floor-badge-${f.id}" style="font-weight:700;">${fItemCount === 0 ? 'Add items' : fItemCount + ' item' + (fItemCount > 1 ? 's' : '') + ' selected'}</span>
+            </button>
+          </div>
         </div>`;
       }).join('');
     }
@@ -14488,7 +14577,9 @@
         kitchen: parseInt(f.kitchen)||0,
         balcony: parseInt(f.balcony)||0,
         living: parseInt(f.living)||0,
-        notes: f.notes||''
+        notes: f.notes||'',
+        furnish_status: f.furnishStatus || null,
+        furnish_items: (f.furnishItems && Object.values(f.furnishItems).some(c => (c||0) > 0)) ? f.furnishItems : null
       }));
     }
 
@@ -14499,7 +14590,7 @@
       const type = selectedPropType || '';
       if (!['Office', 'PG', 'Shop'].includes(type)) {
         _rnFloorCounter = 1;
-        _rnFloors.push({ id: 1, label: 'Ground Floor', rent: '', rooms: '', baths: '', kitchen: '', living: '', balcony: '', notes: '' });
+        _rnFloors.push({ id: 1, label: 'Ground Floor', rent: '', rooms: '', baths: '', kitchen: '', living: '', balcony: '', notes: '', furnishStatus: '', furnishItems: {} });
       }
       _rnRenderFloors();
       const empty = document.getElementById('rn-floors-empty');
@@ -14512,7 +14603,19 @@
       if (Array.isArray(floorsData) && floorsData.length > 0) {
         floorsData.forEach(f => {
           _rnFloorCounter++;
-          _rnFloors.push({ id: _rnFloorCounter, ...f });
+          _rnFloors.push({
+            id: _rnFloorCounter,
+            label: f.label || '',
+            rent: f.rent || '',
+            rooms: f.rooms || '',
+            baths: f.baths || '',
+            kitchen: f.kitchen || '',
+            living: f.living || '',
+            balcony: f.balcony || '',
+            notes: f.notes || '',
+            furnishStatus: f.furnish_status || '',
+            furnishItems: f.furnish_items || {}
+          });
         });
       } else if (defaultFloorData) {
         // No extra floors saved — create a default floor from the main property data
@@ -14526,7 +14629,9 @@
           kitchen: defaultFloorData.kitchen || '',
           living: defaultFloorData.living_room || '',
           balcony: defaultFloorData.balcony || '',
-          notes: ''
+          notes: '',
+          furnishStatus: defaultFloorData.furnish_status || '',
+          furnishItems: defaultFloorData.furnish_items || {}
         });
       }
       _rnRenderFloors();
@@ -14825,8 +14930,20 @@
         if (!baths) return toast('Please enter number of bathrooms', 'error');
       }
       if (isResidential && _furnishStatusIsFurnished() && _furnishItemsSelectedCount() === 0) {
-        openFurnishItemsModal();
+        openFurnishItemsModal('main');
         return toast('Please add at least 1 furnishing item since you marked this property as furnished', 'error');
+      }
+      if (isResidential && typeof _rnFloors !== 'undefined') {
+        const badFloor = _rnFloors.find(f => {
+          const fs = f.furnishStatus || '';
+          const isFurn = fs === 'Fully Furnished' || fs === 'Semi-Furnished';
+          const cnt = Object.values(f.furnishItems || {}).filter(c => (c || 0) > 0).length;
+          return isFurn && cnt === 0;
+        });
+        if (badFloor) {
+          openFurnishItemsModal(badFloor.id);
+          return toast('Please add at least 1 furnishing item for the floor marked as furnished', 'error');
+        }
       }
 
       if (status === 'published' && !currentEditId && selectedFiles.length === 0)
