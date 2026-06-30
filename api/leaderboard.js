@@ -16,7 +16,7 @@ const { CognitoIdentityProviderClient, ListUsersCommand } = require('@aws-sdk/cl
 
 const REGION       = process.env.AWS_REGION || process.env.RENT_NIVAS_AWS_REGION || 'eu-north-1';
 const TABLE_USERS  = process.env.TABLE_USERS || 'Users';
-const USER_POOL_ID = process.env.COGNITO_USER_POOL_ID || 'eu-north-1_GM7Zi2xvq';
+const USER_POOL_ID = process.env.COGNITO_USER_POOL_ID;
 const DEFAULT_CREDITS = 10; // credits every new user starts with
 
 const ddb     = new DynamoDBClient({ region: REGION });
