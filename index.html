@@ -13447,9 +13447,15 @@
 
       if (pr && !pr.error) {
         if (pr.data === null) {
-          // Auto-create missing profile
+          // Auto-create missing profile. This used to be fully fire-and-forget
+          // with no retry — if this single call failed (network blip, cold
+          // start, etc) the row would NEVER get created and the account would
+          // be stuck showing 0 credits forever with nothing backing it in
+          // DynamoDB, with no visible error anywhere. Now: retry once, and on
+          // success actually reflect the real credits instead of leaving the
+          // stale 0 on screen.
           console.warn('[Nestly] Profile missing — auto-creating for:', user.email);
-          sb.from('profiles').upsert({
+          const newProfile = {
             id: user.id,
             name: user.user_metadata?.name || user.email?.split('@')[0] || 'User',
             email: user.email,
@@ -13457,7 +13463,22 @@
             referral_code: user.user_metadata?.referral_code || null,
             referred_by_code: null,
             created_at: new Date().toISOString()
-          }).catch(e => console.warn('[Nestly] Profile upsert:', e.message || e));
+          };
+          const tryCreateProfile = (attempt) => {
+            sb.from('profiles').upsert(newProfile).then(function(res) {
+              if (res && res.error) throw res.error;
+              localStorage.setItem('nestly-credits', 10);
+              updateCreditsBadges();
+            }).catch(function(e) {
+              console.warn('[Nestly] Profile upsert attempt', attempt, 'failed:', e.message || e);
+              if (attempt < 2) {
+                setTimeout(function() { tryCreateProfile(attempt + 1); }, 1500);
+              } else {
+                console.error('[Nestly] Profile creation failed twice for', user.email, '— account will show 0 credits until next login attempt.');
+              }
+            });
+          };
+          tryCreateProfile(1);
         } else if (pr.data) {
           // Refresh credits display with authoritative live value
           localStorage.setItem('nestly-credits', Math.max(0, pr.data.credits || 0));
