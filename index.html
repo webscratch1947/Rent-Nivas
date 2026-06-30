@@ -9585,10 +9585,10 @@
               <div class="sidebar-avatar" id="sb-av">H</div>
               <img src="/crown.svg" id="host-crown-badge" class="rn-crown-badge" style="display:none;" alt="Crown">
               <script>
-                // Apply last-known crown state immediately (no network wait) so a
+                // Apply last-known crown state instantly (no network wait) so a
                 // hard refresh doesn't flash "no crown" before the live check runs.
                 try {
-                  if (localStorage.getItem('rn-is-crown-holder') === '1') {
+                  if (localStorage.getItem('rn-crown-holder') === '1') {
                     var _rc0 = document.getElementById('rent-crown-badge');
                     var _hc0 = document.getElementById('host-crown-badge');
                     if (_rc0) _rc0.style.display = 'block';
@@ -20562,18 +20562,6 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
   display: inline-flex;
   flex-shrink: 0;
 }
-/* Crown above list avatar (only for rank 1) */
-.rn-lb-crown-over {
-  position: absolute;
-  top: -20px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 32px;
-  height: 32px;
-  filter: drop-shadow(0 2px 6px rgba(200,160,0,.7));
-  animation: rn-crown-float 2.4s ease-in-out infinite;
-  pointer-events: none;
-}
 .rn-lb-av {
   width: 46px;
   height: 46px;
@@ -20939,29 +20927,22 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
     var topName = displayName(top);
     var topInitial = (topName[0] || '?').toUpperCase();
     var _wu = window.user || {};
-    var _myId    = (_wu.id    || '').toLowerCase().trim();
-    var _mySub   = (_wu.sub   || '').toLowerCase().trim();
+    var _myId    = ((_wu.id || _wu.sub || '') + '').toLowerCase().trim();
     var _myEmail = (_wu.email || '').toLowerCase().trim();
-    var _myName  = (_wu.name  || (_wu.user_metadata && _wu.user_metadata.name) || _wu.given_name || '').toLowerCase().trim();
-    var _topId   = (top.id     || '').toLowerCase().trim();
-    var _topUid  = (top.userId || '').toLowerCase().trim();
+    var _topId   = ((top.id || '') + '').toLowerCase().trim();
     var _topEmail= (top.email  || '').toLowerCase().trim();
-    var _topName = (top.name   || '').toLowerCase().trim();
-    /* Priority: id/sub match first (most reliable), then email, then name */
+    /* Match by account id first (always unique & reliable), email as backup */
     var topIsMe  = !!(uid && (
-      (_myId    && (_myId  === _topId || _myId  === _topUid)) ||
-      (_mySub   && (_mySub === _topId || _mySub === _topUid)) ||
-      (_myEmail && _topEmail && _myEmail === _topEmail)        ||
-      (_myName  && _topName && _myName === _topName && _myName.length > 2)
+      (_myId    && _myId === _topId) ||
+      (_myEmail && _topEmail && _myEmail === _topEmail)
     ));
-    console.log('[Crown/render] _mySub=' + _mySub + ' _topId=' + _topId + ' _myEmail=' + _myEmail + ' _topEmail=' + _topEmail + ' => topIsMe=' + topIsMe);
 
     /* ── Show/hide sidebar crowns immediately while we have full context ── */
     var _hc = document.getElementById('host-crown-badge');
     var _rc = document.getElementById('rent-crown-badge');
     if (_hc) _hc.style.display = topIsMe ? 'block' : 'none';
     if (_rc) _rc.style.display = topIsMe ? 'block' : 'none';
-    try { localStorage.setItem('rn-is-crown-holder', topIsMe ? '1' : '0'); } catch (e) {}
+    try { localStorage.setItem('rn-crown-holder', topIsMe ? '1' : '0'); } catch (e) {}
 
     var heroHtml = '<div class="rn-lb-hero-av-wrap">';
     heroHtml += '<img src="/crown.svg" class="rn-lb-hero-crown" alt="Crown">';
@@ -21068,92 +21049,82 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
     }, 1000);
   }
 
-  /* ── CROWN ON SIDEBAR AVATARS ── */
-  function _rnApplyCrownToTopUser(topId, uid) {
-    var userEmail = (window.user && window.user.email) || '';
-    var isTop = !!(topId && uid && (topId === uid || (userEmail && topId === userEmail)));
-    var hc = document.getElementById('host-crown-badge');
-    var rc = document.getElementById('rent-crown-badge');
-    if (hc) hc.style.display = isTop ? 'block' : 'none';
-    if (rc) rc.style.display = isTop ? 'block' : 'none';
-  }
-  window._rnApplyCrownToTopUser = _rnApplyCrownToTopUser;
+  /* ══════════════════════════════════════════════════════════════════
+     CROWN SYSTEM (rebuilt — single source of truth, no fragile matching)
+     A user holds the crown when their account `id` (== Cognito sub,
+     guaranteed unique) matches the #1 row of the public leaderboard.
+     The leaderboard API tie-breaks by id so rank #1 is deterministic —
+     no more flicker between two users with equal credits.
+     ══════════════════════════════════════════════════════════════════ */
+  (function () {
+    var CROWN_CACHE_KEY = 'rn-crown-holder';
+    var _pollTimer = null;
 
-  /* ── AUTO CHECK CROWN ON LOGIN ── */
-  function _checkCrown() {
-    if (!window.user) return;
-    var myId    = (window.user.id  || '').toLowerCase().trim();
-    var mySub   = (window.user.sub || '').toLowerCase().trim();
-    var myEmail = (window.user.email || '').toLowerCase().trim();
-    var myName  = ((window.user.name || (window.user.user_metadata && window.user.user_metadata.name) || window.user.given_name) || '').toLowerCase().trim();
-    if (!myEmail && !mySub && !myId) return;
+    function _crownEls() {
+      var ids = ['host-crown-badge', 'rent-crown-badge'];
+      var out = [];
+      for (var i = 0; i < ids.length; i++) {
+        var el = document.getElementById(ids[i]);
+        if (el) out.push(el);
+      }
+      return out;
+    }
 
-    // Public endpoint — no auth needed. Cache-bust so a stale/edge-cached
-    // response can't hide a recent #1 change (this was why the crown only
-    // ever updated after opening the full leaderboard page, which fetches
-    // a different URL/params and so always got a fresh response).
-    fetch('/api/leaderboard?limit=5&_=' + Date.now())
-      .then(function (r) { return r.json(); })
-      .then(function (json) {
-        var rows = json.data || json.leaderboard || (Array.isArray(json) ? json : []);
-        if (!rows || !rows.length) return;
+    function _setCrownVisible(isHolder) {
+      _crownEls().forEach(function (el) {
+        el.style.display = isHolder ? 'block' : 'none';
+        if (isHolder) {
+          // Reset the pop-in animation so it replays every time the crown appears
+          el.style.animation = 'none';
+          void el.offsetWidth; // force reflow
+          el.style.animation = '';
+        }
+      });
+    }
 
-        var topRow = rows[0];
-        var topId    = (topRow.id     || '').toLowerCase().trim();
-        var topUid   = (topRow.userId || '').toLowerCase().trim();
-        var topEmail = (topRow.email  || '').toLowerCase().trim();
-        var topName  = (topRow.name   || '').toLowerCase().trim();
+    function refreshCrownState() {
+      var myId    = ((window.user && (window.user.id || window.user.sub)) || '').toLowerCase().trim();
+      var myEmail = ((window.user && window.user.email) || '').toLowerCase().trim();
+      if (!myId && !myEmail) return Promise.resolve();
 
-        // Check id AND sub independently against BOTH top.id and top.userId —
-        // merging them into a single fallback value (the old code) missed
-        // matches whenever sub matched topUid but not topId (or vice versa),
-        // which silently overwrote a correct '1' cache with '0' on refresh.
-        var isTop = !!(
-          (myId    && (myId  === topId || myId  === topUid))   ||
-          (mySub   && (mySub === topId || mySub === topUid))   ||
-          (myEmail && topEmail && myEmail === topEmail)         ||
-          (myName  && topName  && myName  === topName  && myName.length > 2)
-        );
+      // Public, unauthenticated endpoint. Cache-bust so a stale/edge-cached
+      // response can never hide a recent #1 change.
+      return fetch('/api/leaderboard?limit=3&_=' + Date.now())
+        .then(function (r) { return r.json(); })
+        .then(function (json) {
+          var rows = (json && (json.data || json.leaderboard)) || [];
+          var top = rows[0];
+          if (!top) { _setCrownVisible(false); return; }
 
-        console.log('[Crown] myId=' + myId + ' mySub=' + mySub + ' myEmail=' + myEmail + ' topId=' + topId + ' topUid=' + topUid + ' topEmail=' + topEmail + ' => isTop=' + isTop);
+          var topId    = (top.id    || '').toLowerCase().trim();
+          var topEmail = (top.email || '').toLowerCase().trim();
+          var isHolder = !!((myId && topId && myId === topId) || (myEmail && topEmail && myEmail === topEmail));
 
-        // Cache the result so a future hard refresh can show the crown
-        // instantly (see inline script next to host-crown-badge) instead of
-        // waiting on this network round-trip every single time.
-        try { localStorage.setItem('rn-is-crown-holder', isTop ? '1' : '0'); } catch (e) {}
+          try { localStorage.setItem(CROWN_CACHE_KEY, isHolder ? '1' : '0'); } catch (e) {}
+          _setCrownVisible(isHolder);
+        })
+        .catch(function (e) { console.warn('[Crown] refresh failed:', e); });
+    }
 
-        // Show/hide crown on BOTH sidebars (host + rent)
-        ['host-crown-badge', 'rent-crown-badge'].forEach(function(id) {
-          var el = document.getElementById(id);
-          if (!el) return;
-          if (isTop) {
-            el.style.display = 'block';
-            // Reset animation so it pops in every time
-            el.style.animation = 'none';
-            void el.offsetWidth; // force reflow
-            el.style.animation = '';
-          } else {
-            el.style.display = 'none';
-          }
-        });
+    function startPolling() {
+      if (_pollTimer) clearInterval(_pollTimer);
+      // Re-check periodically so the crown updates even without a manual trigger
+      _pollTimer = setInterval(refreshCrownState, 45000);
+    }
 
-        if (window._rnApplyCrownToTopUser) window._rnApplyCrownToTopUser(topId || topEmail, mySub || myEmail);
-      })
-      .catch(function (e) { console.warn('[Crown] fetch failed:', e); });
-  }
+    // Expose globally — every existing call site (after login, after credit
+    // changes, etc) just calls window._checkCrown(), unchanged.
+    window._checkCrown = refreshCrownState;
 
-  // Expose globally so initDash and setCredits can call it
-  window._checkCrown = _checkCrown;
-
-  /* Start checking immediately, retry every 500ms until user is ready (up to 20s) */
-  setTimeout(function () {
-    if (window.user) { window._checkCrown(); return; }
-    var n = 0, iv = setInterval(function () {
-      if (window.user || ++n > 40) { clearInterval(iv); if (window.user) window._checkCrown(); }
+    /* Kick off the first real check once a user is available (retry up to 20s) */
+    var _waitN = 0;
+    var _waitIv = setInterval(function () {
+      if (window.user || ++_waitN > 40) {
+        clearInterval(_waitIv);
+        if (window.user) { refreshCrownState(); startPolling(); }
+      }
     }, 500);
-  }, 150);
-  /* One extra late re-check, in case credits/profile finished loading after the early checks */
-  setTimeout(function () { if (window.user) window._checkCrown(); }, 6000);
+  })();
 
 })();
 </script>
