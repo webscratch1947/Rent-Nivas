@@ -10174,9 +10174,6 @@
                 <div class="img-previews" id="h-previews"></div>
                 <div id="img-lbl" style="font-size:13px;color:var(--muted);margin-top:10px;"></div>
               </div>
-            </div>
-            <!-- AVAILABILITY DATE SECTION -->
-            <div class="add-col" style="width:100%;grid-column:1 / -1;">
               <div class="form-sec">
                 <div class="form-sec-title"><span class="form-sec-icon">📅</span> Property Availability <span style="color:var(--terra);font-size:13px;">*</span></div>
                 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px;">
@@ -20781,10 +20778,11 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
   /* ── AUTO CHECK CROWN ON LOGIN ── */
   function _checkCrown() {
     if (!window.user) return;
+    var myId    = (window.user.id  || '').toLowerCase().trim();
+    var mySub   = (window.user.sub || '').toLowerCase().trim();
     var myEmail = (window.user.email || '').toLowerCase().trim();
-    var mySub   = (window.user.sub || window.user.id || '').toLowerCase().trim();
     var myName  = ((window.user.name || (window.user.user_metadata && window.user.user_metadata.name) || window.user.given_name) || '').toLowerCase().trim();
-    if (!myEmail && !mySub) return;
+    if (!myEmail && !mySub && !myId) return;
 
     // Public endpoint — no auth needed. Cache-bust so a stale/edge-cached
     // response can't hide a recent #1 change (this was why the crown only
@@ -20797,17 +20795,23 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
         if (!rows || !rows.length) return;
 
         var topRow = rows[0];
-        var topId    = (topRow.id    || topRow.userId || '').toLowerCase().trim();
-        var topEmail = (topRow.email || '').toLowerCase().trim();
-        var topName  = (topRow.name  || '').toLowerCase().trim();
+        var topId    = (topRow.id     || '').toLowerCase().trim();
+        var topUid   = (topRow.userId || '').toLowerCase().trim();
+        var topEmail = (topRow.email  || '').toLowerCase().trim();
+        var topName  = (topRow.name   || '').toLowerCase().trim();
 
+        // Check id AND sub independently against BOTH top.id and top.userId —
+        // merging them into a single fallback value (the old code) missed
+        // matches whenever sub matched topUid but not topId (or vice versa),
+        // which silently overwrote a correct '1' cache with '0' on refresh.
         var isTop = !!(
-          (mySub   && topId    && mySub   === topId)   ||
-          (myEmail && topEmail && myEmail === topEmail) ||
+          (myId    && (myId  === topId || myId  === topUid))   ||
+          (mySub   && (mySub === topId || mySub === topUid))   ||
+          (myEmail && topEmail && myEmail === topEmail)         ||
           (myName  && topName  && myName  === topName  && myName.length > 2)
         );
 
-        console.log('[Crown] myEmail=' + myEmail + ' topEmail=' + topEmail + ' mySub=' + mySub + ' topId=' + topId + ' => isTop=' + isTop);
+        console.log('[Crown] myId=' + myId + ' mySub=' + mySub + ' myEmail=' + myEmail + ' topId=' + topId + ' topUid=' + topUid + ' topEmail=' + topEmail + ' => isTop=' + isTop);
 
         // Cache the result so a future hard refresh can show the crown
         // instantly (see inline script next to host-crown-badge) instead of
