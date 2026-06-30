@@ -16934,7 +16934,7 @@
             ${u.hasPartner
               ? `<button class="btn btn-sm" style="background:#fee2e2;color:#dc2626;font-size:12px;" onclick="adminTakePartner('${esc(u.id)}','${esc(u.name||u.email)}')">❌ Take Partner</button>`
               : `<button class="btn btn-sm" style="background:var(--green-bg);color:var(--green);font-size:12px;" onclick="adminGivePartner('${esc(u.id)}','${esc(u.name||u.email)}','${esc(u.email)}')">🤝 Give Partner</button>`}
-            <button class="btn btn-sm" style="background:var(--blue-bg);color:var(--blue);font-size:12px;" onclick="adminEditCredits('${esc(u.id)}','${esc(u.name||u.email)}',${u.credits??0})">💰 Credits</button>
+            <button class="btn btn-sm" style="background:var(--blue-bg);color:var(--blue);font-size:12px;" onclick="adminEditCredits('${esc(u.id)}','${esc(u.name||u.email)}',${u.credits??0},'${esc(u.email||'')}')">💰 Credits</button>
           </div>
         </div>`).join('');
     }
@@ -17146,7 +17146,7 @@
       });
     }
 
-    async function adminEditCredits(userId, userName, current) {
+    async function adminEditCredits(userId, userName, current, userEmail) {
       if (!userId) { toast('Cannot edit credits: this user has no id.', 'error'); return; }
       openAdminModal({
         title: '💰 Edit Credits',
@@ -17157,19 +17157,22 @@
           const val = Number(v.credits);
           if (isNaN(val) || val < 0) throw new Error('Enter a valid number.');
           console.log('[Admin] Setting credits for user_id=', userId, 'to', val);
-          // Guard: this action should only ever touch an EXISTING user's
-          // profile. Using a bare upsert here used to silently create a
-          // brand-new stub row (just id+credits, no name/email) whenever
-          // userId didn't already have a profile row — exactly the source
-          // of the blank "—" accounts showing up in this list. Check first.
+          // Check whether a real profile row already exists.
           // Use array-based select (no maybeSingle) so backend does a Scan+filter
           // instead of a direct GetItem — this finds both legacy and new profile rows.
           const { data: existsArr } = await sb.from('profiles').select('id,credits').eq('id', userId);
           const existsCheck = existsArr && existsArr.length > 0 ? existsArr[0] : null;
-          if (!existsCheck) throw new Error('This user has no profile row yet (likely never logged into the dashboard) — cannot set credits without creating a blank stub account. Refresh the user list and try again once they have a real profile.');
-          // Use update (not upsert) so it never creates a stub row.
-          // updateRows in data.js handles both legacy (id-keyed) and new (userId-keyed) rows.
-          const { error } = await sb.from('profiles').update({ credits: val }).eq('id', userId);
+          let error;
+          if (!existsCheck) {
+            // User hasn't logged in yet so there's no row — instead of refusing,
+            // create a REAL row (with name/email, not a blank stub) so this
+            // actually persists and the leaderboard stops showing the hardcoded
+            // default-10 fallback for this user.
+            ({ error } = await sb.from('profiles').upsert({ id: userId, name: userName || '', email: userEmail || '', credits: val }));
+          } else {
+            // Row already exists — plain update, no risk of stub creation.
+            ({ error } = await sb.from('profiles').update({ credits: val }).eq('id', userId));
+          }
           if (error) throw error;
           // Verify the write landed using scan-based read
           const { data: verifyArr } = await sb.from('profiles').select('credits').eq('id', userId);
