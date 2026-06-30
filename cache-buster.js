@@ -12,8 +12,13 @@
   function wipeAndReload(newVersion) {
     try { localStorage.setItem(KEY, String(newVersion)); } catch (e) {}
     var done = function () {
+      // Strip any existing _rnv params first so they don't pile up across
+      // repeated cache-busts (was causing the URL to grow forever).
+      var params = new URLSearchParams(window.location.search);
+      params.delete('_rnv');
+      var qs = params.toString();
       var url = window.location.pathname +
-        (window.location.search ? window.location.search + '&' : '?') +
+        (qs ? '?' + qs + '&' : '?') +
         '_rnv=' + Date.now();
       window.location.replace(url);
     };
