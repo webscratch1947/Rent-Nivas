@@ -1,10 +1,15 @@
 (function () {
   'use strict';
 
+  // All values below come from env-inject.js (window.__RN_*), which reads
+  // them from environment variables server-side. No values are hardcoded
+  // here — if env-inject.js hasn't loaded yet or a var is unset, these will
+  // be empty strings and calls will fail with a clear error instead of
+  // silently hitting some baked-in Cognito instance.
   var CONFIG = {
-    region:     (window.__RN_AWS_REGION              || 'eu-north-1'),
-    userPoolId: (window.__RN_COGNITO_USER_POOL_ID    || 'eu-north-1_GM7Zi2xvq'),
-    clientId:   (window.__RN_COGNITO_CLIENT_ID       || 'ckpmh0heco2apoh0temn8hfnl'),
+    region:     (window.__RN_AWS_REGION           || ''),
+    userPoolId: (window.__RN_COGNITO_USER_POOL_ID || ''),
+    clientId:   (window.__RN_COGNITO_CLIENT_ID    || ''),
     authFlow: 'USER_PASSWORD_AUTH',
     storageKey: 'rentnivas-auth'
   };
