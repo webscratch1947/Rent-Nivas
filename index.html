@@ -13462,7 +13462,6 @@
           // Refresh credits display with authoritative live value
           localStorage.setItem('nestly-credits', Math.max(0, pr.data.credits || 0));
           updateCreditsBadges();
-          window._rnChestClaimed = !!pr.data.chest_claimed;
         }
       }
 
@@ -16693,7 +16692,7 @@
       try {
         const { data, error } = await sb.rpc('admin_backfill_profile_defaults', {});
         if (error) throw error;
-        toast(`✅ Checked ${data.scanned} accounts (fixed ${data.fixed} missing credits/referral fields, merged ${data.mergedDuplicates || 0} duplicate credit rows), deduped ${data.dedupedUsers || 0} users' partner applications (removed ${data.deletedRows || 0} duplicate rows)`, 'success');
+        toast(`✅ Checked ${data.scanned} accounts (fixed ${data.fixed} missing credits/referral fields), deduped ${data.dedupedUsers || 0} users' partner applications (removed ${data.deletedRows || 0} duplicate rows)`, 'success');
         setTimeout(loadAdminUsers, 500);
       } catch (e) {
         toast('Backfill failed: ' + (e.message || 'Unknown error'), 'error');
