@@ -11155,12 +11155,24 @@
     // ══ AUTH FUNCTIONS ══
     // ══ GOOGLE OAUTH ══════════════════════════════════════════════════════════
     // Redirects to Cognito's Hosted UI → Google identity provider.
-    // COGNITO_DOMAIN and GOOGLE_REDIRECT_URI are injected by /env-inject.js
-    // (env vars set in Vercel: COGNITO_DOMAIN, GOOGLE_REDIRECT_URI).
+    // ALL config below comes from window.__RN_* values injected by
+    // /env-inject.js, which itself reads them from environment variables
+    // (COGNITO_DOMAIN, COGNITO_CLIENT_ID, COGNITO_REDIRECT_URI /
+    // GOOGLE_REDIRECT_URI, GOOGLE_AUTH_URI, GOOGLE_SCOPES). Nothing is
+    // hardcoded here — if a required value is missing, sign-in fails with a
+    // clear "not configured" toast instead of silently using a baked-in value.
     function doGoogleSignIn() {
-      const domain = 'eu-north-1gm7zi2xvq.auth.eu-north-1.amazoncognito.com';
-      const clientId = window.__RN_COGNITO_CLIENT_ID || 'ckpmh0heco2apoh0temn8hfnl';
-      const redirectUri = 'https://eu-north-1gm7zi2xvq.auth.eu-north-1.amazoncognito.com/oauth2/idpresponse';
+      const domain = window.__RN_COGNITO_DOMAIN || '';
+      const clientId = window.__RN_COGNITO_CLIENT_ID || '';
+      const redirectUri = window.__RN_GOOGLE_REDIRECT_URI || '';
+      const authorizeBase = window.__RN_GOOGLE_AUTH_URI || (domain ? 'https://' + domain + '/oauth2/authorize' : '');
+      const scopes = window.__RN_GOOGLE_SCOPES || 'openid email profile';
+
+      if (!authorizeBase || !clientId || !redirectUri) {
+        toast('Google sign-in is not configured on this server.', 'error');
+        console.error('[RN OAuth] Missing config — authorizeBase:', authorizeBase, 'clientId:', clientId, 'redirectUri:', redirectUri);
+        return;
+      }
 
       // CSRF protection — state is verified on callback
       const state = 'rnog_' + Math.random().toString(36).slice(2) + Date.now().toString(36);
@@ -11172,17 +11184,14 @@
       // encoded as '%20'. Using '+' causes Cognito to return error=invalid_scope.
       // Build the URL manually with encodeURIComponent() to guarantee %20 encoding.
       const authorizeUrl =
-        'https://' + domain + '/oauth2/authorize' +
+        authorizeBase +
         '?response_type=code' +
         '&client_id=' + encodeURIComponent(clientId) +
         '&redirect_uri=' + encodeURIComponent(redirectUri) +
         '&identity_provider=Google' +
-        '&scope=openid%20email%20profile' +
+        '&scope=' + scopes.split(' ').map(encodeURIComponent).join('%20') +
         '&state=' + encodeURIComponent(state);
 
-      console.log("[RN OAuth] domain:", domain);
-      console.log("[RN OAuth] clientId:", clientId);
-      console.log("[RN OAuth] redirectUri:", redirectUri);
       console.log("[RN OAuth] authorizeUrl:", authorizeUrl);
       window.location.href = authorizeUrl;
     }
@@ -11218,11 +11227,14 @@
 
       setLoader(true, 'Completing Google sign-in…');
       try {
-        const redirectUri = 'https://eu-north-1gm7zi2xvq.auth.eu-north-1.amazoncognito.com/oauth2/idpresponse';
+        // NOTE: redirect_uri is NOT sent here — the backend (api/auth.js) uses
+        // its own server-side COGNITO_REDIRECT_URI/GOOGLE_REDIRECT_URI env var
+        // so the value can never be tampered with or drift from what was sent
+        // to Cognito's /authorize endpoint.
         const resp = await fetch('/api/auth', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ target: 'GoogleTokenExchange', code, redirectUri })
+          body: JSON.stringify({ target: 'GoogleTokenExchange', code })
         });
         const json = await resp.json().catch(function () { return {}; });
 
