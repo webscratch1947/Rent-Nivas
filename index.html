@@ -19521,18 +19521,16 @@
 
     <div style="max-width:720px;margin:0 auto;padding:24px 20px 80px;">
 
-      <!-- Greeting -->
-      <div style="margin-bottom:24px;">
-        <div style="font-size:26px;font-weight:900;color:var(--ink);letter-spacing:-.5px;" id="pd-greeting">Welcome, Partner 🎉</div>
-        <p style="color:var(--muted);font-size:14px;margin-top:4px;">Track your referrals, earn rewards, and complete tasks.</p>
-      </div>
-
-      <!-- ══ PARTNER LEVEL CARD ══ -->
-      <div id="pd-level-card" style="background:linear-gradient(145deg,#1a1410 0%,#2a1a0e 45%,#3d1f0a 100%);border-radius:24px;padding:28px 24px 24px;margin-bottom:20px;position:relative;overflow:hidden;text-align:center;">
+      <!-- ══ PARTNER LEVEL CARD (hero) ══ -->
+      <div id="pd-level-card" onclick="openPdProfile()"
+        style="background:linear-gradient(145deg,#1a1410 0%,#2a1a0e 45%,#3d1f0a 100%);border-radius:26px;padding:30px 24px 22px;margin-top:20px;margin-bottom:20px;position:relative;overflow:hidden;text-align:center;cursor:pointer;transition:transform .2s cubic-bezier(.34,1.56,.64,1), box-shadow .2s;box-shadow:0 10px 30px rgba(26,20,16,.25);"
+        onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 16px 40px rgba(26,20,16,.35)'"
+        onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 10px 30px rgba(26,20,16,.25)'">
         <div style="position:absolute;top:-40px;right:-30px;width:160px;height:160px;border-radius:50%;background:rgba(255,180,100,.08);pointer-events:none;"></div>
         <div style="position:absolute;bottom:-50px;left:-30px;width:140px;height:140px;border-radius:50%;background:rgba(255,180,100,.05);pointer-events:none;"></div>
-        <img id="pd-level-badge-img" src="badge-bronze.png" alt="Tier badge" style="width:78px;height:78px;object-fit:contain;display:block;margin:0 auto 12px;position:relative;z-index:1;filter:drop-shadow(0 6px 14px rgba(0,0,0,.45));">
-        <div id="pd-level-tier-name" style="font-size:19px;font-weight:900;color:#fff;letter-spacing:-.2px;position:relative;z-index:1;">Bronze Partner</div>
+        <div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,transparent,#f59e0b,#fde68a,#f59e0b,transparent);background-size:200% 100%;animation:pdLevelShimmer 3.5s linear infinite;"></div>
+        <img id="pd-level-badge-img" src="badge-bronze.png" alt="Tier badge" style="width:82px;height:82px;object-fit:contain;display:block;margin:0 auto 12px;position:relative;z-index:1;filter:drop-shadow(0 6px 14px rgba(0,0,0,.45));">
+        <div id="pd-level-tier-name" style="font-size:20px;font-weight:900;color:#fff;letter-spacing:-.2px;position:relative;z-index:1;">Bronze Partner</div>
         <div style="font-size:12px;color:rgba(255,255,255,.55);font-weight:700;margin-top:3px;position:relative;z-index:1;">Level <span id="pd-level-num">1</span></div>
         <div style="margin-top:20px;position:relative;z-index:1;text-align:left;">
           <div style="display:flex;justify-content:space-between;margin-bottom:7px;font-size:11px;color:rgba(255,255,255,.6);font-weight:700;letter-spacing:.4px;text-transform:uppercase;">
@@ -19544,7 +19542,9 @@
           </div>
           <div style="margin-top:6px;font-size:11px;color:rgba(255,255,255,.5);font-weight:600;" id="pd-level-xp-next">— XP to next tier</div>
         </div>
+        <div style="margin-top:16px;font-size:11px;color:rgba(255,255,255,.4);font-weight:700;letter-spacing:.3px;position:relative;z-index:1;">View full profile →</div>
       </div>
+      <style>@keyframes pdLevelShimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}</style>
 
       <!-- ══ REFERRAL CODE CARD ══ -->
       <div id="pd-ref-code-card" style="background:linear-gradient(135deg,#7c2d12,#b45309 60%,#d97706);border-radius:20px;padding:20px 22px;margin-bottom:20px;position:relative;overflow:hidden;">
@@ -19568,16 +19568,19 @@
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px;" id="pd-ref-stats-grid">
         <!-- Total Referrals -->
         <div style="background:var(--bg);border:1.5px solid var(--border);border-radius:16px;padding:16px 14px;text-align:center;box-shadow:0 4px 14px rgba(0,0,0,.05);transition:transform .15s;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
+          <div style="font-size:18px;margin-bottom:4px;">🔗</div>
           <div style="font-size:26px;font-weight:900;color:var(--terra);line-height:1;margin-bottom:4px;" id="pd-stat-total">—</div>
           <div style="font-size:10px;color:var(--muted);font-weight:700;letter-spacing:.4px;text-transform:uppercase;">Total</div>
         </div>
         <!-- Registration Referrals -->
         <div style="background:var(--bg);border:1.5px solid var(--border);border-radius:16px;padding:16px 14px;text-align:center;box-shadow:0 4px 14px rgba(0,0,0,.05);transition:transform .15s;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
+          <div style="font-size:18px;margin-bottom:4px;">✍️</div>
           <div style="font-size:26px;font-weight:900;color:#6366f1;line-height:1;margin-bottom:4px;" id="pd-stat-reg">—</div>
           <div style="font-size:10px;color:var(--muted);font-weight:700;letter-spacing:.4px;text-transform:uppercase;">Signups</div>
         </div>
         <!-- Listing Referrals -->
         <div style="background:var(--bg);border:1.5px solid var(--border);border-radius:16px;padding:16px 14px;text-align:center;box-shadow:0 4px 14px rgba(0,0,0,.05);transition:transform .15s;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
+          <div style="font-size:18px;margin-bottom:4px;">🏠</div>
           <div style="font-size:26px;font-weight:900;color:#10b981;line-height:1;margin-bottom:4px;" id="pd-stat-list">—</div>
           <div style="font-size:10px;color:var(--muted);font-weight:700;letter-spacing:.4px;text-transform:uppercase;">Listings</div>
         </div>
