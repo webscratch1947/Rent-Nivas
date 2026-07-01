@@ -1438,6 +1438,9 @@
     .ds-nav {
       padding: 16px;
       flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      overflow-x: hidden;
     }
 
     .ds-nav-label {
@@ -1508,7 +1511,7 @@
     .ds-sidebar-footer {
       padding: 16px 16px 24px;
       border-top: 1px solid rgba(255, 255, 255, .08);
-      margin-top: auto;
+      flex-shrink: 0;
     }
 
     .ds-topbar {
@@ -21223,6 +21226,232 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
       }
     }, 500);
   })();
+
+})();
+</script>
+
+<!-- ══ TUTORIAL GUARD ══ -->
+<style>
+  /* While tutorial is active, block pointer events on everything EXCEPT
+     allowed elements and the tutorial panel itself */
+  body.rn-tut-active-guard {
+    /* no layout change — just a hook for child selectors */
+  }
+  body.rn-tut-active-guard #rn-tutorial,
+  body.rn-tut-active-guard #rn-tutorial * {
+    pointer-events: auto !important;
+  }
+  /* Allowed elements get clicks through */
+  body.rn-tut-active-guard .rn-tut-allowed {
+    pointer-events: auto !important;
+    position: relative;
+    z-index: 10001;
+  }
+  body.rn-tut-active-guard .rn-tut-allowed * {
+    pointer-events: auto !important;
+  }
+  /* "Please complete tutorial first" toast */
+  #rn-tut-blocked-toast {
+    display: none;
+    position: fixed;
+    bottom: 96px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #1c1612ee;
+    color: #e88a5a;
+    font-size: 14px;
+    font-weight: 700;
+    padding: 12px 24px;
+    border-radius: 14px;
+    border: 1.5px solid rgba(194,113,79,0.45);
+    z-index: 99999;
+    box-shadow: 0 6px 28px rgba(0,0,0,0.45);
+    text-align: center;
+    pointer-events: none !important;
+    max-width: 88vw;
+    white-space: nowrap;
+    animation: rn-tut-toast-in .18s ease;
+  }
+  @media (max-width: 600px) {
+    #rn-tut-blocked-toast {
+      font-size: 13px;
+      padding: 10px 18px;
+      bottom: 80px;
+    }
+  }
+  @keyframes rn-tut-toast-in {
+    from { opacity: 0; transform: translateX(-50%) translateY(8px); }
+    to   { opacity: 1; transform: translateX(-50%) translateY(0);   }
+  }
+</style>
+
+<div id="rn-tut-blocked-toast">📚 Please complete the tutorial first!</div>
+
+<script>
+(function () {
+  'use strict';
+
+  // ── Which element IDs are "clickable" at each tutorial step ──────────────
+  // Steps 0,6,7,10 use only the tutorial panel's Continue button — no page
+  // elements need to be whitelisted. The landing page is ALWAYS fully
+  // interactive (user is on landing-page before step 1).
+  var ALLOWED_BY_STEP = {
+    0:  [],   // step 0: only Continue button (landing page fully free)
+    1:  ['rn-get-started-btn', 'lp-get-started-btn', 'rn-tut-btn-click'],
+    2:  ['signup-form', 'signup-name', 'signup-email', 'signup-password',
+         'signup-ref-code', 'signup-submit-btn', 'signup-ref'],
+    3:  ['signup-verification-code', 'signup-verify-btn', 'signup-verify-resend',
+         'verify-code-input', 'verify-submit-btn', 'verify-resend-btn',
+         'signup-verify-box'],
+    4:  ['login-email', 'login-password', 'login-submit-btn',
+         'signin-email', 'signin-password', 'signin-btn', 'login-form',
+         'signin-form'],
+    5:  ['role-owner-btn', 'role-renter-btn', 'role-card-owner', 'role-card-renter',
+         'role-select-wrap'],
+    6:  [],
+    7:  [],
+    8:  ['nb-add', 'mob-ds-hamburger', 'host-hamburger'],
+    9:  ['section-add', 'add-listing-form', 'prop-type-wrap',
+         'listing-submit-btn', 'add-listing-section'],
+    10: [],
+    11: ['prop-filter-wrap', 'browse-search', 'rent-search-bar', 'filter-bar'],
+    12: ['rnb-purchased', 'mob-ds-hamburger', 'rent-hamburger']
+  };
+
+  // Landing page ID — never block interactions on landing page
+  var LANDING_PAGE_ID = 'landing-page';
+
+  var _toast = null;
+  var _toastTimer = null;
+
+  function showBlockedToast() {
+    if (!_toast) _toast = document.getElementById('rn-tut-blocked-toast');
+    if (!_toast) return;
+    _toast.style.display = 'block';
+    clearTimeout(_toastTimer);
+    _toastTimer = setTimeout(function () {
+      if (_toast) _toast.style.display = 'none';
+    }, 2400);
+  }
+
+  function isOnLandingPage() {
+    var lp = document.getElementById(LANDING_PAGE_ID);
+    return lp && (lp.classList.contains('active') || lp.style.display !== 'none');
+  }
+
+  function applyGuard(step) {
+    var tut = window._RNTut;
+
+    // Remove guard if tutorial is done or not started
+    if (!tut || tut.done || step < 0) {
+      document.body.classList.remove('rn-tut-active-guard');
+      clearAllowed();
+      return;
+    }
+
+    // Step 0 is always on landing page — don't block anything yet
+    if (step === 0 || isOnLandingPage()) {
+      document.body.classList.remove('rn-tut-active-guard');
+      clearAllowed();
+      return;
+    }
+
+    document.body.classList.add('rn-tut-active-guard');
+    clearAllowed();
+
+    var ids = ALLOWED_BY_STEP[step] || [];
+    ids.forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) el.classList.add('rn-tut-allowed');
+    });
+
+    // Tutorial panel always allowed
+    var panel = document.getElementById('rn-tutorial');
+    if (panel) panel.classList.add('rn-tut-allowed');
+  }
+
+  function clearAllowed() {
+    document.querySelectorAll('.rn-tut-allowed').forEach(function (el) {
+      el.classList.remove('rn-tut-allowed');
+    });
+  }
+
+  function isAllowedTarget(target) {
+    // Walk up DOM — if any ancestor is .rn-tut-allowed or #rn-tutorial, allow it
+    var el = target;
+    while (el && el !== document.body) {
+      if (!el.classList) { el = el.parentElement; continue; }
+      if (
+        el.classList.contains('rn-tut-allowed') ||
+        el.id === 'rn-tutorial' ||
+        el.id === 'rn-tut-panel' ||
+        el.id === 'rn-tut-blocked-toast'
+      ) return true;
+      el = el.parentElement;
+    }
+    return false;
+  }
+
+  // Capture-phase click interceptor
+  document.addEventListener('click', function (e) {
+    var tut = window._RNTut;
+    if (!tut || tut.done || tut.step < 0) return;
+    if (!document.body.classList.contains('rn-tut-active-guard')) return;
+    if (isOnLandingPage()) return;
+    if (isAllowedTarget(e.target)) return;
+
+    e.stopPropagation();
+    e.preventDefault();
+    showBlockedToast();
+  }, true);
+
+  // Patch _RNTut methods once it exists
+  var _patchAttempts = 0;
+  var _patchInterval = setInterval(function () {
+    _patchAttempts++;
+    if (_patchAttempts > 60) { clearInterval(_patchInterval); return; } // give up after 18s
+
+    var tut = window._RNTut;
+    if (!tut || tut._guardPatched) {
+      if (tut && tut._guardPatched) clearInterval(_patchInterval);
+      return;
+    }
+    tut._guardPatched = true;
+    clearInterval(_patchInterval);
+
+    // Patch setStep
+    var origSetStep = tut.setStep.bind(tut);
+    tut.setStep = function (n) {
+      origSetStep(n);
+      // Small delay so autoNavigateTo() has time to change page before we apply guard
+      setTimeout(function () { applyGuard(n); }, 180);
+    };
+
+    // Patch finish
+    var origFinish = tut.finish;
+    if (origFinish) {
+      tut.finish = function () {
+        origFinish.apply(tut, arguments);
+        document.body.classList.remove('rn-tut-active-guard');
+        clearAllowed();
+      };
+    }
+
+    // Patch skip
+    var origSkip = tut.skip;
+    if (origSkip) {
+      tut.skip = function () {
+        origSkip.apply(tut, arguments);
+        document.body.classList.remove('rn-tut-active-guard');
+        clearAllowed();
+      };
+    }
+
+    // If tutorial already running when we patched, apply guard now
+    if (!tut.done && tut.step >= 0) {
+      applyGuard(tut.step);
+    }
+  }, 300);
 
 })();
 </script>
