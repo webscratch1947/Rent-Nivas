@@ -1438,9 +1438,6 @@
     .ds-nav {
       padding: 16px;
       flex: 1;
-      min-height: 0;
-      overflow-y: auto;
-      overflow-x: hidden;
     }
 
     .ds-nav-label {
@@ -1511,7 +1508,7 @@
     .ds-sidebar-footer {
       padding: 16px 16px 24px;
       border-top: 1px solid rgba(255, 255, 255, .08);
-      flex-shrink: 0;
+      margin-top: auto;
     }
 
     .ds-topbar {
@@ -5986,6 +5983,19 @@
         transform: translateX(0);
       }
 
+      /* Mobile only: allow nav to scroll so logout footer is always reachable */
+      .ds-sidebar.mob-open .ds-nav {
+        min-height: 0;
+        overflow-y: auto;
+        overflow-x: hidden;
+        flex: 1;
+      }
+
+      .ds-sidebar.mob-open .ds-sidebar-footer {
+        margin-top: 0;
+        flex-shrink: 0;
+      }
+
       .ds-topbar {
         left: 0;
         padding: 0 16px;
@@ -8571,42 +8581,197 @@
       -moz-appearance: textfield;
     }
 
-    /* ══ DAILY STREAK POPUP ══ */
+    /* ══ DAILY STREAK POPUP — RentNivas Theme ══ */
     #streak-popup-bg {
       display:none;position:fixed;inset:0;z-index:100000;
-      background:rgba(0,0,0,.6);backdrop-filter:blur(6px);
+      background:rgba(15,10,5,.75);backdrop-filter:blur(10px);
       align-items:center;justify-content:center;
-      opacity:0;pointer-events:none;transition:opacity .3s;
+      opacity:0;pointer-events:none;
+      transition:opacity .35s cubic-bezier(.4,0,.2,1);
     }
     #streak-popup-bg.open { display:flex;opacity:1;pointer-events:all; }
     .streak-popup-box {
-      background:var(--white);border-radius:var(--rxl);max-width:440px;width:92%;
-      box-shadow:var(--sh3);overflow:hidden;animation:fadeUp .35s var(--ease);
+      background:#faf8f5;border-radius:24px;max-width:460px;width:94%;
+      box-shadow:0 32px 80px rgba(0,0,0,.45),0 0 0 1px rgba(194,113,79,.15);
+      overflow:hidden;
+      animation:streakPopIn .4s cubic-bezier(.34,1.56,.64,1);
+      position:relative;
     }
+    @keyframes streakPopIn {
+      from { opacity:0;transform:scale(.88) translateY(20px); }
+      to   { opacity:1;transform:scale(1) translateY(0); }
+    }
+    /* Floating particles container */
+    .streak-particles {
+      position:absolute;inset:0;pointer-events:none;overflow:hidden;z-index:0;
+    }
+    .streak-particle {
+      position:absolute;border-radius:50%;opacity:0;
+      animation:streakFloat linear infinite;
+    }
+    @keyframes streakFloat {
+      0%   { transform:translateY(100%) scale(0);opacity:0; }
+      10%  { opacity:.7; }
+      90%  { opacity:.4; }
+      100% { transform:translateY(-120px) scale(1.2);opacity:0; }
+    }
+    /* Header */
     .streak-popup-header {
-      background:linear-gradient(135deg,#1a1a2e 0%,#16213e 60%,#0f3460 100%);
-      padding:28px 28px 20px;text-align:center;
+      background:linear-gradient(145deg,#2a1a0e 0%,#3d1f0a 40%,#c2714f 100%);
+      padding:30px 28px 24px;text-align:center;position:relative;overflow:hidden;
     }
-    .streak-popup-title { font-size:22px;font-weight:800;color:#fff;font-family:var(--font-display);margin-bottom:4px; }
-    .streak-popup-sub { font-size:13px;color:rgba(255,255,255,.65);margin:0; }
+    .streak-popup-header::before {
+      content:'';position:absolute;inset:0;
+      background:radial-gradient(ellipse at 50% 0%,rgba(255,180,100,.18) 0%,transparent 70%);
+    }
+    .streak-flame-icon {
+      font-size:52px;line-height:1;margin-bottom:10px;
+      display:block;
+      animation:streakFlame 1.4s ease-in-out infinite alternate;
+      filter:drop-shadow(0 0 16px rgba(245,158,11,.7));
+      position:relative;z-index:1;
+    }
+    @keyframes streakFlame {
+      from { transform:scale(1) rotate(-3deg); filter:drop-shadow(0 0 10px rgba(245,158,11,.5)); }
+      to   { transform:scale(1.12) rotate(3deg); filter:drop-shadow(0 0 24px rgba(245,158,11,.9)); }
+    }
+    .streak-popup-title {
+      font-size:24px;font-weight:800;color:#fff;
+      font-family:var(--font-display);margin-bottom:5px;
+      position:relative;z-index:1;
+      text-shadow:0 2px 12px rgba(0,0,0,.3);
+    }
+    .streak-popup-sub {
+      font-size:13px;color:rgba(255,255,255,.7);margin:0;
+      position:relative;z-index:1;
+    }
+    /* Close button */
+    .streak-close-btn {
+      position:absolute;top:14px;right:16px;z-index:10;
+      background:rgba(255,255,255,.15);border:none;color:#fff;
+      width:32px;height:32px;border-radius:50%;font-size:16px;
+      cursor:pointer;display:flex;align-items:center;justify-content:center;
+      transition:background .2s;
+    }
+    .streak-close-btn:hover { background:rgba(255,255,255,.28); }
+    /* Days grid */
     .streak-days-grid {
-      display:grid;grid-template-columns:repeat(7,1fr);gap:6px;
-      padding:18px 18px 0;
+      display:grid;grid-template-columns:repeat(7,1fr);gap:7px;
+      padding:22px 20px 0;
     }
     .streak-day {
-      text-align:center;border-radius:10px;padding:8px 4px;
-      border:2px solid var(--border2);background:var(--bg);
-      transition:all .2s;position:relative;
+      text-align:center;border-radius:14px;padding:10px 3px 8px;
+      border:2px solid #e8e0d8;background:#fff;
+      transition:all .25s cubic-bezier(.34,1.56,.64,1);
+      position:relative;cursor:default;
     }
-    .streak-day.claimed { background:var(--green-bg);border-color:var(--green);opacity:.7; }
-    .streak-day.active { background:var(--amber-bg);border-color:var(--amber);box-shadow:0 0 0 2px rgba(245,158,11,.3); }
-    .streak-day.locked { opacity:.45; }
-    .streak-day-label { font-size:10px;color:var(--muted);font-weight:600;margin-bottom:3px; }
-    .streak-day-credits { font-size:16px;font-weight:800;color:var(--amber);line-height:1; }
-    .streak-day-icon { font-size:16px;margin-bottom:2px; }
-    .streak-day.claimed .streak-day-credits { color:var(--green); }
-    .streak-claim-area { padding:16px 18px 22px;text-align:center; }
-    .streak-timer { font-size:12px;color:var(--muted);margin-top:8px; }
+    .streak-day.claimed {
+      background:linear-gradient(145deg,#f0fdf4,#dcfce7);
+      border-color:#4ade80;
+    }
+    .streak-day.active {
+      background:linear-gradient(145deg,#fffbeb,#fef3c7);
+      border-color:#f59e0b;
+      box-shadow:0 0 0 3px rgba(245,158,11,.2),0 4px 16px rgba(245,158,11,.25);
+      transform:translateY(-3px) scale(1.04);
+    }
+    .streak-day.locked { opacity:.38;filter:grayscale(.4); }
+    .streak-day-label {
+      font-size:9px;color:#a08060;font-weight:700;
+      text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;
+    }
+    .streak-day-icon { font-size:18px;margin-bottom:3px;line-height:1; }
+    .streak-day-credits {
+      font-size:13px;font-weight:800;
+      color:#c2714f;line-height:1;
+    }
+    .streak-day.claimed .streak-day-credits { color:#16a34a; }
+    .streak-day.active .streak-day-credits { color:#d97706; }
+    /* Active day pulse ring */
+    .streak-day.active::after {
+      content:'';position:absolute;inset:-4px;border-radius:17px;
+      border:2px solid rgba(245,158,11,.5);
+      animation:streakPulseRing 1.8s ease-in-out infinite;
+    }
+    @keyframes streakPulseRing {
+      0%,100% { opacity:1;transform:scale(1); }
+      50%      { opacity:0;transform:scale(1.1); }
+    }
+    /* Progress bar under grid */
+    .streak-progress-wrap {
+      padding:14px 20px 0;
+    }
+    .streak-progress-track {
+      height:6px;background:#ede8e0;border-radius:99px;overflow:hidden;
+    }
+    .streak-progress-fill {
+      height:100%;border-radius:99px;
+      background:linear-gradient(90deg,#f59e0b,#c2714f);
+      transition:width .6s cubic-bezier(.34,1.56,.64,1);
+      box-shadow:0 0 8px rgba(245,158,11,.4);
+    }
+    .streak-progress-label {
+      display:flex;justify-content:space-between;
+      font-size:11px;color:#a08060;font-weight:600;margin-top:5px;
+    }
+    /* Claim area */
+    .streak-claim-area { padding:18px 20px 22px;text-align:center; }
+    .streak-claim-btn {
+      width:100%;padding:15px 20px;border-radius:14px;border:none;
+      background:linear-gradient(135deg,#c2714f,#d4845e);
+      color:#fff;font-size:16px;font-weight:800;
+      font-family:var(--font);cursor:pointer;
+      transition:all .2s cubic-bezier(.34,1.56,.64,1);
+      box-shadow:0 4px 18px rgba(194,113,79,.4);
+      position:relative;overflow:hidden;
+    }
+    .streak-claim-btn:hover:not(:disabled) {
+      transform:translateY(-2px);
+      box-shadow:0 8px 28px rgba(194,113,79,.55);
+    }
+    .streak-claim-btn:active:not(:disabled) { transform:scale(.97); }
+    .streak-claim-btn:disabled {
+      background:#e8e0d8;color:#b0a090;
+      box-shadow:none;cursor:not-allowed;
+    }
+    /* Shine sweep on claim button */
+    .streak-claim-btn::after {
+      content:'';position:absolute;top:0;left:-75%;width:50%;height:100%;
+      background:linear-gradient(90deg,transparent,rgba(255,255,255,.3),transparent);
+      transform:skewX(-20deg);
+      animation:streakShine 3s ease-in-out infinite;
+    }
+    .streak-claim-btn:disabled::after { display:none; }
+    @keyframes streakShine {
+      0%,70%,100% { left:-75%; }
+      40%          { left:125%; }
+    }
+    .streak-timer {
+      font-size:12px;color:#a08060;margin-top:10px;font-weight:600;
+      letter-spacing:.3px;
+    }
+    /* Burst animation when claimed */
+    .streak-burst {
+      position:absolute;inset:0;pointer-events:none;z-index:50;
+      display:flex;align-items:center;justify-content:center;
+    }
+    .streak-burst-ring {
+      position:absolute;width:60px;height:60px;border-radius:50%;
+      border:3px solid #f59e0b;opacity:0;
+      animation:burstRing .6s ease-out forwards;
+    }
+    @keyframes burstRing {
+      0%   { transform:scale(0);opacity:.9; }
+      100% { transform:scale(3.5);opacity:0; }
+    }
+    @media(max-width:480px){
+      .streak-days-grid { gap:4px;padding:16px 12px 0; }
+      .streak-day { padding:8px 2px 6px;border-radius:10px; }
+      .streak-day-icon { font-size:15px; }
+      .streak-day-credits { font-size:11px; }
+      .streak-popup-title { font-size:20px; }
+      .streak-flame-icon { font-size:42px; }
+    }
   </style>
 <style id="rn-tut-styles">
   #rn-tutorial{position:fixed;inset:0;z-index:9999;pointer-events:none;}
@@ -9521,9 +9686,10 @@
                   <div class="pst-val" id="rent-pst-credits">0</div>
                   <div class="pst-lbl">Credits</div>
                 </div>
-                <div class="pst-item">
-                  <div class="pst-val" id="rent-pst-days">—</div>
-                  <div class="pst-lbl">Member Days</div>
+                <div class="pst-item" id="rent-pst-streak-item" onclick="window.openStreakPopup&&window.openStreakPopup()" style="cursor:pointer;position:relative;" title="Click to claim daily reward">
+                  <div class="pst-val" id="rent-pst-days">🔥 —</div>
+                  <div class="pst-lbl">Daily Streak</div>
+                  <div id="rent-pst-streak-dot" style="display:none;position:absolute;top:6px;right:6px;width:8px;height:8px;border-radius:50%;background:#f59e0b;box-shadow:0 0 6px #f59e0b;"></div>
                 </div>
               </div>
               <div class="prof-xp-block">
@@ -10346,9 +10512,10 @@
                   <div class="pst-val" id="pst-pub">0</div>
                   <div class="pst-lbl" data-i18n="kpi_pub">Published</div>
                 </div>
-                <div class="pst-item">
-                  <div class="pst-val" id="pst-days">—</div>
-                  <div class="pst-lbl">Member Days</div>
+                <div class="pst-item" id="pst-streak-item" onclick="window.openStreakPopup&&window.openStreakPopup()" style="cursor:pointer;position:relative;" title="Click to claim daily reward">
+                  <div class="pst-val" id="pst-days">🔥 —</div>
+                  <div class="pst-lbl">Daily Streak</div>
+                  <div id="pst-streak-dot" style="display:none;position:absolute;top:6px;right:6px;width:8px;height:8px;border-radius:50%;background:#f59e0b;box-shadow:0 0 6px #f59e0b;"></div>
                 </div>
               </div>
               <div style="margin:-10px 20px 18px;text-align:center;font-size:13px;color:var(--muted);"><span data-i18n="prof_avg_price">Avg. price:</span> <strong id="pst-avg">—</strong> &nbsp;·&nbsp; <span id="pst-draft">0</span> drafts</div>
@@ -15456,7 +15623,7 @@
       if (!user) return null;
       try {
         const { data, error } = await sb.from('profiles')
-          .select('id,name,email,avatar_url,credits,xp,partner_xp,created_at,referral_code,referred_by_code,total_referrals,registration_referrals,listing_referrals,chest_claimed')
+          .select('id,name,email,avatar_url,credits,xp,partner_xp,created_at,referral_code,referred_by_code,total_referrals,registration_referrals,listing_referrals,chest_claimed,daily_streak_day,daily_streak_claimed_at')
           .eq('id', user.id).maybeSingle();
         if (error) throw error;
         return data || null;
@@ -15591,7 +15758,16 @@
       const memberInfo = rnMemberSinceInfo(prof?.created_at);
       document.getElementById('pst-since').textContent = memberInfo.label;
       const daysEl = document.getElementById('pst-days');
-      if (daysEl) daysEl.textContent = memberInfo.days;
+      if (daysEl) {
+        // Show current streak day (0 = no streak yet)
+        const streakDay = parseInt(prof?.daily_streak_day || '0', 10);
+        daysEl.textContent = streakDay > 0 ? '🔥 ' + streakDay + '/7' : '—';
+        // Show dot indicator if reward is claimable
+        const dot = document.getElementById('pst-streak-dot');
+        if (dot && typeof window.getClaimableDay === 'function') {
+          dot.style.display = window.getClaimableDay() > 0 ? 'block' : 'none';
+        }
+      }
 
       const xp = parseInt(prof?.xp ?? prof?.partner_xp ?? 0, 10) || 0;
       renderXpBlock('prof', xp);
@@ -15680,7 +15856,14 @@
       const since = document.getElementById('rent-pst-since');
       if (since) since.textContent = memberInfo.label;
       const daysEl = document.getElementById('rent-pst-days');
-      if (daysEl) daysEl.textContent = memberInfo.days;
+      if (daysEl) {
+        const streakDay = parseInt(prof?.daily_streak_day || '0', 10);
+        daysEl.textContent = streakDay > 0 ? '🔥 ' + streakDay + '/7' : '—';
+        const dot = document.getElementById('rent-pst-streak-dot');
+        if (dot && typeof window.getClaimableDay === 'function') {
+          dot.style.display = window.getClaimableDay() > 0 ? 'block' : 'none';
+        }
+      }
 
       const xp = parseInt(prof?.xp ?? prof?.partner_xp ?? 0, 10) || 0;
       renderXpBlock('rent-prof', xp);
@@ -19484,17 +19667,38 @@
 
 
   <!-- ══ DAILY STREAK POPUP ══ -->
-  <div id="streak-popup-bg">
+  <div id="streak-popup-bg" onclick="event.target===this&&closeStreakPopup()">
     <div class="streak-popup-box">
+      <!-- Floating particles filled by JS -->
+      <div class="streak-particles" id="streak-particles"></div>
+
+      <!-- Header -->
       <div class="streak-popup-header">
-        <div class="streak-popup-title">🔥 Daily Streak Reward</div>
-        <p class="streak-popup-sub">Open the app every day to earn credits!</p>
+        <button class="streak-close-btn" onclick="closeStreakPopup()">✕</button>
+        <span class="streak-flame-icon">🔥</span>
+        <div class="streak-popup-title">Daily Streak Reward</div>
+        <p class="streak-popup-sub">Come back every day to earn more credits!</p>
       </div>
-      <div class="streak-days-grid" id="streak-days-grid"><!-- filled by JS --></div>
+
+      <!-- 7-day grid filled by JS -->
+      <div class="streak-days-grid" id="streak-days-grid"></div>
+
+      <!-- Progress bar -->
+      <div class="streak-progress-wrap">
+        <div class="streak-progress-track">
+          <div class="streak-progress-fill" id="streak-progress-fill" style="width:0%"></div>
+        </div>
+        <div class="streak-progress-label">
+          <span id="streak-progress-left">Day 0 / 7</span>
+          <span id="streak-progress-right">7 credits on Day 7!</span>
+        </div>
+      </div>
+
+      <!-- Claim area -->
       <div class="streak-claim-area">
-        <button class="btn btn-terra btn-full" id="streak-claim-btn" onclick="claimStreakDay()">🎁 Claim Reward</button>
+        <div class="streak-burst" id="streak-burst" style="display:none;"></div>
+        <button class="streak-claim-btn" id="streak-claim-btn" onclick="claimStreakDay()">🎁 Claim Today's Reward</button>
         <div class="streak-timer" id="streak-timer-text"></div>
-        <button class="btn btn-soft btn-sm btn-full" style="margin-top:10px;" onclick="closeStreakPopup()">Close</button>
       </div>
     </div>
   </div>
@@ -19847,6 +20051,8 @@
       var STREAK_KEY = 'rn-streak-v1';
       var CREDITS_PER_DAY = [1, 2, 3, 4, 5, 6, 7]; // Day 1=1 Day 2=2 … Day 7=7 credits
       var DAY_MS = 24 * 60 * 60 * 1000;
+      // Expose getClaimableDay globally so profile stat dot can check it
+      window.getClaimableDay = function() { return typeof getClaimableDay === 'function' ? getClaimableDay() : 0; };
 
       function getStreak() {
         try { return JSON.parse(localStorage.getItem(STREAK_KEY) || 'null') || { day: 0, lastClaimed: 0, cycleStart: 0 }; }
@@ -19885,6 +20091,31 @@
         return 'Next reward in ' + h + 'h ' + m + 'm ' + sec + 's';
       }
 
+      // Per-day icons matching RentNivas theme
+      var DAY_ICONS = ['🌱','🔑','🏠','⭐','💎','🏆','🎉'];
+
+      function spawnParticles() {
+        var container = document.getElementById('streak-particles');
+        if (!container) return;
+        container.innerHTML = '';
+        var colors = ['#f59e0b','#c2714f','#fcd34d','#fb923c','#fef3c7'];
+        for (var i = 0; i < 14; i++) {
+          var p = document.createElement('div');
+          p.className = 'streak-particle';
+          var size = Math.random() * 8 + 4;
+          p.style.cssText = [
+            'width:' + size + 'px',
+            'height:' + size + 'px',
+            'left:' + (Math.random() * 100) + '%',
+            'bottom:' + (Math.random() * 30) + '%',
+            'background:' + colors[Math.floor(Math.random() * colors.length)],
+            'animation-duration:' + (Math.random() * 4 + 3) + 's',
+            'animation-delay:' + (Math.random() * 3) + 's'
+          ].join(';');
+          container.appendChild(p);
+        }
+      }
+
       function renderStreakGrid() {
         var grid = document.getElementById('streak-days-grid');
         if (!grid) return;
@@ -19892,12 +20123,10 @@
         var claimableDay = getClaimableDay();
         var html = '';
         for (var d = 1; d <= 7; d++) {
-          var claimed = d < (s.day === 7 && claimableDay === 1 ? 0 : s.day + (claimableDay === 0 ? 1 : 0)) || (d <= s.day && claimableDay !== d);
-          // Figure out state: claimed (done), active (today's claimable), locked (future)
           var isClaimed = d < s.day || (d === s.day && claimableDay !== s.day);
           var isActive = d === claimableDay;
           var cls = isClaimed ? 'claimed' : isActive ? 'active' : 'locked';
-          var icon = isClaimed ? '✅' : isActive ? '🎁' : '🔒';
+          var icon = isClaimed ? '✅' : isActive ? DAY_ICONS[d-1] : '🔒';
           html += '<div class="streak-day ' + cls + '">' +
             '<div class="streak-day-label">Day ' + d + '</div>' +
             '<div class="streak-day-icon">' + icon + '</div>' +
@@ -19905,6 +20134,22 @@
             '</div>';
         }
         grid.innerHTML = html;
+
+        // Update progress bar
+        var claimedCount = claimableDay > 0 ? Math.max(0, s.day) : s.day;
+        var pct = Math.round((claimedCount / 7) * 100);
+        var fill = document.getElementById('streak-progress-fill');
+        var lbl = document.getElementById('streak-progress-left');
+        if (fill) fill.style.width = pct + '%';
+        if (lbl) lbl.textContent = 'Day ' + claimedCount + ' / 7';
+      }
+
+      function fireBurst() {
+        var burst = document.getElementById('streak-burst');
+        if (!burst) return;
+        burst.style.display = 'flex';
+        burst.innerHTML = '<div class="streak-burst-ring"></div>';
+        setTimeout(function() { burst.style.display = 'none'; burst.innerHTML = ''; }, 700);
       }
 
       function updateStreakUI() {
@@ -19913,13 +20158,15 @@
         var timerEl = document.getElementById('streak-timer-text');
         var claimableDay = getClaimableDay();
         if (claimableDay > 0) {
-          if (btn) { btn.disabled = false; btn.textContent = '🎁 Claim Day ' + claimableDay + ' (+' + CREDITS_PER_DAY[claimableDay - 1] + ' credit' + (CREDITS_PER_DAY[claimableDay - 1] > 1 ? 's' : '') + ')'; }
+          if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = DAY_ICONS[claimableDay-1] + ' Claim Day ' + claimableDay + ' &mdash; +' + CREDITS_PER_DAY[claimableDay - 1] + ' Credit' + (CREDITS_PER_DAY[claimableDay - 1] > 1 ? 's' : '');
+          }
           if (timerEl) timerEl.textContent = '';
         } else {
-          if (btn) { btn.disabled = true; btn.textContent = '✅ Come back tomorrow!'; }
+          if (btn) { btn.disabled = true; btn.innerHTML = '✅ Come back tomorrow!'; }
           var remaining = msUntilNext();
           if (timerEl) timerEl.textContent = fmtCountdown(remaining);
-          // Update timer every second
           if (remaining > 0) setTimeout(updateStreakUI, 1000);
         }
       }
@@ -19953,6 +20200,7 @@
               }
               if (window.toast) window.toast('🔥 Day ' + rd.day + ' claimed! +' + rd.credits_awarded + ' credit added!', 'success');
               if (window.pushNotif) window.pushNotif('🔥', 'Day ' + rd.day + ' streak! +' + rd.credits_awarded + ' credit earned.');
+              fireBurst();
               updateStreakUI();
               return;
             }
@@ -19982,6 +20230,7 @@
         }
         if (window.toast) window.toast('🔥 Day ' + claimableDay + ' claimed! +' + credits + ' credit added!', 'success');
         if (window.pushNotif) window.pushNotif('🔥', 'Day ' + claimableDay + ' streak! +' + credits + ' credit earned.');
+        fireBurst();
         updateStreakUI();
       };
 
@@ -20022,7 +20271,11 @@
         bg.style.opacity = '0';
         bg.style.pointerEvents = 'all';
         if (window._lockScroll) window._lockScroll();
-        requestAnimationFrame(function () { bg.style.opacity = '1'; });
+        requestAnimationFrame(function () {
+          bg.style.opacity = '1';
+          // Spawn particles after popup is visible
+          setTimeout(function() { if (typeof spawnParticles === 'function') spawnParticles(); }, 200);
+        });
       };
 
       window.closeStreakPopup = function () {
