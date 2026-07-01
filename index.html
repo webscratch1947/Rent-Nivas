@@ -8710,23 +8710,35 @@
       border-color:#4ade80;
     }
     .streak-day.active {
-      background:linear-gradient(145deg,#fffbeb,#fef3c7);
+      background:linear-gradient(145deg,#2a1a0e,#3d1f0a);
       border-color:#f59e0b;
-      box-shadow:0 0 0 3px rgba(245,158,11,.2),0 4px 16px rgba(245,158,11,.25);
+      box-shadow:0 0 0 3px rgba(245,158,11,.25),0 4px 16px rgba(245,158,11,.3);
       transform:translateY(-3px) scale(1.04);
     }
-    .streak-day.locked { opacity:.38;filter:grayscale(.4); }
+    .streak-day.locked { opacity:.5; }
     .streak-day-label {
       font-size:9px;color:#a08060;font-weight:700;
       text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;
     }
-    .streak-day-icon { font-size:18px;margin-bottom:3px;line-height:1; }
+    .streak-day.active .streak-day-label { color:#fbbf24; }
+    .streak-day-coin-wrap {
+      width:26px;height:26px;margin:0 auto 3px;position:relative;
+      display:flex;align-items:center;justify-content:center;
+    }
+    .streak-day-coin-wrap img { width:100%;height:100%;display:block; }
+    .streak-day.locked .streak-day-coin-wrap img { filter:grayscale(1) opacity(.5); }
+    .streak-day.claimed .streak-day-coin-wrap::after {
+      content:'✓';position:absolute;bottom:-3px;right:-4px;width:14px;height:14px;
+      background:#16a34a;color:#fff;border-radius:50%;font-size:9px;font-weight:900;
+      display:flex;align-items:center;justify-content:center;border:1.5px solid #fff;
+      line-height:1;
+    }
     .streak-day-credits {
       font-size:13px;font-weight:800;
       color:#c2714f;line-height:1;
     }
     .streak-day.claimed .streak-day-credits { color:#16a34a; }
-    .streak-day.active .streak-day-credits { color:#d97706; }
+    .streak-day.active .streak-day-credits { color:#fde68a; }
     /* Active day pulse ring */
     .streak-day.active::after {
       content:'';position:absolute;inset:-4px;border-radius:17px;
@@ -8804,10 +8816,49 @@
       0%   { transform:scale(0);opacity:.9; }
       100% { transform:scale(3.5);opacity:0; }
     }
+    /* ── Comu-style claim celebration overlay ── */
+    .streak-celebrate {
+      position:absolute;inset:0;z-index:80;border-radius:inherit;
+      background:linear-gradient(160deg,#2a1a0e 0%,#3d1f0a 45%,#c2714f 100%);
+      display:flex;flex-direction:column;align-items:center;justify-content:center;
+      text-align:center;padding:30px;opacity:0;pointer-events:none;
+      transition:opacity .35s ease;overflow:hidden;
+    }
+    .streak-celebrate.show { opacity:1;pointer-events:all; }
+    .streak-celebrate-confetti {
+      position:absolute;inset:0;overflow:hidden;pointer-events:none;
+    }
+    .streak-celebrate-confetti span {
+      position:absolute;top:-10%;width:8px;height:8px;border-radius:2px;
+      animation:streakConfettiFall 1.4s ease-in forwards;
+    }
+    @keyframes streakConfettiFall {
+      0%   { transform:translateY(0) rotate(0deg); opacity:1; }
+      100% { transform:translateY(220px) rotate(340deg); opacity:0; }
+    }
+    .streak-celebrate-coin {
+      width:92px;height:92px;margin-bottom:16px;position:relative;z-index:1;
+      animation:streakCoinPop .55s cubic-bezier(.34,1.56,.64,1);
+      filter:drop-shadow(0 6px 18px rgba(0,0,0,.35));
+    }
+    .streak-celebrate-coin img { width:100%;height:100%;display:block; }
+    @keyframes streakCoinPop {
+      0%   { transform:scale(0) rotate(-30deg); opacity:0; }
+      60%  { transform:scale(1.15) rotate(6deg); opacity:1; }
+      100% { transform:scale(1) rotate(0deg); }
+    }
+    .streak-celebrate-title {
+      font-size:23px;font-weight:900;color:#fff;font-family:var(--font-display);
+      position:relative;z-index:1;text-shadow:0 2px 10px rgba(0,0,0,.3);
+    }
+    .streak-celebrate-sub {
+      font-size:13px;color:rgba(255,255,255,.75);margin-top:6px;
+      position:relative;z-index:1;font-weight:600;
+    }
     @media(max-width:480px){
       .streak-days-grid { gap:4px;padding:16px 12px 0; }
       .streak-day { padding:8px 2px 6px;border-radius:10px; }
-      .streak-day-icon { font-size:15px; }
+      .streak-day-coin-wrap { width:20px;height:20px; }
       .streak-day-credits { font-size:11px; }
       .streak-popup-title { font-size:20px; }
       .streak-flame-icon { font-size:42px; }
@@ -8822,7 +8873,7 @@
       .streak-days-grid { gap:12px;padding:28px 36px 0; }
       .streak-day { padding:16px 6px 12px;border-radius:16px; }
       .streak-day-label { font-size:10px; }
-      .streak-day-icon { font-size:24px;margin-bottom:6px; }
+      .streak-day-coin-wrap { width:32px;height:32px;margin-bottom:6px; }
       .streak-day-credits { font-size:15px; }
       .streak-progress-wrap { padding:20px 36px 0; }
       .streak-claim-area { padding:24px 36px 30px; }
@@ -12596,16 +12647,17 @@
       if (imgEl && imgEl.getAttribute('src') !== tier.img) imgEl.src = tier.img;
       if (nameEl) nameEl.textContent = tier.name;
       if (lvlEl) lvlEl.textContent = level;
-      if (curEl) curEl.textContent = xp + ' XP';
 
       if (next) {
         var span = next.min - tier.min;
         var into = xp - tier.min;
         var pct  = Math.max(0, Math.min(100, span > 0 ? (into / span) * 100 : 100));
         if (fillEl) fillEl.style.width = pct + '%';
+        if (curEl) curEl.textContent = into + ' / ' + span;
         if (nextEl) nextEl.textContent = (next.min - xp) + ' XP to ' + next.name.replace(' Partner', '');
       } else {
         if (fillEl) fillEl.style.width = '100%';
+        if (curEl) curEl.textContent = xp + ' XP';
         if (nextEl) nextEl.textContent = 'Max tier reached!';
       }
     }
@@ -19476,23 +19528,21 @@
       </div>
 
       <!-- ══ PARTNER LEVEL CARD ══ -->
-      <div id="pd-level-card" style="background:linear-gradient(145deg,#1a1410 0%,#2a1a0e 45%,#3d1f0a 100%);border-radius:20px;padding:22px 22px 20px;margin-bottom:20px;position:relative;overflow:hidden;">
+      <div id="pd-level-card" style="background:linear-gradient(145deg,#1a1410 0%,#2a1a0e 45%,#3d1f0a 100%);border-radius:24px;padding:28px 24px 24px;margin-bottom:20px;position:relative;overflow:hidden;text-align:center;">
         <div style="position:absolute;top:-40px;right:-30px;width:160px;height:160px;border-radius:50%;background:rgba(255,180,100,.08);pointer-events:none;"></div>
-        <div style="display:flex;align-items:center;gap:16px;position:relative;z-index:1;">
-          <img id="pd-level-badge-img" src="badge-bronze.png" alt="Tier badge" style="width:60px;height:60px;object-fit:contain;flex-shrink:0;filter:drop-shadow(0 4px 10px rgba(0,0,0,.4));">
-          <div style="flex:1;min-width:0;">
-            <div id="pd-level-tier-name" style="font-size:17px;font-weight:800;color:#fff;letter-spacing:-.2px;">Bronze Partner</div>
-            <div style="font-size:12px;color:rgba(255,255,255,.55);font-weight:600;margin-top:2px;">Level <span id="pd-level-num">1</span></div>
+        <div style="position:absolute;bottom:-50px;left:-30px;width:140px;height:140px;border-radius:50%;background:rgba(255,180,100,.05);pointer-events:none;"></div>
+        <img id="pd-level-badge-img" src="badge-bronze.png" alt="Tier badge" style="width:78px;height:78px;object-fit:contain;display:block;margin:0 auto 12px;position:relative;z-index:1;filter:drop-shadow(0 6px 14px rgba(0,0,0,.45));">
+        <div id="pd-level-tier-name" style="font-size:19px;font-weight:900;color:#fff;letter-spacing:-.2px;position:relative;z-index:1;">Bronze Partner</div>
+        <div style="font-size:12px;color:rgba(255,255,255,.55);font-weight:700;margin-top:3px;position:relative;z-index:1;">Level <span id="pd-level-num">1</span></div>
+        <div style="margin-top:20px;position:relative;z-index:1;text-align:left;">
+          <div style="display:flex;justify-content:space-between;margin-bottom:7px;font-size:11px;color:rgba(255,255,255,.6);font-weight:700;letter-spacing:.4px;text-transform:uppercase;">
+            <span>XP</span>
+            <span id="pd-level-xp-current">0 / 100</span>
           </div>
-        </div>
-        <div style="margin-top:16px;position:relative;z-index:1;">
           <div style="height:8px;background:rgba(255,255,255,.12);border-radius:20px;overflow:hidden;">
             <div id="pd-level-progress-fill" style="height:100%;width:0%;background:linear-gradient(90deg,#f59e0b,#ef4444);border-radius:20px;transition:width 1s cubic-bezier(.22,1,.36,1);"></div>
           </div>
-          <div style="display:flex;justify-content:space-between;margin-top:6px;font-size:11px;color:rgba(255,255,255,.55);font-weight:600;">
-            <span id="pd-level-xp-current">0 XP</span>
-            <span id="pd-level-xp-next">— XP to next tier</span>
-          </div>
+          <div style="margin-top:6px;font-size:11px;color:rgba(255,255,255,.5);font-weight:600;" id="pd-level-xp-next">— XP to next tier</div>
         </div>
       </div>
 
@@ -19838,6 +19888,14 @@
     <div class="streak-popup-box">
       <!-- Floating particles filled by JS -->
       <div class="streak-particles" id="streak-particles"></div>
+
+      <!-- Comu-style claim celebration overlay -->
+      <div class="streak-celebrate" id="streak-celebrate">
+        <div class="streak-celebrate-confetti" id="streak-celebrate-confetti"></div>
+        <div class="streak-celebrate-coin"><img src="/coin.svg" alt="Coin"></div>
+        <div class="streak-celebrate-title" id="streak-celebrate-title">Day 1 Streak!</div>
+        <div class="streak-celebrate-sub" id="streak-celebrate-sub">Come back tomorrow for more!</div>
+      </div>
 
       <!-- Header -->
       <div class="streak-popup-header">
@@ -20293,10 +20351,9 @@
           var isClaimed = d < s.day || (d === s.day && claimableDay !== s.day);
           var isActive = d === claimableDay;
           var cls = isClaimed ? 'claimed' : isActive ? 'active' : 'locked';
-          var icon = isClaimed ? '✅' : isActive ? DAY_ICONS[d-1] : '🔒';
           html += '<div class="streak-day ' + cls + '">' +
             '<div class="streak-day-label">Day ' + d + '</div>' +
-            '<div class="streak-day-icon">' + icon + '</div>' +
+            '<div class="streak-day-coin-wrap"><img src="/coin.svg" alt="Coin" loading="lazy"></div>' +
             '<div class="streak-day-credits">+' + CREDITS_PER_DAY[d - 1] + '</div>' +
             '</div>';
         }
@@ -20317,6 +20374,43 @@
         burst.style.display = 'flex';
         burst.innerHTML = '<div class="streak-burst-ring"></div>';
         setTimeout(function() { burst.style.display = 'none'; burst.innerHTML = ''; }, 700);
+      }
+
+      var STREAK_CONFETTI_COLORS = ['#f59e0b', '#c2714f', '#4ade80', '#fde68a', '#fff', '#fb923c'];
+
+      function showStreakCelebration(day, credits) {
+        var overlay = document.getElementById('streak-celebrate');
+        var confetti = document.getElementById('streak-celebrate-confetti');
+        var titleEl  = document.getElementById('streak-celebrate-title');
+        var subEl    = document.getElementById('streak-celebrate-sub');
+        if (!overlay) return;
+
+        if (titleEl) titleEl.textContent = day + (day === 1 ? ' Day Streak!' : ' Days Streak!');
+        if (subEl) {
+          subEl.textContent = day >= 7
+            ? '+' + credits + ' credits — full week claimed! 🎉'
+            : 'Almost a 7 day streak with Rent Nivas — +' + credits + ' credit' + (credits > 1 ? 's' : '') + ' earned';
+        }
+
+        // Spawn confetti pieces
+        if (confetti) {
+          confetti.innerHTML = '';
+          for (var i = 0; i < 26; i++) {
+            var piece = document.createElement('span');
+            var color = STREAK_CONFETTI_COLORS[Math.floor(Math.random() * STREAK_CONFETTI_COLORS.length)];
+            piece.style.cssText = [
+              'left:' + (Math.random() * 100) + '%',
+              'background:' + color,
+              'animation-delay:' + (Math.random() * 0.35) + 's',
+              'animation-duration:' + (1.1 + Math.random() * 0.8) + 's',
+              'border-radius:' + (Math.random() > 0.5 ? '50%' : '2px')
+            ].join(';');
+            confetti.appendChild(piece);
+          }
+        }
+
+        overlay.classList.add('show');
+        setTimeout(function () { overlay.classList.remove('show'); }, 2100);
       }
 
       function updateStreakUI() {
@@ -20368,6 +20462,7 @@
               if (window.toast) window.toast('🔥 Day ' + rd.day + ' claimed! +' + rd.credits_awarded + ' credit added!', 'success');
               if (window.pushNotif) window.pushNotif('🔥', 'Day ' + rd.day + ' streak! +' + rd.credits_awarded + ' credit earned.');
               fireBurst();
+              showStreakCelebration(rd.day, rd.credits_awarded);
               updateStreakUI();
               return;
             }
@@ -20398,6 +20493,7 @@
         if (window.toast) window.toast('🔥 Day ' + claimableDay + ' claimed! +' + credits + ' credit added!', 'success');
         if (window.pushNotif) window.pushNotif('🔥', 'Day ' + claimableDay + ' streak! +' + credits + ' credit earned.');
         fireBurst();
+        showStreakCelebration(claimableDay, credits);
         updateStreakUI();
       };
 
