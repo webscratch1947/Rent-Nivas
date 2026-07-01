@@ -12619,8 +12619,11 @@
 
     // ══ PARTNER LEVEL / TIER SYSTEM ══
     // Reuses the badge-*.png tier art already shipped with the project.
+    // "Unranked" is the true starting state — Bronze (and every tier after it)
+    // has to actually be earned, it isn't handed out at 0 XP.
     var RN_PARTNER_TIERS = [
-      { key: 'bronze',    name: 'Bronze Partner',    min: 0,    img: 'badge-bronze.png' },
+      { key: 'unranked',  name: 'Unranked Partner',  min: 0,    img: 'badge-bronze.png', locked: true },
+      { key: 'bronze',    name: 'Bronze Partner',    min: 25,   img: 'badge-bronze.png' },
       { key: 'silver',    name: 'Silver Partner',    min: 100,  img: 'badge-silver.png' },
       { key: 'gold',      name: 'Gold Partner',      min: 300,  img: 'badge-gold.png' },
       { key: 'diamond',   name: 'Diamond Partner',   min: 700,  img: 'badge-diamond.png' },
@@ -12639,14 +12642,21 @@
 
       var imgEl  = document.getElementById('pd-level-badge-img');
       var nameEl = document.getElementById('pd-level-tier-name');
-      var lvlEl  = document.getElementById('pd-level-num');
+      var subEl  = document.getElementById('pd-level-sub');
       var fillEl = document.getElementById('pd-level-progress-fill');
       var curEl  = document.getElementById('pd-level-xp-current');
       var nextEl = document.getElementById('pd-level-xp-next');
 
-      if (imgEl && imgEl.getAttribute('src') !== tier.img) imgEl.src = tier.img;
+      if (imgEl) {
+        if (imgEl.getAttribute('src') !== tier.img) imgEl.src = tier.img;
+        imgEl.style.filter = tier.locked
+          ? 'grayscale(1) opacity(.45) drop-shadow(0 6px 14px rgba(0,0,0,.45))'
+          : 'drop-shadow(0 6px 14px rgba(0,0,0,.45))';
+      }
       if (nameEl) nameEl.textContent = tier.name;
-      if (lvlEl) lvlEl.textContent = level;
+      if (subEl) {
+        subEl.innerHTML = tier.locked ? 'Not ranked yet' : ('Level <span id="pd-level-num">' + level + '</span>');
+      }
 
       if (next) {
         var span = next.min - tier.min;
@@ -19531,7 +19541,7 @@
         <div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,transparent,#f59e0b,#fde68a,#f59e0b,transparent);background-size:200% 100%;animation:pdLevelShimmer 3.5s linear infinite;"></div>
         <img id="pd-level-badge-img" src="badge-bronze.png" alt="Tier badge" style="width:82px;height:82px;object-fit:contain;display:block;margin:0 auto 12px;position:relative;z-index:1;filter:drop-shadow(0 6px 14px rgba(0,0,0,.45));">
         <div id="pd-level-tier-name" style="font-size:20px;font-weight:900;color:#fff;letter-spacing:-.2px;position:relative;z-index:1;">Bronze Partner</div>
-        <div style="font-size:12px;color:rgba(255,255,255,.55);font-weight:700;margin-top:3px;position:relative;z-index:1;">Level <span id="pd-level-num">1</span></div>
+        <div style="font-size:12px;color:rgba(255,255,255,.55);font-weight:700;margin-top:3px;position:relative;z-index:1;" id="pd-level-sub">Level <span id="pd-level-num">1</span></div>
         <div style="margin-top:20px;position:relative;z-index:1;text-align:left;">
           <div style="display:flex;justify-content:space-between;margin-bottom:7px;font-size:11px;color:rgba(255,255,255,.6);font-weight:700;letter-spacing:.4px;text-transform:uppercase;">
             <span>XP</span>
