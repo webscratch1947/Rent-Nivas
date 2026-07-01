@@ -19756,6 +19756,13 @@
       </span>
       <span class="mbn-label">Credits</span>
     </button>
+    <button class="mob-bottom-btn" id="mbn-referral"
+      onclick="closeModal();mobBottomActive('mbn-referral');if(typeof goToPartnerArea==='function')goToPartnerArea();">
+      <span class="mbn-icon" style="position:relative;display:inline-flex;align-items:center;justify-content:center;">
+        🎟️
+      </span>
+      <span class="mbn-label">Referral</span>
+    </button>
     <button class="mob-bottom-btn" id="mbn-profile"
       onclick="closeModal();mobBottomActive('mbn-profile');var _r=localStorage.getItem('nestly-role');if(_r==='rent'){rentShowSection('profile');}else{var _hd=document.getElementById('host-dashboard');if(_hd&&_hd.classList.contains('active')){showSection('profile');}else if(typeof switchToHost==='function'){Promise.resolve(switchToHost()).then(function(){showSection('profile');mobBottomActive('mbn-profile');});}else{showPage('host-dashboard');showSection('profile');}}">
       <span class="mbn-icon" style="position:relative;display:inline-flex;align-items:center;justify-content:center;">
