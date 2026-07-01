@@ -8664,11 +8664,13 @@
     }
     .streak-flame-icon {
       font-size:52px;line-height:1;margin-bottom:10px;
+      width:64px;height:64px;margin-left:auto;margin-right:auto;
       display:block;
       animation:streakFlame 1.4s ease-in-out infinite alternate;
       filter:drop-shadow(0 0 16px rgba(245,158,11,.7));
       position:relative;z-index:1;
     }
+    .streak-flame-icon svg { width:100%;height:100%;display:block; }
     @keyframes streakFlame {
       from { transform:scale(1) rotate(-3deg); filter:drop-shadow(0 0 10px rgba(245,158,11,.5)); }
       to   { transform:scale(1.12) rotate(3deg); filter:drop-shadow(0 0 24px rgba(245,158,11,.9)); }
@@ -8825,13 +8827,6 @@
       .streak-progress-wrap { padding:20px 36px 0; }
       .streak-claim-area { padding:24px 36px 30px; }
       .streak-claim-btn { padding:17px 20px;font-size:17px; }
-    }
-    /* Fire icon (inline SVG, replaces the plain emoji for a crisper look) */
-    .streak-flame-icon svg {
-      width: 1em;
-      height: 1em;
-      display: block;
-      margin: 0 auto;
     }
   </style>
 <style id="rn-tut-styles">
@@ -12571,6 +12566,50 @@
       setTimeout(() => { cel.style.display='none'; cel.innerHTML=''; }, 2600);
     }
 
+    // ══ PARTNER LEVEL / TIER SYSTEM ══
+    // Reuses the badge-*.png tier art already shipped with the project.
+    var RN_PARTNER_TIERS = [
+      { key: 'bronze',    name: 'Bronze Partner',    min: 0,    img: 'badge-bronze.png' },
+      { key: 'silver',    name: 'Silver Partner',    min: 100,  img: 'badge-silver.png' },
+      { key: 'gold',      name: 'Gold Partner',      min: 300,  img: 'badge-gold.png' },
+      { key: 'diamond',   name: 'Diamond Partner',   min: 700,  img: 'badge-diamond.png' },
+      { key: 'legendary', name: 'Legendary Partner', min: 1500, img: 'badge-legendary.png' }
+    ];
+
+    function updatePartnerLevelCard(xp) {
+      xp = Math.max(0, parseInt(xp, 10) || 0);
+      var tierIdx = 0;
+      for (var i = 0; i < RN_PARTNER_TIERS.length; i++) {
+        if (xp >= RN_PARTNER_TIERS[i].min) tierIdx = i;
+      }
+      var tier = RN_PARTNER_TIERS[tierIdx];
+      var next = RN_PARTNER_TIERS[tierIdx + 1] || null;
+      var level = Math.floor(xp / 50) + 1;
+
+      var imgEl  = document.getElementById('pd-level-badge-img');
+      var nameEl = document.getElementById('pd-level-tier-name');
+      var lvlEl  = document.getElementById('pd-level-num');
+      var fillEl = document.getElementById('pd-level-progress-fill');
+      var curEl  = document.getElementById('pd-level-xp-current');
+      var nextEl = document.getElementById('pd-level-xp-next');
+
+      if (imgEl && imgEl.getAttribute('src') !== tier.img) imgEl.src = tier.img;
+      if (nameEl) nameEl.textContent = tier.name;
+      if (lvlEl) lvlEl.textContent = level;
+      if (curEl) curEl.textContent = xp + ' XP';
+
+      if (next) {
+        var span = next.min - tier.min;
+        var into = xp - tier.min;
+        var pct  = Math.max(0, Math.min(100, span > 0 ? (into / span) * 100 : 100));
+        if (fillEl) fillEl.style.width = pct + '%';
+        if (nextEl) nextEl.textContent = (next.min - xp) + ' XP to ' + next.name.replace(' Partner', '');
+      } else {
+        if (fillEl) fillEl.style.width = '100%';
+        if (nextEl) nextEl.textContent = 'Max tier reached!';
+      }
+    }
+
     async function loadPartnerDashboard() {
       if (!user) { showPage('login-page'); return; }
       const name = user.user_metadata?.name || user.email?.split('@')[0] || 'Partner';
@@ -12649,6 +12688,7 @@
 
         // Sync DB XP to localStorage so profile ring reflects the real value after login
         if (!isNaN(totalXP)) { setPartnerXP(totalXP); updateProfileBtnRing(); }
+        updatePartnerLevelCard(totalXP);
         // Sync credits from DB into localStorage
         if (!isNaN(credits)) { localStorage.setItem('nestly-credits', credits); updateCreditsBadges(); }
 
@@ -19435,6 +19475,27 @@
         <p style="color:var(--muted);font-size:14px;margin-top:4px;">Track your referrals, earn rewards, and complete tasks.</p>
       </div>
 
+      <!-- ══ PARTNER LEVEL CARD ══ -->
+      <div id="pd-level-card" style="background:linear-gradient(145deg,#1a1410 0%,#2a1a0e 45%,#3d1f0a 100%);border-radius:20px;padding:22px 22px 20px;margin-bottom:20px;position:relative;overflow:hidden;">
+        <div style="position:absolute;top:-40px;right:-30px;width:160px;height:160px;border-radius:50%;background:rgba(255,180,100,.08);pointer-events:none;"></div>
+        <div style="display:flex;align-items:center;gap:16px;position:relative;z-index:1;">
+          <img id="pd-level-badge-img" src="badge-bronze.png" alt="Tier badge" style="width:60px;height:60px;object-fit:contain;flex-shrink:0;filter:drop-shadow(0 4px 10px rgba(0,0,0,.4));">
+          <div style="flex:1;min-width:0;">
+            <div id="pd-level-tier-name" style="font-size:17px;font-weight:800;color:#fff;letter-spacing:-.2px;">Bronze Partner</div>
+            <div style="font-size:12px;color:rgba(255,255,255,.55);font-weight:600;margin-top:2px;">Level <span id="pd-level-num">1</span></div>
+          </div>
+        </div>
+        <div style="margin-top:16px;position:relative;z-index:1;">
+          <div style="height:8px;background:rgba(255,255,255,.12);border-radius:20px;overflow:hidden;">
+            <div id="pd-level-progress-fill" style="height:100%;width:0%;background:linear-gradient(90deg,#f59e0b,#ef4444);border-radius:20px;transition:width 1s cubic-bezier(.22,1,.36,1);"></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;margin-top:6px;font-size:11px;color:rgba(255,255,255,.55);font-weight:600;">
+            <span id="pd-level-xp-current">0 XP</span>
+            <span id="pd-level-xp-next">— XP to next tier</span>
+          </div>
+        </div>
+      </div>
+
       <!-- ══ REFERRAL CODE CARD ══ -->
       <div id="pd-ref-code-card" style="background:linear-gradient(135deg,#7c2d12,#b45309 60%,#d97706);border-radius:20px;padding:20px 22px;margin-bottom:20px;position:relative;overflow:hidden;">
         <div style="position:absolute;top:-30px;right:-30px;width:130px;height:130px;border-radius:50%;background:rgba(255,255,255,.07);pointer-events:none;"></div>
@@ -19781,18 +19842,7 @@
       <!-- Header -->
       <div class="streak-popup-header">
         <button class="streak-close-btn" onclick="closeStreakPopup()">✕</button>
-        <span class="streak-flame-icon">
-          <svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-            <defs>
-              <linearGradient id="streakFireGrad" x1="0" y1="1" x2="0" y2="0">
-                <stop offset="0%" stop-color="#c2410c"/>
-                <stop offset="45%" stop-color="#f59e0b"/>
-                <stop offset="100%" stop-color="#fde68a"/>
-              </linearGradient>
-            </defs>
-            <path fill="url(#streakFireGrad)" d="M16.6 1.2c1 3.4-.4 5.4-2 7.4-1.8 2.2-3.8 4.6-3.8 8.2 0 1.2.2 2.3.7 3.3-2.6-1.4-4.3-4-4.3-7.3 0-1.2.2-2.3.6-3.3C4 12 2.6 15.6 2.6 19.4 2.6 26.4 8.4 32 15.6 32c7.6 0 13.8-5.8 13.8-13 0-6-3.6-10-7-13 .3 2.6-.6 4.4-2 5.7-.1-4.2-1.6-7.6-3.8-10.5z"/>
-          </svg>
-        </span>
+        <span class="streak-flame-icon" id="streak-flame-icon-wrap"></span>
         <div class="streak-popup-title">Daily Streak Reward</div>
         <p class="streak-popup-sub">Come back every day to earn more credits!</p>
       </div>
@@ -20375,9 +20425,39 @@
 
 
 
+      // Pre-fetch + inline the fire.svg once, forcing every SMIL animation to
+      // loop indefinitely (repeatCount="indefinite") so the flame keeps
+      // burning for as long as the popup is open — matches the coins
+      // animation pre-fetch pattern used elsewhere on the site.
+      var _rnFireSvgText = null;
+      fetch('/fire.svg')
+        .then(function (r) { return r.text(); })
+        .then(function (txt) {
+          _rnFireSvgText = txt
+            .replace(/repeatCount="[^"]*"/g, 'repeatCount="indefinite"')
+            .replace(/(<(?:animate|animateTransform|animateMotion|set)(?![^>]*\srepeatCount=)[^>]*?)(\/?>)/g, '$1 repeatCount="indefinite"$2');
+        })
+        .catch(function () {});
+
+      function _rnMountFireSvg() {
+        var wrap = document.getElementById('streak-flame-icon-wrap');
+        if (!wrap || wrap.dataset.mounted === '1') return;
+        if (!_rnFireSvgText) {
+          // Fallback fetch in case the popup opened before the pre-fetch resolved
+          fetch('/fire.svg').then(function (r) { return r.text(); }).then(function (txt) {
+            wrap.innerHTML = txt.replace(/repeatCount="[^"]*"/g, 'repeatCount="indefinite"');
+            wrap.dataset.mounted = '1';
+          }).catch(function () {});
+          return;
+        }
+        wrap.innerHTML = _rnFireSvgText;
+        wrap.dataset.mounted = '1';
+      }
+
       window.openStreakPopup = async function () {
         var bg = document.getElementById('streak-popup-bg');
         if (!bg) return;
+        _rnMountFireSvg();
         // Sync with server before rendering so the grid reflects authoritative state
         await window.syncStreakFromServer();
         updateStreakUI();
@@ -21006,6 +21086,16 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
   padding: 2px 9px;
   border-radius: 20px;
 }
+.rn-lb-verified-tick {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+}
+.rn-lb-verified-tick svg { width: 100%; height: 100%; display: block; }
+.rn-lb-hero-name .rn-lb-verified-tick { width: 19px; height: 19px; }
 .rn-lb-hero-credits-pill {
   display: inline-flex;
   align-items: center;
@@ -21384,6 +21474,8 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
   function avColor(rank) { return _avPalette[(rank - 1) % _avPalette.length]; }
 
   /* ── RENDER ── */
+  var RN_LB_VERIFIED_TICK_SVG = '<span class="rn-lb-verified-tick" title="Verified"><svg viewBox="0 0 22 22" xmlns="http://www.w3.org/2000/svg"><path fill="#2563eb" d="M10.396 1.147a1.6 1.6 0 0 1 1.208 0l1.302.535a1.6 1.6 0 0 0 .866.093l1.383-.234a1.6 1.6 0 0 1 1.696.796l.696 1.222a1.6 1.6 0 0 0 .624.624l1.222.696a1.6 1.6 0 0 1 .796 1.696l-.234 1.383a1.6 1.6 0 0 0 .093.866l.535 1.302a1.6 1.6 0 0 1 0 1.208l-.535 1.302a1.6 1.6 0 0 0-.093.866l.234 1.383a1.6 1.6 0 0 1-.796 1.696l-1.222.696a1.6 1.6 0 0 0-.624.624l-.696 1.222a1.6 1.6 0 0 1-1.696.796l-1.383-.234a1.6 1.6 0 0 0-.866.093l-1.302.535a1.6 1.6 0 0 1-1.208 0l-1.302-.535a1.6 1.6 0 0 0-.866-.093l-1.383.234a1.6 1.6 0 0 1-1.696-.796l-.696-1.222a1.6 1.6 0 0 0-.624-.624l-1.222-.696a1.6 1.6 0 0 1-.796-1.696l.234-1.383a1.6 1.6 0 0 0-.093-.866l-.535-1.302a1.6 1.6 0 0 1 0-1.208l.535-1.302a1.6 1.6 0 0 0 .093-.866l-.234-1.383a1.6 1.6 0 0 1 .796-1.696l1.222-.696a1.6 1.6 0 0 0 .624-.624l.696-1.222a1.6 1.6 0 0 1 .796-.796z"/><path fill="#fff" stroke="#fff" stroke-width=".6" stroke-linecap="round" stroke-linejoin="round" d="M7 11.3l2.4 2.4L15 8"/></svg></span>';
+
   function renderLeaderboard(rows, container, uid) {
     var hero      = document.getElementById('lb-hero-section');
     var rankLabel = document.getElementById('lb-rankings-label');
@@ -21438,6 +21530,7 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
     heroHtml += '<div class="rn-lb-hero-badge-ring">1</div>';
     heroHtml += '</div>';
     heroHtml += '<div class="rn-lb-hero-name">' + esc(topName);
+    if (top.verified) heroHtml += RN_LB_VERIFIED_TICK_SVG;
     if (topIsMe) heroHtml += '<span class="rn-lb-hero-you-tag">You</span>';
     heroHtml += '</div>';
     heroHtml += '<div><div class="rn-lb-hero-credits-pill">';
@@ -21487,6 +21580,7 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
       html += '</div></div>';
       html += '<div class="rn-lb-card-info">';
       html += '<div class="rn-lb-card-name">' + esc(name);
+      if (r.verified) html += RN_LB_VERIFIED_TICK_SVG;
       if (isMe) html += '<span class="rn-lb-card-name-you">You</span>';
       html += '</div>';
       html += '<div class="rn-lb-card-sub">Rank #' + rank + '</div>';
