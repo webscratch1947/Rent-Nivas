@@ -193,6 +193,7 @@ module.exports = async function handler(req, res) {
         credits:    parseFloat(row.credits) || 0,
         xp:         parseInt(row.xp || '0', 10),
         email:      row.email || '',
+        verified:   row.verified === true,
       };
     });
 
