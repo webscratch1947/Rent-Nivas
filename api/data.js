@@ -658,7 +658,12 @@ async function hasPartnerAccess(userId) {
       ddb.send(new ScanCommand({ TableName }))
     );
     const rows = (scanned.Items || []).map(i => unmarshall(i));
-    return rows.some(r => r.user_id === userId && r.status === 'accepted');
+    // Check both snake_case (user_id) and camelCase (userId) field names
+    // because old code paths may have written either form.
+    return rows.some(r =>
+      (r.user_id === userId || r.userId === userId) &&
+      r.status === 'accepted'
+    );
   } catch (err) {
     console.error('[Referral] hasPartnerAccess check failed:', err.message);
     return false;
