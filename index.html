@@ -12680,6 +12680,8 @@
       document.getElementById('role-host-btn')?.classList.remove('active');
       document.getElementById('role-rent-btn')?.classList.remove('active');
       updateProfileBtnRing();
+      // Show refer.svg opening animation — stays open until animation finishes
+      _rnShowReferOpenAnim();
       // Always load referral stats on open (not just on refresh button click)
       loadPartnerTasks();
       loadPartnerReferralStats(false);
@@ -12690,6 +12692,73 @@
     // ══════════════════════════════════════
 
     // Copy the partner's referral code to clipboard
+    // ── Refer opening animation (plays refer.svg inline, closes when anim ends) ──
+    window._rnShowReferOpenAnim = function() {
+      var overlay = document.getElementById('rn-refer-open-overlay');
+      var wrap = document.getElementById('rn-refer-open-svg-wrap');
+      if (!overlay || !wrap) return;
+      overlay.style.display = 'flex';
+      if (typeof _lockScroll === 'function') _lockScroll();
+      // Fetch refer.svg and inject inline so we can listen to animation end
+      fetch('/refer.svg')
+        .then(function(r) { return r.text(); })
+        .then(function(txt) {
+          if (!wrap) return;
+          wrap.innerHTML = txt;
+          var svg = wrap.querySelector('svg');
+          if (svg) {
+            svg.style.width = '100%';
+            svg.style.height = '100%';
+            svg.removeAttribute('width');
+            svg.removeAttribute('height');
+            // Find the last animate/animateTransform element and listen for its end
+            var anims = svg.querySelectorAll('animate, animateTransform, animateMotion, set');
+            var closed = false;
+            function _closeOverlay() {
+              if (closed) return;
+              closed = true;
+              if (typeof _unlockScroll === 'function') _unlockScroll();
+              overlay.style.opacity = '0';
+              overlay.style.transition = 'opacity .4s ease';
+              setTimeout(function() {
+                overlay.style.display = 'none';
+                overlay.style.opacity = '1';
+                overlay.style.transition = '';
+              }, 420);
+            }
+            if (anims.length > 0) {
+              // Listen to the last animation element ending
+              var lastAnim = anims[anims.length - 1];
+              lastAnim.addEventListener('endEvent', _closeOverlay);
+              // Safety fallback: close after 6 seconds max
+              setTimeout(_closeOverlay, 6000);
+            } else {
+              // No SMIL animations found — close after 2.5s
+              setTimeout(_closeOverlay, 2500);
+            }
+          } else {
+            // SVG not parsed — close after 2.5s
+            setTimeout(function() {
+              if (typeof _unlockScroll === 'function') _unlockScroll();
+              overlay.style.display = 'none';
+            }, 2500);
+          }
+        })
+        .catch(function() {
+          // Fetch failed — close immediately
+          if (typeof _unlockScroll === 'function') _unlockScroll();
+          overlay.style.display = 'none';
+        });
+    };
+
+    // ── Referral success popup close ──
+    window._rnCloseRefSuccessPopup = function() {
+      var popup = document.getElementById('rn-ref-success-popup');
+      if (!popup) return;
+      popup.style.transform = 'translateY(100%)';
+      setTimeout(function() { popup.style.display = 'none'; }, 420);
+    };
+
     function pdCopyRefCode() {
       const codeEl = document.getElementById('pd-ref-code-display');
       const code = (codeEl?.textContent || '').replace(/—/g, '').trim();
@@ -12763,6 +12832,25 @@
 
         // ── 2. Build referral history ──────────────────────────────────────
         await _renderReferralHistory(refCode);
+
+        // ── 3. Check for new referrals → show success popup once ──────────
+        if (!showRefreshToast) {
+          try {
+            const storageKey = 'rn-last-ref-total-' + user.id;
+            const lastKnown = parseInt(localStorage.getItem(storageKey) || '-1', 10);
+            if (lastKnown !== -1 && totalRefs > lastKnown) {
+              // New referral detected — show popup once
+              setTimeout(function() {
+                var popup = document.getElementById('rn-ref-success-popup');
+                if (popup) {
+                  popup.style.display = 'block';
+                  requestAnimationFrame(function() { popup.style.transform = 'translateY(0)'; });
+                }
+              }, 800);
+            }
+            localStorage.setItem(storageKey, totalRefs);
+          } catch(e) {}
+        }
 
         if (showRefreshToast) toast('✅ Referral stats refreshed', 'success');
 
@@ -19557,9 +19645,10 @@
       <style>@keyframes pdLevelShimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}</style>
 
       <!-- ══ REFERRAL CODE CARD ══ -->
-      <div id="pd-ref-code-card" style="background:linear-gradient(135deg,#7c2d12,#b45309 60%,#d97706);border-radius:20px;padding:20px 22px;margin-bottom:20px;position:relative;overflow:hidden;">
+      <div id="pd-ref-code-card" style="background:linear-gradient(135deg,#4c1d95,#6d28d9 60%,#7c3aed);border-radius:20px;padding:20px 22px;margin-bottom:20px;position:relative;overflow:hidden;">
         <div style="position:absolute;top:-30px;right:-30px;width:130px;height:130px;border-radius:50%;background:rgba(255,255,255,.07);pointer-events:none;"></div>
         <div style="position:absolute;bottom:-20px;left:-15px;width:90px;height:90px;border-radius:50%;background:rgba(255,255,255,.05);pointer-events:none;"></div>
+        <img src="/person-refer.svg" alt="" style="position:absolute;top:50%;right:-4px;transform:translateY(-50%);width:108px;height:108px;pointer-events:none;opacity:0.95;z-index:0;">
         <div style="position:relative;z-index:1;">
           <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,.6);letter-spacing:.8px;text-transform:uppercase;margin-bottom:6px;">Your Referral Code</div>
           <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
@@ -19947,6 +20036,25 @@
       style="max-width:100%;max-height:100%;width:auto;height:auto;display:block;object-fit:contain;"></video>
     <div id="rn-flv-hint" style="display:none;position:absolute;bottom:48px;left:50%;transform:translateX(-50%);color:#fff;font-size:17px;font-weight:500;letter-spacing:.5px;text-align:center;opacity:0;transition:opacity .6s ease;pointer-events:none;white-space:nowrap;text-shadow:0 2px 12px rgba(0,0,0,.7);">
       Click anywhere to close
+    </div>
+  </div>
+
+  <!-- ══ REFER OPENING ANIMATION (shown when partner dashboard opens) ══ -->
+  <div id="rn-refer-open-overlay" style="display:none;position:fixed;inset:0;z-index:200003;background:linear-gradient(135deg,#4c1d95,#6d28d9);align-items:center;justify-content:center;flex-direction:column;">
+    <div id="rn-refer-open-svg-wrap" style="width:min(300px,80vw);height:min(300px,80vw);display:flex;align-items:center;justify-content:center;overflow:hidden;"></div>
+    <div style="color:#fff;font-size:18px;font-weight:800;margin-top:22px;letter-spacing:-.3px;text-shadow:0 2px 12px rgba(0,0,0,.4);">Referral Dashboard</div>
+    <div style="color:rgba(255,255,255,.6);font-size:13px;font-weight:500;margin-top:6px;">Loading your referrals…</div>
+  </div>
+
+  <!-- ══ REFERRAL SUCCESS POPUP (bottom sheet, shown once when friend uses code) ══ -->
+  <div id="rn-ref-success-popup" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:200005;transform:translateY(100%);transition:transform .4s cubic-bezier(.34,1.56,.64,1);">
+    <div style="background:#fff;border-radius:24px 24px 0 0;padding:22px 20px 24px;box-shadow:0 -8px 40px rgba(0,0,0,.2);max-width:480px;margin:0 auto;display:flex;align-items:center;gap:16px;position:relative;">
+      <img src="/coin-bag.svg" alt="" style="width:72px;height:72px;flex-shrink:0;">
+      <div style="flex:1;min-width:0;padding-right:28px;">
+        <div style="font-size:16px;font-weight:900;color:#1a1410;margin-bottom:5px;">Referral Successful! 🎉</div>
+        <div style="font-size:13px;color:#6b7280;line-height:1.55;">You earned <strong style="color:#059669;">0.50 credits</strong> because your friend used your referral code.</div>
+      </div>
+      <button onclick="window._rnCloseRefSuccessPopup&&window._rnCloseRefSuccessPopup()" style="position:absolute;top:14px;right:14px;background:rgba(0,0,0,.06);border:none;width:28px;height:28px;border-radius:50%;font-size:14px;cursor:pointer;color:#6b7280;display:flex;align-items:center;justify-content:center;line-height:1;padding:0;">✕</button>
     </div>
   </div>
 
