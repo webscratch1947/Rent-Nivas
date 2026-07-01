@@ -13,11 +13,11 @@
 
   // ── 5 BADGE TIERS ──────────────────────────────────────────────
   const BADGE_LEVELS = [
-    { key: 'bronze',    name: 'Bronze',    short: 'Bronze',    minXp: 100,  img: 'badge-bronze.png',    emoji: '🥉' },
-    { key: 'silver',    name: 'Silver',    short: 'Silver',    minXp: 300,  img: 'badge-silver.png',    emoji: '🥈' },
-    { key: 'gold',      name: 'Gold',      short: 'Gold',      minXp: 600,  img: 'badge-gold.png',      emoji: '🥇' },
-    { key: 'diamond',   name: 'Diamond',   short: 'Diamond',   minXp: 1000, img: 'badge-diamond.png',   emoji: '💎' },
-    { key: 'legendary', name: 'Legendary', short: 'Legendary', minXp: 1500, img: 'badge-legendary.png', emoji: '🏆' },
+    { key: 'bronze',    name: 'Bronze',    short: 'Bronze',    minXp: 1000,  img: 'badge-bronze.png',    emoji: '🥉' },
+    { key: 'silver',    name: 'Silver',    short: 'Silver',    minXp: 3000,  img: 'badge-silver.png',    emoji: '🥈' },
+    { key: 'gold',      name: 'Gold',      short: 'Gold',      minXp: 6000,  img: 'badge-gold.png',      emoji: '🥇' },
+    { key: 'diamond',   name: 'Diamond',   short: 'Diamond',   minXp: 10000, img: 'badge-diamond.png',   emoji: '💎' },
+    { key: 'legendary', name: 'Legendary', short: 'Legendary', minXp: 15000, img: 'badge-legendary.png', emoji: '🏆' },
   ];
   window.RN_BADGE_LEVELS = BADGE_LEVELS;
 
