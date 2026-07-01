@@ -1511,6 +1511,40 @@
       margin-top: auto;
     }
 
+    /* ══ Verified tick badge — overlays any avatar rendered via applyAvatarVisual ══ */
+    .avatar-verified-tick {
+      position: absolute;
+      bottom: -2px;
+      right: -2px;
+      width: 15px;
+      height: 15px;
+      border-radius: 50%;
+      background: #2563eb;
+      border: 2px solid #fff;
+      color: #fff;
+      font-size: 9px;
+      font-weight: 900;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      line-height: 1;
+      box-shadow: 0 1px 4px rgba(0,0,0,.35);
+      z-index: 2;
+    }
+    /* Verified badge chip — used on listing cards / detail pages / admin rows */
+    .verified-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: #2563eb;
+      color: #fff;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 9px;
+      border-radius: 20px;
+      white-space: nowrap;
+    }
+
     .ds-topbar {
       position: fixed;
       top: 0;
@@ -6987,6 +7021,10 @@
 
       .ds-sidebar.mob-open {
         transform: translateX(0) !important;
+        /* FIX: outer sidebar used to scroll AND the inner .ds-nav scrolled too,
+           producing a double/nested scrollbar on mobile. Only the inner nav
+           should scroll — lock the outer container. */
+        overflow-y: hidden !important;
       }
 
       .ds-main {
@@ -8771,6 +8809,29 @@
       .streak-day-credits { font-size:11px; }
       .streak-popup-title { font-size:20px; }
       .streak-flame-icon { font-size:42px; }
+    }
+    /* Wider, more spacious layout on desktop/tablet */
+    @media(min-width:769px){
+      .streak-popup-box { max-width:640px; }
+      .streak-popup-header { padding:38px 40px 30px; }
+      .streak-flame-icon { font-size:60px; }
+      .streak-popup-title { font-size:28px; }
+      .streak-popup-sub { font-size:14px; }
+      .streak-days-grid { gap:12px;padding:28px 36px 0; }
+      .streak-day { padding:16px 6px 12px;border-radius:16px; }
+      .streak-day-label { font-size:10px; }
+      .streak-day-icon { font-size:24px;margin-bottom:6px; }
+      .streak-day-credits { font-size:15px; }
+      .streak-progress-wrap { padding:20px 36px 0; }
+      .streak-claim-area { padding:24px 36px 30px; }
+      .streak-claim-btn { padding:17px 20px;font-size:17px; }
+    }
+    /* Fire icon (inline SVG, replaces the plain emoji for a crisper look) */
+    .streak-flame-icon svg {
+      width: 1em;
+      height: 1em;
+      display: block;
+      margin: 0 auto;
     }
   </style>
 <style id="rn-tut-styles">
@@ -11710,7 +11771,7 @@
 
     // ══ STATE ══
     let user = null, allHouses = [], rentAllHouses = [], selectedFiles = [], currentEditId = null, editMode = false;
-    const RENT_BROWSE_COLS = 'id,title,description,price,phone,address,images,bedrooms,bathrooms,kitchen,living_room,balcony,parking,custom_rooms,floors_data,conditions,property_type,extra_details,city,state,area,owner_id,status,created_at,furnish_status,furnish_items,tenant_type,available_from,sold_at,sold_type,sold_buyer_id';
+    const RENT_BROWSE_COLS = 'id,title,description,price,phone,address,images,bedrooms,bathrooms,kitchen,living_room,balcony,parking,custom_rooms,floors_data,conditions,property_type,extra_details,city,state,area,owner_id,status,created_at,furnish_status,furnish_items,tenant_type,available_from,sold_at,sold_type,sold_buyer_id,verified';
     let editExistingImages = [];
     let imagesToDelete = [];
     let _soldDeleteDraft = null;
@@ -13740,7 +13801,7 @@
       document.getElementById('sb-nm').textContent = name;
       document.getElementById('sb-em').textContent = user.email;
       // Pull saved avatar (if any) without blocking the rest of the UI
-      fetchProfileRow().then(prof => { if (prof?.avatar_url) applyAvatarEverywhere(name, prof.avatar_url, 'host'); }).catch(() => {});
+      fetchProfileRow().then(prof => { applyAvatarEverywhere(name, prof?.avatar_url, 'host', prof?.verified); }).catch(() => {});
       const hr = new Date().getHours();
       (function() {
         const lang = localStorage.getItem('rn-lang') || 'en';
@@ -13931,7 +13992,7 @@
           <div class="l-card-img">
             <img src="${img}" alt="${esc(h.title)}" onerror="this.src='https://images.unsplash.com/photo-1568605114967-8130f3a36994?w=500'" loading="lazy">
             <div class="l-card-overlay"></div>
-            <div class="l-card-badge"><span class="sp sp-${h.status}">${h.status}</span></div>
+            <div class="l-card-badge"><span class="sp sp-${h.status}">${h.status}</span>${h.verified ? ' <span class="verified-chip">✓ Verified</span>' : ''}</div>
             <div class="l-card-btns-overlay">
               <button class="l-overlay-btn" title="Edit" onclick="editHouse('${h.id}')">✏️</button>
               <button class="l-overlay-btn" title="Delete" onclick="delHouse('${h.id}','${esc(h.title)}')">🗑️</button>
@@ -15623,7 +15684,7 @@
       if (!user) return null;
       try {
         const { data, error } = await sb.from('profiles')
-          .select('id,name,email,avatar_url,credits,xp,partner_xp,created_at,referral_code,referred_by_code,total_referrals,registration_referrals,listing_referrals,chest_claimed,daily_streak_day,daily_streak_claimed_at')
+          .select('id,name,email,avatar_url,credits,xp,partner_xp,created_at,referral_code,referred_by_code,total_referrals,registration_referrals,listing_referrals,chest_claimed,daily_streak_day,daily_streak_claimed_at,verified')
           .eq('id', user.id).maybeSingle();
         if (error) throw error;
         return data || null;
@@ -15637,23 +15698,25 @@
     // element that shares the given id across the page (profile card, sidebar,
     // topbar greeting, mobile header). Falls back to initials if the image URL
     // is broken/expired so the avatar never shows broken alt-text overflow.
-    function applyAvatarVisual(el, name, avatarUrl) {
+    function applyAvatarVisual(el, name, avatarUrl, verified) {
       if (!el) return;
       const init = (name || 'U').trim().split(/\s+/).map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'U';
+      el.style.position = 'relative';
+      const tick = verified ? '<span class="avatar-verified-tick" title="Verified">✓</span>' : '';
       if (avatarUrl) {
-        el.innerHTML = `<img src="${esc(avatarUrl)}" alt="${esc(name || 'Profile photo')}" onerror="this.parentElement.textContent='${esc(init)}';">`;
+        el.innerHTML = `<img src="${esc(avatarUrl)}" alt="${esc(name || 'Profile photo')}" onerror="this.parentElement.textContent='${esc(init)}';">` + tick;
       } else {
-        el.textContent = init;
+        el.innerHTML = esc(init) + tick;
       }
     }
 
-    function applyAvatarEverywhere(name, avatarUrl, role) {
+    function applyAvatarEverywhere(name, avatarUrl, role, verified) {
       // Profile page avatar (host + renter share ids prefixed differently)
-      applyAvatarVisual(document.getElementById(role === 'rent' ? 'rent-prof-ava' : 'prof-ava'), name, avatarUrl);
+      applyAvatarVisual(document.getElementById(role === 'rent' ? 'rent-prof-ava' : 'prof-ava'), name, avatarUrl, verified);
       // Sidebar avatars
-      applyAvatarVisual(document.getElementById('sb-av'), name, avatarUrl);
-      applyAvatarVisual(document.getElementById('rent-user-av'), name, avatarUrl);
-      applyAvatarVisual(document.getElementById('mob-sb-av'), name, avatarUrl);
+      applyAvatarVisual(document.getElementById('sb-av'), name, avatarUrl, verified);
+      applyAvatarVisual(document.getElementById('rent-user-av'), name, avatarUrl, verified);
+      applyAvatarVisual(document.getElementById('mob-sb-av'), name, avatarUrl, verified);
     }
 
     function renderXpBlock(prefix, xp) {
@@ -15717,7 +15780,8 @@
         const avatarUrl = (uploadData && uploadData.publicUrl) ? uploadData.publicUrl : ud.publicUrl;
         await sb.from('profiles').update({ avatar_url: avatarUrl }).eq('id', user.id);
         const name = user.user_metadata?.name || user.email.split('@')[0] || 'User';
-        applyAvatarEverywhere(name, avatarUrl, role);
+        const _profAfterUpload = await fetchProfileRow().catch(() => null);
+        applyAvatarEverywhere(name, avatarUrl, role, _profAfterUpload?.verified);
         toast('Profile photo updated! ✅', 'success');
       } catch (e) {
         toast('Photo upload failed: ' + (e.message || 'Unknown error'), 'error');
@@ -15772,7 +15836,7 @@
       const xp = parseInt(prof?.xp ?? prof?.partner_xp ?? 0, 10) || 0;
       renderXpBlock('prof', xp);
 
-      if (prof?.avatar_url) applyAvatarEverywhere(name, prof.avatar_url, 'host');
+      applyAvatarEverywhere(name, prof?.avatar_url, 'host', prof?.verified);
 
       // Referral stats — use ensureReferralCode() as single source of truth
       try {
@@ -15825,7 +15889,7 @@
         document.getElementById('g-name').textContent = name.split(' ')[0];
         document.getElementById('prof-name').textContent = name;
         const prof = await fetchProfileRow();
-        applyAvatarEverywhere(name, prof?.avatar_url, 'host');
+        applyAvatarEverywhere(name, prof?.avatar_url, 'host', prof?.verified);
         toast('Profile updated! ✅', 'success');
       } catch (e) {
         toast('Update failed: ' + (e.message || 'Unknown error'), 'error');
@@ -15868,7 +15932,7 @@
       const xp = parseInt(prof?.xp ?? prof?.partner_xp ?? 0, 10) || 0;
       renderXpBlock('rent-prof', xp);
 
-      if (prof?.avatar_url) applyAvatarEverywhere(name, prof.avatar_url, 'rent');
+      applyAvatarEverywhere(name, prof?.avatar_url, 'rent', prof?.verified);
 
       // Referral stats — use ensureReferralCode() as single source of truth
       try {
@@ -15947,7 +16011,8 @@
         user.user_metadata.name = name;
         user.user_metadata.phone = phone;
         document.getElementById('sb-nm').textContent = name;
-        applyAvatarVisual(document.getElementById('sb-av'), name, (await fetchProfileRow())?.avatar_url);
+        const _stProf = await fetchProfileRow();
+        applyAvatarVisual(document.getElementById('sb-av'), name, _stProf?.avatar_url, _stProf?.verified);
         document.getElementById('g-name').textContent = name.split(' ')[0];
         toast('Settings saved! ✅', 'success');
       } catch (e) {
@@ -16142,7 +16207,7 @@
           if (avEl) applyAvatarVisual(avEl, name, null);
           if (nmEl) nmEl.textContent = name.split(' ')[0];
           if (emEl) emEl.textContent = user.email || '—';
-          fetchProfileRow().then(prof => { if (prof?.avatar_url) applyAvatarEverywhere(name, prof.avatar_url, 'rent'); }).catch(() => {});
+          fetchProfileRow().then(prof => { applyAvatarEverywhere(name, prof?.avatar_url, 'rent', prof?.verified); }).catch(() => {});
           ensureReferralCode();
           processPendingSignupReferral();
         }
@@ -16402,6 +16467,7 @@
         return `<div class="browse-card" onclick="openPropertyDetail('${h.id}')" style="cursor:pointer;">
           <div class="browse-card-img">
             <img src="${img}" alt="${esc(h.title)}" onerror="this.src='https://images.unsplash.com/photo-1568605114967-8130f3a36994?w=500'" loading="lazy">
+            ${h.verified ? '<div class="verified-chip" style="position:absolute;top:10px;left:10px;z-index:2;">✓ Verified</div>' : ''}
             <div class="browse-card-actions" onclick="event.stopPropagation()">
             </div>
           </div>
@@ -16680,7 +16746,7 @@
           <!-- SIDEBAR -->
           <div class="detail-sidebar">
             <div class="detail-info-card">
-              <div class="detail-title">${h.title}</div>
+              <div class="detail-title">${h.title}${h.verified ? ' <span class="verified-chip">✓ Verified</span>' : ''}</div>
               <div class="detail-loc">📍 ${cityState}</div>
               <div class="detail-price">₹${parseInt(h.price || 0).toLocaleString('en-IN')}<span>/mo</span></div>
               ${h.available_from ? `<div style="margin-top:8px;display:inline-flex;align-items:center;gap:6px;padding:6px 12px;background:var(--blue-bg);border:1px solid #bfdbfe;border-radius:20px;font-size:12px;font-weight:600;color:var(--blue);">📅 ${h.available_from === 'anytime' ? 'Available Anytime' : 'Available from ' + new Date(h.available_from).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'})}</div>` : ''}
@@ -16793,6 +16859,7 @@
           return `<div class="browse-card" onclick="openPropertyDetail('${h.id}')" style="cursor:pointer;">
           <div class="browse-card-img">
             <img src="${img}" alt="${esc(h.title)}" onerror="this.src='https://images.unsplash.com/photo-1568605114967-8130f3a36994?w=500'" loading="lazy">
+            ${h.verified ? '<div class="verified-chip" style="position:absolute;top:10px;left:10px;z-index:2;">✓ Verified</div>' : ''}
           </div>
           <div class="browse-card-body">
             <div class="browse-card-title">${h.title}</div>
@@ -17075,7 +17142,7 @@
         } catch(_) {}
         if (!users.length) {
           const { data, error } = await withTimeout(
-            sb.from('profiles').select('id,name,email,credits,created_at').order('created_at', { ascending: false }).limit(300),
+            sb.from('profiles').select('id,name,email,credits,created_at,verified').order('created_at', { ascending: false }).limit(300),
             8000, 'Users load timed out'
           );
           if (error) throw error;
@@ -17138,7 +17205,7 @@
         <div class="admin-user-row" style="border:1px solid var(--border2);border-radius:var(--r);margin-bottom:10px;background:var(--bg2);overflow:hidden;">
           <div style="padding:12px 14px;">
             <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
-              <div style="font-size:14px;font-weight:700;color:var(--ink);flex:1;min-width:0;">${esc(u.name || '—')}${u.hasPartner ? ' <span style="font-size:11px;background:var(--green-bg);color:var(--green);padding:2px 7px;border-radius:8px;font-weight:600;">🤝 Partner</span>' : ''}</div>
+              <div style="font-size:14px;font-weight:700;color:var(--ink);flex:1;min-width:0;">${esc(u.name || '—')}${u.hasPartner ? ' <span style="font-size:11px;background:var(--green-bg);color:var(--green);padding:2px 7px;border-radius:8px;font-weight:600;">🤝 Partner</span>' : ''}${u.verified ? ' <span class="verified-chip">✓ Verified</span>' : ''}</div>
               <div style="font-size:11px;color:var(--amber);white-space:nowrap;flex-shrink:0;font-weight:600;">🪙 ${u.credits ?? 0} credits</div>
             </div>
             <div class="admin-user-email" style="font-size:12px;color:var(--muted);margin-top:2px;">${esc(u.email || '—')}</div>
@@ -17151,9 +17218,32 @@
             ${u.hasPartner
               ? `<button class="btn btn-sm" style="background:#fee2e2;color:#dc2626;font-size:12px;" onclick="adminTakePartner('${esc(u.id)}','${esc(u.name||u.email)}')">❌ Take Partner</button>`
               : `<button class="btn btn-sm" style="background:var(--green-bg);color:var(--green);font-size:12px;" onclick="adminGivePartner('${esc(u.id)}','${esc(u.name||u.email)}','${esc(u.email)}')">🤝 Give Partner</button>`}
+            <button class="btn btn-sm" style="background:${u.verified ? '#dbeafe' : 'var(--blue-bg)'};color:#2563eb;font-size:12px;" onclick="adminToggleUserVerified('${esc(u.id)}','${esc(u.name||u.email)}','${esc(u.email||'')}',${u.verified ? 'true' : 'false'})">${u.verified ? '✓ Unverify' : '☑️ Verify'}</button>
             <button class="btn btn-sm" style="background:var(--blue-bg);color:var(--blue);font-size:12px;" onclick="adminEditCredits('${esc(u.id)}','${esc(u.name||u.email)}',${u.credits??0},'${esc(u.email||'')}')">💰 Credits</button>
           </div>
         </div>`).join('');
+    }
+
+    // Toggle the blue "verified" tick that shows on this user's profile picture
+    // everywhere it renders (sidebar, profile page). Persists to profiles.verified.
+    async function adminToggleUserVerified(userId, userName, userEmail, currentlyVerified) {
+      if (!userId) { toast('Cannot verify: this user has no id.', 'error'); return; }
+      const next = !currentlyVerified;
+      try {
+        const { data: existsArr } = await sb.from('profiles').select('id').eq('id', userId);
+        const existsCheck = existsArr && existsArr.length > 0;
+        let error;
+        if (!existsCheck) {
+          ({ error } = await sb.from('profiles').upsert({ id: userId, name: userName || '', email: userEmail || '', verified: next }));
+        } else {
+          ({ error } = await sb.from('profiles').update({ verified: next }).eq('id', userId));
+        }
+        if (error) throw error;
+        toast(next ? '✓ User verified' : 'Verification removed', 'success');
+        setTimeout(loadAdminUsers, 400);
+      } catch (e) {
+        toast('Failed: ' + (e.message || 'error'), 'error');
+      }
     }
 
     async function adminLoginAs(email) {
@@ -17784,7 +17874,7 @@
       el.innerHTML = '<div style="text-align:center;padding:32px;color:var(--muted);">Loading listings...</div>';
       try {
         const { data, error } = await withTimeout(
-          sb.from('houses').select('id,title,city,area,price,status,created_at,owner_id').order('created_at', { ascending: false }).limit(200),
+          sb.from('houses').select('id,title,city,area,price,status,created_at,owner_id,verified').order('created_at', { ascending: false }).limit(200),
           8000, 'Listings load timed out'
         );
         if (error) throw error;
@@ -17792,16 +17882,32 @@
         el.innerHTML = data.map(h => `
           <div style="border:1px solid var(--border2);border-radius:var(--r);margin-bottom:10px;background:var(--bg2);padding:12px 14px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
             <div style="min-width:0;">
-              <div style="font-size:14px;font-weight:700;color:var(--ink);margin-bottom:2px;">${esc(h.title||'Untitled')}</div>
+              <div style="font-size:14px;font-weight:700;color:var(--ink);margin-bottom:2px;">${esc(h.title||'Untitled')}${h.verified ? ' <span class="verified-chip">✓ Verified</span>' : ''}</div>
               <div style="font-size:12px;color:var(--muted);">${esc(h.city||h.area||'—')} &nbsp;·&nbsp; ₹${parseInt(h.price||0).toLocaleString('en-IN')}/mo &nbsp;·&nbsp; ${new Date(h.created_at).toLocaleDateString('en-IN')}</div>
             </div>
-            <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+            <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;flex-wrap:wrap;">
               <span style="padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;background:${h.status==='published'?'var(--green-bg)':'var(--amber-bg)'};color:${h.status==='published'?'var(--green)':'var(--amber)'};">${esc(h.status||'draft')}</span>
+              <button class="btn btn-sm" style="background:${h.verified ? '#dbeafe' : 'var(--blue-bg)'};color:#2563eb;font-size:12px;" onclick="adminToggleListingVerified('${esc(h.id)}','${esc(h.title||'listing')}',${h.verified ? 'true' : 'false'})">${h.verified ? '✓ Unverify' : '☑️ Verify'}</button>
               <button class="btn btn-sm" style="background:var(--red-bg);color:var(--red);font-size:12px;" onclick="adminRemoveListing('${esc(h.id)}','${esc(h.title||'listing')}')">🗑️ Delete</button>
             </div>
           </div>`).join('');
       } catch(e) {
         el.innerHTML = `<div style="padding:24px;text-align:center;color:var(--muted);">Failed to load: ${esc(e.message)}</div>`;
+      }
+    }
+
+    // Toggle the "Verified" badge shown on this specific listing's card + detail page
+    async function adminToggleListingVerified(houseId, title, currentlyVerified) {
+      const next = !currentlyVerified;
+      try {
+        const { error } = await sb.from('houses').update({ verified: next }).eq('id', houseId);
+        if (error) throw error;
+        const h1 = allHouses?.find(h => h.id === houseId); if (h1) h1.verified = next;
+        const h2 = rentAllHouses?.find(h => h.id === houseId); if (h2) h2.verified = next;
+        toast(next ? '✓ Listing verified' : 'Verification removed', 'success');
+        setTimeout(loadAdminHouses, 400);
+      } catch (e) {
+        toast('Failed: ' + (e.message || 'error'), 'error');
       }
     }
 
@@ -19083,7 +19189,7 @@
           userInfo.style.cssText = 'display:flex;align-items:center;gap:12px;padding:14px 18px 10px;border-bottom:1px solid rgba(255,255,255,.08);';
           userInfo.innerHTML = `<div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,var(--terra),var(--terra2));display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;color:#fff;flex-shrink:0;overflow:hidden;" id="mob-sb-av">${name[0].toUpperCase()}</div><div style="overflow:hidden;"><div style="font-size:15px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" id="mob-sb-nm">${name}</div><div style="font-size:12px;color:rgba(255,255,255,.5);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" id="mob-sb-em">${email}</div></div>`;
           if (typeof fetchProfileRow === 'function') {
-            fetchProfileRow().then(prof => { if (prof?.avatar_url) applyAvatarVisual(document.getElementById('mob-sb-av'), name, prof.avatar_url); }).catch(() => {});
+            fetchProfileRow().then(prof => { applyAvatarVisual(document.getElementById('mob-sb-av'), name, prof?.avatar_url, prof?.verified); }).catch(() => {});
           }
         } else {
           userInfo.style.display = 'none';
@@ -19350,17 +19456,17 @@
       <!-- ══ REFERRAL STATS GRID ══ -->
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px;" id="pd-ref-stats-grid">
         <!-- Total Referrals -->
-        <div style="background:var(--bg);border:1.5px solid var(--border);border-radius:16px;padding:16px 14px;text-align:center;">
+        <div style="background:var(--bg);border:1.5px solid var(--border);border-radius:16px;padding:16px 14px;text-align:center;box-shadow:0 4px 14px rgba(0,0,0,.05);transition:transform .15s;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
           <div style="font-size:26px;font-weight:900;color:var(--terra);line-height:1;margin-bottom:4px;" id="pd-stat-total">—</div>
           <div style="font-size:10px;color:var(--muted);font-weight:700;letter-spacing:.4px;text-transform:uppercase;">Total</div>
         </div>
         <!-- Registration Referrals -->
-        <div style="background:var(--bg);border:1.5px solid var(--border);border-radius:16px;padding:16px 14px;text-align:center;">
+        <div style="background:var(--bg);border:1.5px solid var(--border);border-radius:16px;padding:16px 14px;text-align:center;box-shadow:0 4px 14px rgba(0,0,0,.05);transition:transform .15s;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
           <div style="font-size:26px;font-weight:900;color:#6366f1;line-height:1;margin-bottom:4px;" id="pd-stat-reg">—</div>
           <div style="font-size:10px;color:var(--muted);font-weight:700;letter-spacing:.4px;text-transform:uppercase;">Signups</div>
         </div>
         <!-- Listing Referrals -->
-        <div style="background:var(--bg);border:1.5px solid var(--border);border-radius:16px;padding:16px 14px;text-align:center;">
+        <div style="background:var(--bg);border:1.5px solid var(--border);border-radius:16px;padding:16px 14px;text-align:center;box-shadow:0 4px 14px rgba(0,0,0,.05);transition:transform .15s;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
           <div style="font-size:26px;font-weight:900;color:#10b981;line-height:1;margin-bottom:4px;" id="pd-stat-list">—</div>
           <div style="font-size:10px;color:var(--muted);font-weight:700;letter-spacing:.4px;text-transform:uppercase;">Listings</div>
         </div>
@@ -19675,7 +19781,18 @@
       <!-- Header -->
       <div class="streak-popup-header">
         <button class="streak-close-btn" onclick="closeStreakPopup()">✕</button>
-        <span class="streak-flame-icon">🔥</span>
+        <span class="streak-flame-icon">
+          <svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <defs>
+              <linearGradient id="streakFireGrad" x1="0" y1="1" x2="0" y2="0">
+                <stop offset="0%" stop-color="#c2410c"/>
+                <stop offset="45%" stop-color="#f59e0b"/>
+                <stop offset="100%" stop-color="#fde68a"/>
+              </linearGradient>
+            </defs>
+            <path fill="url(#streakFireGrad)" d="M16.6 1.2c1 3.4-.4 5.4-2 7.4-1.8 2.2-3.8 4.6-3.8 8.2 0 1.2.2 2.3.7 3.3-2.6-1.4-4.3-4-4.3-7.3 0-1.2.2-2.3.6-3.3C4 12 2.6 15.6 2.6 19.4 2.6 26.4 8.4 32 15.6 32c7.6 0 13.8-5.8 13.8-13 0-6-3.6-10-7-13 .3 2.6-.6 4.4-2 5.7-.1-4.2-1.6-7.6-3.8-10.5z"/>
+          </svg>
+        </span>
         <div class="streak-popup-title">Daily Streak Reward</div>
         <p class="streak-popup-sub">Come back every day to earn more credits!</p>
       </div>
@@ -20288,20 +20405,30 @@
       };
 
       // Show streak popup for logged-in users — called after welcome popup closes
-      // or directly on page load if no welcome popup was shown.
-      //
-      // FIX: this used to gate on sessionStorage('rn-streak-shown'), which
-      // persists across reloads within the same tab — so once shown, it
-      // never came back even if the person closed it without claiming.
-      // Requested behavior: if there's an unclaimed reward ready right now,
-      // show the popup on EVERY reload until they claim it. Once claimed,
-      // stay hidden for the full 24h cooldown (don't nag again until the
-      // next day's reward is actually ready). getClaimableDay() already
-      // encodes exactly that "ready now?" check, so it's the single source
-      // of truth here instead of a session flag.
+      // (or directly, e.g. right after sign-in) on EVERY site open, not just
+      // when a reward happens to be claimable. Logged-out visitors never see it.
       window.maybeShowStreakPopup = function () {
-        // Daily streak popup disabled — removed per admin request.
-        return;
+        var isLoggedIn = !!window.user || (function () {
+          try {
+            var raw = localStorage.getItem('rentnivas-auth');
+            if (!raw) return false;
+            var stored = JSON.parse(raw);
+            var token = stored.id_token || stored.access_token;
+            if (!token || !stored.refresh_token) return false;
+            var payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+            var exp = payload.exp ? payload.exp * 1000 : 0;
+            return !(exp > 0 && exp < Date.now() - 10 * 60 * 1000);
+          } catch (_) { return false; }
+        })();
+        if (!isLoggedIn) return;
+        var bg = document.getElementById('streak-popup-bg');
+        // Don't double-open if it's already visible
+        if (bg && bg.style.display === 'flex' && parseFloat(bg.style.opacity) > 0) return;
+        // No session-storage gate here on purpose — the caller sites (initial
+        // load, welcome-popup close, fresh sign-in) already fire this only
+        // once per real site open, and the request is for it to reappear
+        // every time the site is opened, not just once per browser session.
+        if (window.openStreakPopup) window.openStreakPopup();
       };
     })();
   </script>
