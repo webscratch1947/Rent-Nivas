@@ -20148,7 +20148,7 @@
 
       <!-- Topbar -->
       <div class="pd-hero-topbar">
-        <div style="font-size:16px;font-weight:900;color:#fff;letter-spacing:-.3px;">Referral</div>
+        <div style="font-size:16px;font-weight:900;color:#fff;letter-spacing:-.3px;">Partner Dashboard</div>
         <button class="pd-hero-back" onclick="closeModal();if(typeof switchToHost==='function'){switchToHost();}else{showPage('host-dashboard');}">
           ← Back
         </button>
@@ -20161,10 +20161,10 @@
       <div class="pd-hero-body" style="padding-top:16px;padding-bottom:28px;">
         <div class="pd-hero-text">
           <div class="pd-hero-label">
-            <span style="font-size:15px;">🎁</span> Refer your friends
+            <span style="font-size:15px;">🤝</span> Verified Partner
           </div>
-          <div class="pd-hero-title">
-            Earn <span>0.50 Credits</span><br>each
+          <div class="pd-hero-title" id="pd-greeting">
+            Welcome, <span>Partner</span> 🎉
           </div>
         </div>
       </div>
@@ -20194,7 +20194,7 @@
     </div>
 
     <!-- ══ STATS ROW ══ -->
-    <div class="pd-stats-row">
+    <div class="pd-stats-row" style="grid-template-columns:repeat(4,1fr);">
       <div class="pd-stat-box">
         <div class="ps-val" style="color:#4f46e5;" id="pd-stat-total">—</div>
         <div class="ps-lbl">Total</div>
@@ -20206,6 +20206,24 @@
       <div class="pd-stat-box">
         <div class="ps-val" style="color:#f59e0b;" id="pd-stat-list">—</div>
         <div class="ps-lbl">Listings</div>
+      </div>
+      <div class="pd-stat-box">
+        <div class="ps-val" style="color:#8b5cf6;" id="pd-stat-xp">—</div>
+        <div class="ps-lbl">XP</div>
+      </div>
+    </div>
+
+    <!-- ══ MY TASKS ══ -->
+    <div style="margin:20px 16px 0;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+        <div style="font-size:15px;font-weight:800;color:#1a1410;">📋 My Tasks</div>
+        <span id="pd-tasks-count" style="background:#ef4444;color:#fff;border-radius:20px;font-size:11px;font-weight:800;padding:2px 9px;display:none;"></span>
+      </div>
+      <div id="pd-tasks-list">
+        <div style="text-align:center;padding:40px 20px;color:#9ca3af;">
+          <div style="font-size:36px;margin-bottom:10px;">⏳</div>
+          <div style="font-size:14px;font-weight:600;">Loading tasks...</div>
+        </div>
       </div>
     </div>
 
@@ -20270,8 +20288,7 @@
       </div>
     </div>
 
-    <!-- Hidden elements kept for JS compatibility -->
-    <div style="display:none;" id="pd-stat-xp"></div>
+    <!-- Hidden stubs kept for JS compatibility (referenced by updatePartnerLevelCard etc.) -->
     <div style="display:none;" id="pd-level-card"></div>
     <div style="display:none;" id="pd-level-badge-img"></div>
     <div style="display:none;" id="pd-level-tier-name"></div>
@@ -20282,10 +20299,7 @@
     <div style="display:none;" id="pd-level-xp-next"></div>
     <div style="display:none;" id="pd-ref-stats-grid"></div>
     <div style="display:none;" id="pd-btn-ring"></div>
-    <div style="display:none;" id="pd-greeting"></div>
     <div style="display:none;" id="pd-profile-btn"></div>
-    <div style="display:none;" id="pd-tasks-list"></div>
-    <div style="display:none;" id="pd-tasks-count"></div>
   </div>
   <!-- ══ MOBILE BOTTOM NAV BAR (Airbnb-style) ══ -->
   <!-- BOTTOM NAV: hidden until logged in -->
