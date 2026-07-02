@@ -19549,11 +19549,12 @@
     .rnref-hero-amt{font-size:28px;font-weight:700;color:var(--blue);letter-spacing:-.3px;}
     .rnref-hero-amt span{font-size:13px;font-weight:600;color:var(--muted);margin-left:2px;}
     .rnref-hero-img{width:68px;height:68px;object-fit:contain;flex-shrink:0;}
-    .rnref-total-card{margin-top:20px;padding:15px 16px;background:var(--bg2);border-radius:14px;display:flex;align-items:center;justify-content:space-between;}
+    .rnref-total-card{margin-top:20px;padding:15px 16px;background:var(--bg2);border-radius:14px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;}
     .rnref-total-left{display:flex;align-items:center;gap:12px;}
     .rnref-total-icon{width:42px;height:42px;border-radius:8px;background:var(--blue);display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0;}
     .rnref-total-lbl{font-size:10.5px;font-weight:700;color:var(--muted);letter-spacing:.6px;text-transform:uppercase;}
-    .rnref-total-val{font-size:19px;font-weight:800;color:var(--ink);}
+    .rnref-total-val{font-size:19px;font-weight:800;color:var(--ink);letter-spacing:.5px;}
+    .rnref-copy-btn{padding:8px 14px;background:var(--blue);color:#fff;font-size:12.5px;font-weight:700;border-radius:8px;flex-shrink:0;}
     .rnref-section{padding:0 16px;}
     .rnref-hist-head{font-size:12px;font-weight:800;color:var(--ink);opacity:.6;text-transform:uppercase;letter-spacing:1px;margin:0 0 16px 6px;}
     .rnref-toggle{position:relative;display:grid;grid-template-columns:1fr 1fr;background:var(--bg2);border-radius:12px;padding:4px;margin-bottom:16px;}
@@ -19615,14 +19616,15 @@
           </div>
           <img src="/person-refer.svg" class="rnref-hero-img" alt="">
         </div>
-        <div class="rnref-total-card">
+        <div class="rnref-total-card" id="rnref-code-card" onclick="rnrefCopyCode()" title="Tap to copy your referral code">
           <div class="rnref-total-left">
-            <div class="rnref-total-icon">💰</div>
+            <div class="rnref-total-icon">🔗</div>
             <div>
-              <div class="rnref-total-lbl">Total Credits</div>
-              <div class="rnref-total-val" id="rnref-total-val">— Credits</div>
+              <div class="rnref-total-lbl">Your Referral Code</div>
+              <div class="rnref-total-val" id="rnref-code-val">————</div>
             </div>
           </div>
+          <div class="rnref-copy-btn" id="rnref-copy-btn">Copy</div>
         </div>
       </div>
 
@@ -19700,6 +19702,19 @@
     }
 
     // ── Entry point: called from bottom nav + sidebar ──
+    function rnrefCopyCode() {
+      var code = _rnrefCode;
+      if (!code) return;
+      var btn = document.getElementById('rnref-copy-btn');
+      navigator.clipboard.writeText(code).then(function(){
+        var prev = btn.textContent;
+        btn.textContent = 'Copied!';
+        setTimeout(function(){ btn.textContent = prev; }, 1800);
+      }).catch(function(){
+        toast('Your referral code: ' + code, 'info');
+      });
+    }
+
     function openReferralPanel() {
       if (!user) { showPage('login-page'); return; }
       closeMobSidebar();
@@ -19732,7 +19747,7 @@
         _rnrefCode = refCode || '';
 
         var credits = parseFloat(prof.credits || 0);
-        document.getElementById('rnref-total-val').textContent = (credits % 1 === 0 ? credits : credits.toFixed(2)) + ' Credits';
+        document.getElementById('rnref-code-val').textContent = refCode || '————';
 
         var regPromise = sb.from('profiles')
           .select('id,name,email,avatar_url,created_at').eq('referred_by_code', refCode)
