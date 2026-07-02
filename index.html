@@ -19550,11 +19550,11 @@
     .rnref-hero-amt span{font-size:13px;font-weight:600;color:var(--muted);margin-left:2px;}
     .rnref-hero-img{width:68px;height:68px;object-fit:contain;flex-shrink:0;}
     .rnref-total-card{margin-top:20px;padding:15px 16px;background:var(--bg2);border-radius:14px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;}
-    .rnref-total-left{display:flex;align-items:center;gap:12px;}
+    .rnref-total-left{display:flex;align-items:center;gap:12px;flex:1;min-width:0;overflow:hidden;}
     .rnref-total-icon{width:42px;height:42px;border-radius:8px;background:var(--blue);display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0;}
     .rnref-total-lbl{font-size:10.5px;font-weight:700;color:var(--muted);letter-spacing:.6px;text-transform:uppercase;}
-    .rnref-total-val{font-size:19px;font-weight:800;color:var(--ink);letter-spacing:.5px;}
-    .rnref-copy-btn{padding:8px 14px;background:var(--blue);color:#fff;font-size:12.5px;font-weight:700;border-radius:8px;flex-shrink:0;}
+    .rnref-total-val{font-size:19px;font-weight:800;color:var(--ink);letter-spacing:.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .rnref-copy-btn{padding:8px 14px;background:var(--blue);color:#fff;font-size:12.5px;font-weight:700;border-radius:8px;flex-shrink:0;margin-left:10px;}
     .rnref-section{padding:0 16px;}
     .rnref-hist-head{font-size:12px;font-weight:800;color:var(--ink);opacity:.6;text-transform:uppercase;letter-spacing:1px;margin:0 0 16px 6px;}
     .rnref-toggle{position:relative;display:grid;grid-template-columns:1fr 1fr;background:var(--bg2);border-radius:12px;padding:4px;margin-bottom:16px;}
@@ -19580,7 +19580,10 @@
     .rnref-faq-a{max-height:0;overflow:hidden;transition:max-height .25s ease,padding .25s ease;padding:0 16px;}
     .rnref-faq-item.open .rnref-faq-a{max-height:200px;padding:0 16px 16px;}
     .rnref-faq-a p{font-size:13px;line-height:1.6;color:var(--muted);margin:0;}
-    .rnref-invite-btn{display:block;width:calc(100% - 32px);margin:22px 16px 0;background:var(--blue);color:#fff;border:none;padding:16px;border-radius:14px;font-size:15.5px;font-weight:800;cursor:pointer;box-shadow:0 8px 25px rgba(46,2,233,.25);}
+    .rnref-invite-btn{display:block;width:calc(100% - 32px);margin:22px 16px 0;background:var(--blue);color:#fff;border:none;padding:16px;border-radius:14px;font-size:15.5px;font-weight:800;cursor:pointer;box-shadow:0 8px 25px rgba(46,2,233,.25);position:relative;overflow:hidden;isolation:isolate;transition:transform .2s ease,box-shadow .2s ease;}
+    .rnref-invite-btn::after{content:'';position:absolute;top:0;left:-120%;width:60%;height:100%;background:linear-gradient(115deg,transparent 0%,rgba(255,255,255,.55) 50%,transparent 100%);transform:skewX(-20deg);z-index:1;}
+    .rnref-invite-btn:hover{transform:translateY(-1px);box-shadow:0 10px 30px rgba(46,2,233,.35);}
+    .rnref-invite-btn:hover::after{left:140%;transition:left .85s ease;}
 
     /* ── Desktop layout: real widescreen design, not a stretched phone screen ── */
     @media (min-width:769px){
@@ -19619,7 +19622,7 @@
         <div class="rnref-total-card" id="rnref-code-card" onclick="rnrefCopyCode()" title="Tap to copy your referral code">
           <div class="rnref-total-left">
             <div class="rnref-total-icon">🔗</div>
-            <div>
+            <div style="min-width:0;overflow:hidden;">
               <div class="rnref-total-lbl">Your Referral Code</div>
               <div class="rnref-total-val" id="rnref-code-val">————</div>
             </div>
