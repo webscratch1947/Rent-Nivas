@@ -12112,6 +12112,12 @@
           return; // block ALL navigation including login-page while banned
         }
       }
+      // Force-close the partner-dashboard opening animation overlay whenever
+      // navigating away — prevents it getting stuck on screen as a watermark.
+      if (id !== 'partner-dashboard') {
+        var _refOverlay = document.getElementById('rn-refer-open-overlay');
+        if (_refOverlay) _refOverlay.style.display = 'none';
+      }
       document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
       const el = document.getElementById(id);
       if (el) el.classList.add('active');
@@ -18500,29 +18506,15 @@
 
       // ══ REFERRAL CODE SYSTEM ══
 
-      function generateReferralCode() {
-        return String(Math.floor(10000000 + Math.random() * 90000000));
-      }
-
+      // Calls the server-side RPC which directly reads/creates the referral code
+      // in DynamoDB — no client-side Query-builder involved, no edge cases.
       async function ensureReferralCode() {
         if (!user) return;
         try {
-          const { data, error } = await sb.from('profiles').select('referral_code').eq('id', user.id).maybeSingle();
-          if (error) { console.warn('[RN] referral code fetch error:', error.message); return; }
-          let code = data?.referral_code;
-          if (!code) {
-            code = generateReferralCode();
-            // Use update (not upsert) so we only touch referral_code — never wipe other profile fields
-            // Also add a guard: re-read after write so a concurrent call that already set the code wins
-            const { error: writeErr } = await sb.from('profiles').update({ referral_code: code }).eq('id', user.id).is('referral_code', null);
-            if (writeErr) {
-              // Concurrent write may have set it already — re-read
-              const { data: reread } = await sb.from('profiles').select('referral_code').eq('id', user.id).maybeSingle();
-              code = reread?.referral_code || code;
-            }
-          }
-          showReferralCodeInSidebar(code);
-        } catch(e) {
+          const result = await sb.rpc('get_or_create_referral_code', {});
+          const code = result && result.data && result.data.referral_code;
+          if (code) showReferralCodeInSidebar(String(code));
+        } catch (e) {
           console.warn('[RN] ensureReferralCode error:', e.message);
         }
       }
