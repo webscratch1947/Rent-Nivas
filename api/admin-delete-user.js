@@ -4,13 +4,14 @@ const {
   AdminGetUserCommand,
   ListUsersCommand
 } = require('@aws-sdk/client-cognito-identity-provider');
-const { DynamoDBClient, DeleteItemCommand } = require('@aws-sdk/client-dynamodb');
+const { DynamoDBClient, DeleteItemCommand, QueryCommand } = require('@aws-sdk/client-dynamodb');
 const { marshall } = require('@aws-sdk/util-dynamodb');
 const { REGION, USER_POOL_ID, send, parseBody, requireAdmin } = require('./_auth');
 
 const cognito = new CognitoIdentityProviderClient({ region: REGION });
 const ddb = new DynamoDBClient({ region: REGION });
 const TABLE_USERS = process.env.TABLE_USERS || 'Users';
+const TABLE_CODES = process.env.TABLE_VERIFICATION_CODES || 'VerificationCodes';
 
 async function findUsernameBySub(sub) {
   const page = await cognito.send(new ListUsersCommand({ UserPoolId: USER_POOL_ID, Filter: `sub = "${sub}"`, Limit: 1 }));
@@ -98,6 +99,27 @@ module.exports = async function handler(req, res) {
     }
 
     const anyCleanupFailed = cleanupResults.some(r => !r.ok);
+
+    // ── Also delete VerificationCodes rows for this email ─────────────────
+    // These store pending referral codes from the signup flow. If not deleted,
+    // re-registering with the same email inherits the OLD account's pending
+    // referral code — causing the old account's referral data to corrupt the
+    // brand-new account on first login.
+    let codesDeleted = 0;
+    if (resolvedEmail) {
+      const pk = `signup_verify#${resolvedEmail.toLowerCase()}`;
+      try {
+        await ddb.send(new DeleteItemCommand({ TableName: TABLE_CODES, Key: marshall({ pk }) }));
+        codesDeleted++;
+        console.log('[RentNivas] admin-delete-user: deleted VerificationCodes row for', resolvedEmail);
+      } catch (vcErr) {
+        // Non-fatal — may not exist
+        if (vcErr.name !== 'ResourceNotFoundException') {
+          console.warn('[RentNivas] admin-delete-user: VerificationCodes delete failed:', vcErr.message);
+        }
+      }
+    }
+
     console.log('[RentNivas] admin-delete-user: deleted Cognito user and attempted DynamoDB cleanup for',
       resolvedEmail || targetUsername, '(sub:', resolvedSub, ') — cleanup results:', JSON.stringify(cleanupResults));
 
