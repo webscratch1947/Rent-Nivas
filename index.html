@@ -12126,6 +12126,21 @@
       if (id === 'reset-password-page' && typeof initResetPasswordPage === 'function') {
         initResetPasswordPage();
       }
+      // Auto-fill a pending referral code (captured from a shared /ref:CODE link) whenever
+      // the signup page is shown, no matter which button/entry point triggered it.
+      if (id === 'signup-page') {
+        var _pendingRef2 = null;
+        try { _pendingRef2 = localStorage.getItem('rn-pending-ref-code'); } catch (e) {}
+        if (_pendingRef2) {
+          setTimeout(function () {
+            var rEl = document.getElementById('signup-referral-code');
+            if (rEl && !rEl.value) {
+              rEl.value = _pendingRef2;
+              if (typeof onSignupReferralInput === 'function') onSignupReferralInput(_pendingRef2);
+            }
+          }, 60);
+        }
+      }
     }
     function smoothScroll(sel) {
       const el = document.querySelector(sel);
