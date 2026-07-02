@@ -14,7 +14,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link
-    href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800;1,9..40,400&family=Playfair+Display:ital,wght@0,700;0,800;1,700&display=swap"
+    href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800;1,9..40,400&family=Playfair+Display:ital,wght@0,700;0,800;1,700&family=Sora:wght@400;500;600;700;800&display=swap"
     rel="stylesheet">
   <script src="/env-inject.js"></script>
   <script src="/translations.js"></script> <!-- ← ADD THIS -->
@@ -8929,6 +8929,25 @@
 </head>
 
 <body>
+  <script>
+    // ── Capture a referral code from a shared link before anything else runs ──
+    // Supports both /ref:CODE (new share-link format) and the older ?ref=CODE query param.
+    (function () {
+      try {
+        var path = window.location.pathname || '';
+        var m = path.match(/\/ref[:/]([0-9]{4,10})/i);
+        var code = m ? m[1] : (new URLSearchParams(window.location.search)).get('ref');
+        if (code) {
+          code = String(code).replace(/[^0-9]/g, '');
+          if (code.length >= 4) {
+            localStorage.setItem('rn-pending-ref-code', code);
+            // Clean the URL so the raw /ref:CODE path/query doesn't linger or get bookmarked
+            history.replaceState(null, '', '/');
+          }
+        }
+      } catch (e) {}
+    })();
+  </script>
 
   <!-- ══ BOOT SPLASH — shown instantly on every load/reload until the app
        finishes checking your session & routing you to the right page ══ -->
@@ -9648,7 +9667,7 @@
         </div>
         <div class="topbar-right">
           <div class="credits-badge" id="rent-credits-badge" title="Your free unlock credits">🪙 <span
-              id="rent-credits-count">—</span> credits</div>
+              id="rent-credits-count">—</span> Credits</div>
           <button class="btn btn-terra btn-sm" onclick="switchToHost()" style="font-weight:700;">🏠 List a
             Property</button>
         </div>
@@ -9943,7 +9962,7 @@
             <span id="bell-icon" class="bell-ring">🔔</span><span class="notif-dot pulse" id="notif-dot"></span>
           </div>
           <div class="credits-badge" id="host-credits-badge" title="Your free unlock credits">🪙 <span
-              id="host-credits-count">—</span> credits</div>
+              id="host-credits-count">—</span> Credits</div>
           <button class="btn btn-terra btn-sm" id="host-add-listing-btn"
             onclick="currentEditId=null;editMode=false;resetForm();showSection('add')" data-i18n="dash_add_listing_btn">+ Add Listing</button>
         </div>
@@ -13846,7 +13865,23 @@
           return;
         }
       }
-      if (!session) return showPage('landing-page');
+      if (!session) {
+        var _pendingRef = null;
+        try { _pendingRef = localStorage.getItem('rn-pending-ref-code'); } catch (e) {}
+        if (_pendingRef) {
+          showPage('signup-page');
+          setTimeout(function () {
+            var el = document.getElementById('signup-referral-code');
+            if (el) {
+              el.value = _pendingRef;
+              if (typeof onSignupReferralInput === 'function') onSignupReferralInput(_pendingRef);
+            }
+            try { localStorage.removeItem('rn-pending-ref-code'); } catch (e) {}
+          }, 60);
+          return;
+        }
+        return showPage('landing-page');
+      }
       user = session.user;
       window.user = user;
       console.log('[Nestly] initDash user:', user.email);
@@ -19428,6 +19463,7 @@
       'reset-password-page': null,
       'partner-page': null,
       'partner-dashboard': null,
+      'referral-page': 'mbn-referral',
     };
     const __origShowPage = showPage;
     showPage = function (id) {
@@ -19482,7 +19518,7 @@
     <div class="purchased-topbar">
       <button class="detail-back-btn" onclick="showPage('rent-page')">← Back</button>
       <div class="rent-credits-badge" id="pur-credits-badge" style="margin-left:auto;" title="Your free unlock credits">🪙 <span
-          id="pur-credits-count">—</span> credits</div>
+          id="pur-credits-count">—</span> Credits</div>
     </div>
     <div class="detail-content">
       <div style="margin-bottom:28px;">
@@ -19500,49 +19536,69 @@
   <!-- ══ REFERRAL PAGE (new — matches the provided reference design) ══ -->
   <style>
     #referral-page{background:var(--bg);}
-    .rnref-wrap{max-width:520px;margin:0 auto;padding:0 0 100px;font-family:var(--font);}
-    .rnref-header{background:linear-gradient(135deg,#2e02e9,#4a3aff);border-radius:0 0 40px 40px;padding:18px 22px 70px;position:relative;overflow:hidden;color:#fff;}
+    #referral-page, #referral-page *, #rnref-splash, #rn-ref-success-popup, #rn-ref-success-popup *{font-family:'Sora',var(--font);}
+    .rnref-wrap{max-width:520px;margin:0 auto;padding:0 0 110px;}
+    .rnref-header{background:linear-gradient(135deg,#2e02e9,#4a3aff);border-radius:0 0 28px 28px;padding:20px 22px 76px;position:relative;overflow:hidden;color:#fff;}
     .rnref-header::before{content:'';position:absolute;top:-20px;right:-20px;width:160px;height:160px;background:rgba(255,255,255,.1);border-radius:50%;filter:blur(30px);}
-    .rnref-back-btn{background:rgba(255,255,255,.16);border:none;width:36px;height:36px;border-radius:11px;color:#fff;font-size:18px;display:flex;align-items:center;justify-content:center;cursor:pointer;margin-bottom:18px;font-family:var(--font);position:relative;z-index:1;}
-    .rnref-badge{display:inline-block;padding:4px 12px;background:rgba(255,255,255,.2);border-radius:20px;color:#fff;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;position:relative;z-index:1;}
-    .rnref-header-title{font-size:22px;font-weight:800;position:relative;z-index:1;}
-    .rnref-hero{background:var(--white);border-radius:22px;box-shadow:0 20px 50px rgba(46,2,233,.15);border:1px solid var(--white);padding:22px;margin:-52px 16px 20px;position:relative;z-index:2;}
+    .rnref-back-btn{background:rgba(255,255,255,.16);border:none;width:38px;height:38px;border-radius:10px;color:#fff;font-size:18px;display:flex;align-items:center;justify-content:center;cursor:pointer;margin-bottom:20px;position:relative;z-index:1;}
+    .rnref-badge{display:inline-block;padding:5px 13px;background:rgba(255,255,255,.2);border-radius:8px;color:#fff;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px;position:relative;z-index:1;}
+    .rnref-header-title{font-size:27px;font-weight:800;letter-spacing:-.3px;position:relative;z-index:1;}
+    .rnref-hero{background:var(--white);border-radius:20px;box-shadow:0 20px 50px rgba(46,2,233,.15);border:1px solid var(--white);padding:24px;margin:-56px 16px 20px;position:relative;z-index:2;}
     .rnref-hero-top{display:flex;justify-content:space-between;align-items:flex-start;}
-    .rnref-hero-lbl{font-size:13px;font-weight:500;color:var(--muted);margin-bottom:4px;font-family:var(--font);}
-    .rnref-hero-amt{font-size:32px;font-weight:800;color:var(--blue);letter-spacing:-.5px;font-family:var(--font);}
-    .rnref-hero-amt span{font-size:14px;font-weight:700;color:var(--muted);}
-    .rnref-hero-img{width:64px;height:64px;object-fit:contain;flex-shrink:0;}
-    .rnref-total-card{margin-top:20px;padding:14px 16px;background:var(--bg2);border-radius:16px;display:flex;align-items:center;justify-content:space-between;}
+    .rnref-hero-lbl{font-size:14px;font-weight:600;color:var(--muted);margin-bottom:5px;}
+    .rnref-hero-amt{font-size:36px;font-weight:800;color:var(--blue);letter-spacing:-.6px;}
+    .rnref-hero-amt span{font-size:15px;font-weight:700;color:var(--muted);}
+    .rnref-hero-img{width:68px;height:68px;object-fit:contain;flex-shrink:0;}
+    .rnref-total-card{margin-top:20px;padding:15px 16px;background:var(--bg2);border-radius:14px;display:flex;align-items:center;justify-content:space-between;}
     .rnref-total-left{display:flex;align-items:center;gap:12px;}
-    .rnref-total-icon{width:40px;height:40px;border-radius:12px;background:var(--blue);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;}
-    .rnref-total-lbl{font-size:10px;font-weight:700;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;font-family:var(--font);}
-    .rnref-total-val{font-size:18px;font-weight:800;color:var(--ink);font-family:var(--font);}
+    .rnref-total-icon{width:42px;height:42px;border-radius:10px;background:var(--blue);display:flex;align-items:center;justify-content:center;font-size:19px;flex-shrink:0;}
+    .rnref-total-lbl{font-size:10.5px;font-weight:700;color:var(--muted);letter-spacing:.6px;text-transform:uppercase;}
+    .rnref-total-val{font-size:19px;font-weight:800;color:var(--ink);}
     .rnref-section{padding:0 16px;}
-    .rnref-hist-head{font-size:11px;font-weight:800;color:var(--ink);opacity:.6;text-transform:uppercase;letter-spacing:1px;margin:0 0 16px 6px;font-family:var(--font);}
-    .rnref-toggle{position:relative;display:grid;grid-template-columns:1fr 1fr;background:var(--bg2);border-radius:14px;padding:4px;margin-bottom:16px;}
-    .rnref-toggle-thumb{position:absolute;top:4px;left:4px;width:calc(50% - 4px);height:calc(100% - 8px);background:var(--white);border-radius:11px;box-shadow:0 2px 8px rgba(0,0,0,.08);transition:transform .25s cubic-bezier(.4,0,.2,1);}
-    .rnref-toggle-btn{position:relative;z-index:1;background:none;border:none;padding:10px 0;font-size:14px;font-weight:700;color:var(--muted);cursor:pointer;border-radius:11px;transition:color .2s;font-family:var(--font);}
+    .rnref-hist-head{font-size:12px;font-weight:800;color:var(--ink);opacity:.6;text-transform:uppercase;letter-spacing:1px;margin:0 0 16px 6px;}
+    .rnref-toggle{position:relative;display:grid;grid-template-columns:1fr 1fr;background:var(--bg2);border-radius:12px;padding:4px;margin-bottom:16px;}
+    .rnref-toggle-thumb{position:absolute;top:4px;left:4px;width:calc(50% - 4px);height:calc(100% - 8px);background:var(--white);border-radius:9px;box-shadow:0 2px 8px rgba(0,0,0,.08);transition:transform .25s cubic-bezier(.4,0,.2,1);}
+    .rnref-toggle-btn{position:relative;z-index:1;background:none;border:none;padding:11px 0;font-size:14.5px;font-weight:700;color:var(--muted);cursor:pointer;border-radius:9px;transition:color .2s;}
     .rnref-toggle-btn.active{color:var(--ink);}
     #rnref-toggle.on-register .rnref-toggle-thumb{transform:translateX(100%);}
-    .rnref-row{display:flex;align-items:center;gap:12px;padding:13px;background:var(--white);border:1px solid var(--border);border-radius:16px;margin-bottom:10px;}
-    .rnref-avatar{width:42px;height:42px;border-radius:12px;object-fit:cover;background:var(--bg2);flex-shrink:0;font-size:18px;display:flex;align-items:center;justify-content:center;}
+    .rnref-row{display:flex;align-items:center;gap:12px;padding:13px;background:var(--white);border:1px solid var(--border);border-radius:14px;margin-bottom:10px;}
+    .rnref-avatar{width:44px;height:44px;border-radius:10px;object-fit:cover;background:var(--bg2);flex-shrink:0;font-size:19px;display:flex;align-items:center;justify-content:center;}
     .rnref-row-main{min-width:0;flex:1;}
-    .rnref-row-name{font-size:14px;font-weight:700;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:var(--font);}
-    .rnref-row-sub{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:var(--font);}
-    .rnref-row-reward{font-size:11px;font-weight:700;background:#ecfdf5;color:#065f46;border:1px solid #6ee7b7;padding:3px 9px;border-radius:9px;white-space:nowrap;flex-shrink:0;font-family:var(--font);}
-    .rnref-open-btn{font-size:12px;font-weight:700;color:var(--blue);background:#eef2ff;border:none;padding:6px 12px;border-radius:9px;cursor:pointer;flex-shrink:0;font-family:var(--font);}
-    .rnref-empty{text-align:center;padding:44px 16px;color:var(--muted);font-size:13px;font-family:var(--font);}
+    .rnref-row-name{font-size:14.5px;font-weight:700;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .rnref-row-sub{font-size:12.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .rnref-row-reward{font-size:11.5px;font-weight:700;background:#ecfdf5;color:#065f46;border:1px solid #6ee7b7;padding:4px 10px;border-radius:8px;white-space:nowrap;flex-shrink:0;}
+    .rnref-open-btn{font-size:12.5px;font-weight:700;color:var(--blue);background:#eef2ff;border:none;padding:7px 13px;border-radius:8px;cursor:pointer;flex-shrink:0;}
+    .rnref-empty{text-align:center;padding:44px 16px;color:var(--muted);font-size:13.5px;}
     .rnref-faq-head{display:flex;align-items:center;justify-content:space-between;margin:30px 0 12px;}
-    .rnref-faq-title{font-size:16px;font-weight:800;color:var(--ink);font-family:var(--font);}
-    .rnref-faq-item{background:var(--bg2);border-radius:16px;margin-bottom:10px;overflow:hidden;}
-    .rnref-faq-q{width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px;background:none;border:none;text-align:left;cursor:pointer;font-family:var(--font);}
-    .rnref-faq-q span{font-size:13px;font-weight:700;color:var(--ink);}
-    .rnref-faq-chev{width:26px;height:26px;border-radius:50%;background:var(--white);display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:transform .25s;font-size:11px;color:var(--blue);}
+    .rnref-faq-title{font-size:17px;font-weight:800;color:var(--ink);}
+    .rnref-faq-item{background:var(--bg2);border-radius:14px;margin-bottom:10px;overflow:hidden;}
+    .rnref-faq-q{width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px;background:none;border:none;text-align:left;cursor:pointer;}
+    .rnref-faq-q span{font-size:13.5px;font-weight:700;color:var(--ink);}
+    .rnref-faq-chev{width:26px;height:26px;border-radius:8px;background:var(--white);display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:transform .25s;font-size:11px;color:var(--blue);}
     .rnref-faq-item.open .rnref-faq-chev{transform:rotate(180deg);}
     .rnref-faq-a{max-height:0;overflow:hidden;transition:max-height .25s ease,padding .25s ease;padding:0 16px;}
     .rnref-faq-item.open .rnref-faq-a{max-height:200px;padding:0 16px 16px;}
-    .rnref-faq-a p{font-size:12.5px;line-height:1.6;color:var(--muted);font-family:var(--font);margin:0;}
-    .rnref-invite-btn{display:block;width:calc(100% - 32px);margin:22px 16px 0;background:var(--blue);color:#fff;border:none;padding:15px;border-radius:16px;font-size:15px;font-weight:800;cursor:pointer;font-family:var(--font);box-shadow:0 8px 25px rgba(46,2,233,.25);}
+    .rnref-faq-a p{font-size:13px;line-height:1.6;color:var(--muted);margin:0;}
+    .rnref-invite-btn{display:block;width:calc(100% - 32px);margin:22px 16px 0;background:var(--blue);color:#fff;border:none;padding:16px;border-radius:14px;font-size:15.5px;font-weight:800;cursor:pointer;box-shadow:0 8px 25px rgba(46,2,233,.25);}
+
+    /* ── Desktop layout: real widescreen design, not a stretched phone screen ── */
+    @media (min-width:769px){
+      #referral-page.active{display:flex;justify-content:center;padding:32px 24px 60px;}
+      .rnref-wrap{max-width:960px;padding:0;}
+      .rnref-header{border-radius:24px;padding:28px 36px 90px;}
+      .rnref-header-title{font-size:32px;}
+      .rnref-hero{margin:-64px 0 0;padding:30px 34px;display:grid;grid-template-columns:1.3fr 1fr;gap:28px;align-items:center;}
+      .rnref-hero-top{grid-column:1;}
+      .rnref-hero-amt{font-size:42px;}
+      .rnref-hero-img{width:84px;height:84px;}
+      .rnref-total-card{grid-column:2;margin-top:0;height:100%;}
+      .rnref-section{padding:0;margin-top:28px;display:grid;grid-template-columns:1.5fr 1fr;gap:32px;align-items:start;}
+      .rnref-hist-col{grid-column:1;}
+      .rnref-faq-col{grid-column:2;}
+      .rnref-faq-head{margin-top:0;}
+      #rnref-hist-list{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+      .rnref-invite-btn{max-width:960px;margin:28px auto 0;width:100%;}
+    }
   </style>
   <div class="page" id="referral-page">
     <div class="rnref-wrap">
@@ -19563,7 +19619,7 @@
           <div class="rnref-total-left">
             <div class="rnref-total-icon">🪙</div>
             <div>
-              <div class="rnref-total-lbl">Total Reward</div>
+              <div class="rnref-total-lbl">Total Credits</div>
               <div class="rnref-total-val" id="rnref-total-val">— Credits</div>
             </div>
           </div>
@@ -19571,25 +19627,29 @@
       </div>
 
       <div class="rnref-section">
-        <div class="rnref-hist-head">Referral History</div>
-        <div class="rnref-toggle" id="rnref-toggle">
-          <button class="rnref-toggle-btn active" data-tab="house" onclick="rnrefSwitchTab('house')">House</button>
-          <button class="rnref-toggle-btn" data-tab="register" onclick="rnrefSwitchTab('register')">Register</button>
-          <div class="rnref-toggle-thumb"></div>
+        <div class="rnref-hist-col">
+          <div class="rnref-hist-head">Referral History</div>
+          <div class="rnref-toggle" id="rnref-toggle">
+            <button class="rnref-toggle-btn active" data-tab="house" onclick="rnrefSwitchTab('house')">House</button>
+            <button class="rnref-toggle-btn" data-tab="register" onclick="rnrefSwitchTab('register')">Register</button>
+            <div class="rnref-toggle-thumb"></div>
+          </div>
+          <div id="rnref-hist-list"></div>
         </div>
-        <div id="rnref-hist-list"></div>
 
-        <div class="rnref-faq-head">
-          <div class="rnref-faq-title">Got questions?</div>
+        <div class="rnref-faq-col">
+          <div class="rnref-faq-head">
+            <div class="rnref-faq-title">Got questions?</div>
+          </div>
+          <div id="rnref-faq-list"></div>
         </div>
-        <div id="rnref-faq-list"></div>
       </div>
 
       <button class="rnref-invite-btn" onclick="rnrefInviteFriends()">Invite Friends Now</button>
     </div>
   </div>
 
-  <!-- Splash overlay — plays refer.svg once, first time referral tab is opened this session -->
+  <!-- Splash overlay — plays refer.svg every time the referral tab is opened, until the animation finishes -->
   <div id="rnref-splash" style="display:none;position:fixed;inset:0;z-index:200010;background:#2e02e9;align-items:center;justify-content:center;">
     <div id="rnref-splash-svg" style="width:min(520px,86vw);"></div>
   </div>
@@ -19606,8 +19666,8 @@
 
     // ── Splash (refer.svg) — once per session, only when the Referral tab is opened ──
     function _rnrefPlaySplash(cb) {
-      if (sessionStorage.getItem('rnref-splash-shown')) { cb(); return; }
       var overlay = document.getElementById('rnref-splash');
+      if (overlay && overlay.parentElement !== document.body) document.body.appendChild(overlay);
       var wrap = document.getElementById('rnref-splash-svg');
       fetch('/refer.svg').then(function(r){ return r.text(); }).then(function(txt){
         wrap.innerHTML = txt;
@@ -19616,7 +19676,6 @@
         function finish() {
           setTimeout(function(){ // extra pause after the animation itself has actually finished
             overlay.style.display = 'none';
-            sessionStorage.setItem('rnref-splash-shown', '1');
             cb();
           }, 700);
         }
@@ -19762,11 +19821,12 @@
 
     function rnrefInviteFriends() {
       var code = _rnrefCode || '';
-      var msg = 'Join me on Rent Nivas! Use my referral code ' + code + ' when you sign up: https://rentnivas.com/?ref=' + code;
+      var link = 'https://rentnivas.com/ref:' + code;
+      var shareText = 'Join me on Rent Nivas! My referral code is ' + code + ' — sign up with this link and it\'ll be entered automatically:';
       if (navigator.share) {
-        navigator.share({ title: 'Rent Nivas Referral', text: msg }).catch(function(){});
+        navigator.share({ title: 'Rent Nivas Referral', text: shareText, url: link }).catch(function(){});
       } else if (navigator.clipboard) {
-        navigator.clipboard.writeText(msg).then(function(){ if (typeof toast === 'function') toast('Referral link copied!', 'success'); });
+        navigator.clipboard.writeText(shareText + ' ' + link).then(function(){ if (typeof toast === 'function') toast('Referral link copied!', 'success'); });
       }
     }
 
@@ -20211,6 +20271,11 @@
       onclick="closeModal();showPage('rent-page');if(typeof loadRentPage==='function')loadRentPage();mobBottomActive('mbn-rent')">
       <span class="mbn-icon">🔍</span>
       <span class="mbn-label">Rent</span>
+    </button>
+
+    <button class="mob-bottom-btn" id="mbn-referral" onclick="closeModal();openReferralPanel();mobBottomActive('mbn-referral')">
+      <span class="mbn-icon">🎁</span>
+      <span class="mbn-label">Referral</span>
     </button>
 
     <button class="mob-bottom-btn" id="mbn-profile"
