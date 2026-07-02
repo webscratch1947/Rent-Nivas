@@ -8989,8 +8989,8 @@
         onclick="closeMobSidebar();if(typeof showRentProfile==='function')showRentProfile();else showSection('profile')">
         <span class="mob-nav-icon">👤</span> Profile
       </button>
-      <button class="mob-nav-item" onclick="closeMobSidebar();if(typeof showRentProfile==='function')showRentProfile()">
-        <span class="mob-nav-icon">🪙</span> Credits
+      <button class="mob-nav-item" onclick="closeMobSidebar();if(typeof openReferralPanel==='function')openReferralPanel()">
+        <span class="mob-nav-icon">🎟️</span> Referral
       </button>
       <button class="mob-nav-item"
         onclick="closeMobSidebar();showPage('purchased-page');if(typeof loadPurchasedPage==='function')loadPurchasedPage()">
@@ -19494,6 +19494,205 @@
     </div>
   </div>
 
+  <!-- ══ REFERRAL PAGE (new — replaces old partner-page as the referral entry point) ══ -->
+  <style>
+    .rnref-hero{background:linear-gradient(135deg,#4f3ae0,#6b4bf0);border-radius:22px;padding:26px 22px 24px;position:relative;overflow:hidden;color:#fff;margin-bottom:16px;}
+    .rnref-hero-img{position:absolute;top:14px;right:14px;width:96px;height:96px;object-fit:contain;opacity:.96;}
+    .rnref-hero-title{font-size:15px;font-weight:600;opacity:.9;margin-bottom:6px;}
+    .rnref-hero-sub{font-size:22px;font-weight:800;line-height:1.25;max-width:72%;}
+    .rnref-total-card{display:flex;align-items:center;gap:14px;background:var(--white);border:1.5px solid var(--border);border-radius:18px;padding:16px 18px;margin-bottom:22px;box-shadow:var(--sh3);}
+    .rnref-total-icon{width:44px;height:44px;border-radius:50%;background:#fff7e0;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;}
+    .rnref-total-lbl{font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;}
+    .rnref-total-val{font-size:19px;font-weight:800;color:var(--ink);}
+    .rnref-hist-head{font-size:16px;font-weight:800;color:var(--ink);margin-bottom:12px;}
+    .rnref-toggle{position:relative;display:grid;grid-template-columns:1fr 1fr;background:var(--bg2);border-radius:14px;padding:4px;margin-bottom:16px;}
+    .rnref-toggle-thumb{position:absolute;top:4px;left:4px;width:calc(50% - 4px);height:calc(100% - 8px);background:var(--white);border-radius:11px;box-shadow:0 2px 8px rgba(0,0,0,.08);transition:transform .25s cubic-bezier(.4,0,.2,1);}
+    .rnref-toggle-btn{position:relative;z-index:1;background:none;border:none;padding:10px 0;font-size:14px;font-weight:700;color:var(--muted);cursor:pointer;border-radius:11px;transition:color .2s;}
+    .rnref-toggle-btn.active{color:var(--ink);}
+    .rnref-toggle-btn[data-tab="register"].active ~ .rnref-toggle-thumb,
+    #rnref-toggle.on-register .rnref-toggle-thumb{transform:translateX(100%);}
+    .rnref-row{display:flex;align-items:center;gap:12px;padding:13px 4px;border-bottom:1px solid var(--border);}
+    .rnref-row:last-child{border-bottom:none;}
+    .rnref-avatar{width:42px;height:42px;border-radius:50%;object-fit:cover;background:var(--bg2);flex-shrink:0;font-size:18px;display:flex;align-items:center;justify-content:center;}
+    .rnref-row-main{min-width:0;flex:1;}
+    .rnref-row-name{font-size:14px;font-weight:700;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .rnref-row-sub{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .rnref-row-reward{font-size:11px;font-weight:700;background:#ecfdf5;color:#065f46;border:1px solid #6ee7b7;padding:3px 9px;border-radius:20px;white-space:nowrap;flex-shrink:0;}
+    .rnref-open-btn{font-size:12px;font-weight:700;color:var(--blue);background:#eef2ff;border:none;padding:6px 12px;border-radius:10px;cursor:pointer;flex-shrink:0;}
+    .rnref-empty{text-align:center;padding:44px 16px;color:var(--muted);font-size:13px;}
+  </style>
+  <div class="page" id="referral-page">
+    <div class="purchased-topbar" style="position:static;">
+      <button class="detail-back-btn" onclick="closeModal();if(typeof switchToHost==='function'){switchToHost();}else{showPage('host-dashboard');}mobBottomActive('mbn-home')">← Back</button>
+    </div>
+    <div style="max-width:520px;margin:0 auto;padding:16px 16px 100px;">
+      <div class="rnref-hero">
+        <img src="/person-refer.svg" class="rnref-hero-img" alt="">
+        <div class="rnref-hero-title">Refer your friends</div>
+        <div class="rnref-hero-sub">Earn 0.50 credit every house and register referral</div>
+      </div>
+      <div class="rnref-total-card">
+        <div class="rnref-total-icon">🪙</div>
+        <div>
+          <div class="rnref-total-lbl">Total Reward</div>
+          <div class="rnref-total-val" id="rnref-total-val">— Credits</div>
+        </div>
+      </div>
+      <div class="rnref-hist-head">Referral History</div>
+      <div class="rnref-toggle" id="rnref-toggle">
+        <button class="rnref-toggle-btn active" data-tab="house" onclick="rnrefSwitchTab('house')">House</button>
+        <button class="rnref-toggle-btn" data-tab="register" onclick="rnrefSwitchTab('register')">Register</button>
+        <div class="rnref-toggle-thumb"></div>
+      </div>
+      <div id="rnref-hist-list"></div>
+    </div>
+  </div>
+
+  <!-- Splash overlay — plays refer.svg once, first time referral tab is opened this session -->
+  <div id="rnref-splash" style="display:none;position:fixed;inset:0;z-index:200010;background:#4f3ae0;align-items:center;justify-content:center;">
+    <div id="rnref-splash-svg" style="width:min(520px,86vw);"></div>
+  </div>
+
+  <script>
+    var _rnrefData = { house: [], register: [] };
+    var _rnrefTab = 'house';
+
+    // ── Splash (refer.svg) — once per session, only when the Referral tab is opened ──
+    function _rnrefPlaySplash(cb) {
+      if (sessionStorage.getItem('rnref-splash-shown')) { cb(); return; }
+      var overlay = document.getElementById('rnref-splash');
+      var wrap = document.getElementById('rnref-splash-svg');
+      fetch('/refer.svg').then(function(r){ return r.text(); }).then(function(txt){
+        wrap.innerHTML = txt;
+        overlay.style.display = 'flex';
+        // Estimate total playtime from the SVG's own SMIL timing (max begin+dur of finite animations)
+        var maxEnd = 0;
+        wrap.querySelectorAll('animate,animateTransform,set,animateMotion').forEach(function(a){
+          var rc = a.getAttribute('repeatCount');
+          if (rc === 'indefinite') return;
+          var begin = parseFloat(a.getAttribute('begin')) || 0;
+          var dur = parseFloat(a.getAttribute('dur')) || 0;
+          var end = begin + dur;
+          if (end > maxEnd) maxEnd = end;
+        });
+        var ms = Math.max(1200, Math.min(6000, (maxEnd || 1.6) * 1000 + 300));
+        setTimeout(function(){
+          overlay.style.display = 'none';
+          sessionStorage.setItem('rnref-splash-shown', '1');
+          cb();
+        }, ms);
+      }).catch(function(){ cb(); });
+    }
+
+    // ── Entry point: called from bottom nav + sidebar ──
+    function openReferralPanel() {
+      if (!user) { showPage('login-page'); return; }
+      closeMobSidebar();
+      _rnrefPlaySplash(function() {
+        showPage('referral-page');
+        rnrefLoadData();
+      });
+    }
+
+    function rnrefSwitchTab(tab) {
+      _rnrefTab = tab;
+      document.getElementById('rnref-toggle').classList.toggle('on-register', tab === 'register');
+      document.querySelectorAll('#rnref-toggle .rnref-toggle-btn').forEach(function(b){
+        b.classList.toggle('active', b.dataset.tab === tab);
+      });
+      rnrefRenderList();
+    }
+
+    async function rnrefLoadData() {
+      if (!user) return;
+      var listEl = document.getElementById('rnref-hist-list');
+      listEl.innerHTML = '<div class="rnref-empty">Loading...</div>';
+      try {
+        var isPartner = await _pdIsPartner(user.id);
+        var profRes = await sb.from('profiles')
+          .select('referral_code,credits,total_referrals').eq('id', user.id).maybeSingle();
+        var prof = profRes.data || {};
+        var refCode = prof.referral_code;
+        if (!refCode) { await ensureReferralCode(); var r2 = await sb.from('profiles').select('referral_code').eq('id', user.id).maybeSingle(); refCode = r2.data && r2.data.referral_code; }
+
+        var credits = parseFloat(prof.credits || 0);
+        document.getElementById('rnref-total-val').textContent = (credits % 1 === 0 ? credits : credits.toFixed(2)) + ' Credits';
+
+        var regPromise = sb.from('profiles')
+          .select('id,name,email,avatar_url,created_at').eq('referred_by_code', refCode)
+          .order('created_at', { ascending: false }).limit(100);
+        var housePromise = sb.from('houses')
+          .select('id,title,created_at,referral_reward_given').eq('referral_code', refCode)
+          .order('created_at', { ascending: false }).limit(100);
+        var res = await Promise.all([regPromise, housePromise]);
+        var regRows = res[0].data || [];
+        var houseRows = (res[1].data || []).filter(function(h){ return h.referral_reward_given; });
+
+        var rewardLabel = isPartner ? '+5 XP · +0.50 Credit' : '+0.50 Credit';
+
+        _rnrefData.register = regRows.map(function(u){
+          return { name: u.name || 'Unknown user', email: u.email || '', avatar: u.avatar_url || '', date: u.created_at, reward: rewardLabel };
+        });
+        _rnrefData.house = houseRows.map(function(h){
+          return { name: h.title || 'Untitled property', id: h.id, date: h.created_at, reward: rewardLabel };
+        });
+
+        // Detect brand-new referral since last check → show success popup once
+        try {
+          var totalRefs = (regRows.length + houseRows.length);
+          var storageKey = 'rn-last-ref-total-' + user.id;
+          var lastKnown = parseInt(localStorage.getItem(storageKey) || '-1', 10);
+          if (lastKnown !== -1 && totalRefs > lastKnown) rnrefShowSuccessPopup();
+          localStorage.setItem(storageKey, totalRefs);
+        } catch(e){}
+
+        rnrefRenderList();
+      } catch (e) {
+        console.warn('[Referral] load error:', e && e.message);
+        listEl.innerHTML = '<div class="rnref-empty">Could not load referral data.</div>';
+      }
+    }
+
+    function rnrefRenderList() {
+      var listEl = document.getElementById('rnref-hist-list');
+      var rows = _rnrefData[_rnrefTab] || [];
+      if (!rows.length) {
+        listEl.innerHTML = '<div class="rnref-empty">No ' + (_rnrefTab === 'house' ? 'house' : 'registration') + ' referrals yet.</div>';
+        return;
+      }
+      if (_rnrefTab === 'register') {
+        listEl.innerHTML = rows.map(function(u){
+          var av = u.avatar ? '<img class="rnref-avatar" src="' + esc(u.avatar) + '" alt="">' : '<div class="rnref-avatar">👤</div>';
+          return '<div class="rnref-row">' + av +
+            '<div class="rnref-row-main"><div class="rnref-row-name">' + esc(u.name) + '</div><div class="rnref-row-sub">' + esc(u.email) + '</div></div>' +
+            '<div class="rnref-row-reward">' + u.reward + '</div></div>';
+        }).join('');
+      } else {
+        listEl.innerHTML = rows.map(function(h){
+          return '<div class="rnref-row"><div class="rnref-avatar">🏠</div>' +
+            '<div class="rnref-row-main"><div class="rnref-row-name">' + esc(h.name) + '</div></div>' +
+            '<button class="rnref-open-btn" onclick="adminGoToListing(\'' + h.id + '\')">Open</button>' +
+            '<div class="rnref-row-reward">' + h.reward + '</div></div>';
+        }).join('');
+      }
+    }
+
+    // ── Success popup — reuses #rn-ref-success-popup, coin-bag.svg swapped in as a looping inline animation, shown once ──
+    function rnrefShowSuccessPopup() {
+      var popup = document.getElementById('rn-ref-success-popup');
+      var wrap = document.getElementById('rnref-successbag-wrap');
+      if (!popup || !wrap) return;
+      if (!wrap.dataset.loaded) {
+        fetch('/coin-bag.svg').then(function(r){ return r.text(); }).then(function(txt){
+          wrap.innerHTML = txt; // coin-bag.svg already has repeatCount="indefinite" → loops
+          wrap.dataset.loaded = '1';
+        }).catch(function(){});
+      }
+      popup.style.display = 'block';
+      requestAnimationFrame(function(){ popup.style.transform = 'translateY(0)'; });
+    }
+  </script>
+
   <!-- ══ PARTNER APPLICATION / STATUS PAGE ══ -->
   <div class="page" id="partner-page">
     <div class="purchased-topbar" style="position:static;">
@@ -19894,7 +20093,7 @@
       <span class="mbn-label">Rent</span>
     </button>
     <button class="mob-bottom-btn" id="mbn-referral"
-      onclick="closeModal();mobBottomActive('mbn-referral');if(typeof goToPartnerArea==='function')goToPartnerArea();">
+      onclick="closeModal();mobBottomActive('mbn-referral');if(typeof openReferralPanel==='function')openReferralPanel();">
       <span class="mbn-icon" style="position:relative;display:inline-flex;align-items:center;justify-content:center;font-size:20px;">🎟️</span>
       <span class="mbn-label">Referral</span>
     </button>
@@ -20191,7 +20390,7 @@
   <!-- ══ REFERRAL SUCCESS POPUP (bottom sheet, shown once when friend uses code) ══ -->
   <div id="rn-ref-success-popup" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:200005;transform:translateY(100%);transition:transform .4s cubic-bezier(.34,1.56,.64,1);">
     <div style="background:#fff;border-radius:24px 24px 0 0;padding:22px 20px 24px;box-shadow:0 -8px 40px rgba(0,0,0,.2);max-width:480px;margin:0 auto;display:flex;align-items:center;gap:16px;position:relative;">
-      <img src="/coin-bag.svg" alt="" style="width:72px;height:72px;flex-shrink:0;">
+      <div id="rnref-successbag-wrap" style="width:72px;height:72px;flex-shrink:0;"></div>
       <div style="flex:1;min-width:0;padding-right:28px;">
         <div style="font-size:16px;font-weight:900;color:#1a1410;margin-bottom:5px;">Referral Successful! 🎉</div>
         <div style="font-size:13px;color:#6b7280;line-height:1.55;">You earned <strong style="color:#059669;">0.50 credits</strong> because your friend used your referral code.</div>
