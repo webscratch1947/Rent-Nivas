@@ -820,14 +820,15 @@ async function handleRpc(spec, claims) {
   if (spec.name === 'process_registration_referral') {
     let code = String((spec.params && spec.params.p_referral_code) || '').trim();
 
-    // Fallback: referral code written to DynamoDB profile by signup-verify.js
+    // Fallback 1: referral code written to DynamoDB profile by signup-verify.js
     // during email confirm (used when Cognito User Pool lacks custom:referral_code).
+    let userEmail = String(claims.email || '').trim().toLowerCase();
     if (!code) {
       try {
         const selfProfile = await readItems({
           table: 'profiles',
           op: 'select',
-          select: 'id,pending_referral_code',
+          select: 'id,email,pending_referral_code',
           filters: [{ op: 'eq', column: 'id', value: claims.sub }],
           maybeSingle: true,
         });
@@ -835,8 +836,40 @@ async function handleRpc(spec, claims) {
           code = String(selfProfile.pending_referral_code).trim();
           console.log('[Referral] Using pending_referral_code from profile for user ' + claims.sub + ': ' + code);
         }
+        // Capture email from profile row as a fallback for the VerificationCodes lookup below
+        if (!userEmail && selfProfile && selfProfile.email) {
+          userEmail = String(selfProfile.email).trim().toLowerCase();
+        }
       } catch (e) {
         console.warn('[Referral] Could not read pending_referral_code:', e.message);
+      }
+    }
+
+    // Fallback 2: referral code stored in VerificationCodes by signup-verify.js
+    // at signup time. This is the authoritative source when the profile row did
+    // not yet exist at email-confirmation time (the most common new-user case —
+    // writePendingReferralToProfile uses a ConditionExpression that silently
+    // skips the write when the profile row doesn't exist yet). Previously this
+    // code path was documented in a comment but never actually implemented, so
+    // referral codes submitted at signup were always silently dropped for users
+    // who hadn't logged in yet before confirming their email.
+    if (!code && userEmail) {
+      try {
+        const TABLE_CODES = process.env.TABLE_VERIFICATION_CODES || 'VerificationCodes';
+        const pk = `signup_verify#${userEmail}`;
+        const vcRes = await ddb.send(new GetItemCommand({
+          TableName: TABLE_CODES,
+          Key: marshall({ pk })
+        }));
+        if (vcRes.Item) {
+          const vcItem = unmarshall(vcRes.Item);
+          if (vcItem.pendingReferralCode) {
+            code = String(vcItem.pendingReferralCode).trim();
+            console.log('[Referral] Using pendingReferralCode from VerificationCodes for user ' + claims.sub + ' (' + userEmail + '): ' + code);
+          }
+        }
+      } catch (e) {
+        console.warn('[Referral] Could not read pendingReferralCode from VerificationCodes:', e.message);
       }
     }
 
