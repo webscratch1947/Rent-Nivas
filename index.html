@@ -8989,9 +8989,7 @@
         onclick="closeMobSidebar();if(typeof showRentProfile==='function')showRentProfile();else showSection('profile')">
         <span class="mob-nav-icon">👤</span> Profile
       </button>
-      <button class="mob-nav-item" onclick="closeMobSidebar();if(typeof openReferralPanel==='function')openReferralPanel()">
-        <span class="mob-nav-icon">🎟️</span> Referral
-      </button>
+
       <button class="mob-nav-item"
         onclick="closeMobSidebar();showPage('purchased-page');if(typeof loadPurchasedPage==='function')loadPurchasedPage()">
         <span class="mob-nav-icon">🔓</span> Unlocked
@@ -20189,11 +20187,7 @@
       <span class="mbn-icon">🔍</span>
       <span class="mbn-label">Rent</span>
     </button>
-    <button class="mob-bottom-btn" id="mbn-referral"
-      onclick="closeModal();mobBottomActive('mbn-referral');if(typeof openReferralPanel==='function')openReferralPanel();">
-      <span class="mbn-icon" style="position:relative;display:inline-flex;align-items:center;justify-content:center;font-size:20px;">🎟️</span>
-      <span class="mbn-label">Referral</span>
-    </button>
+
     <button class="mob-bottom-btn" id="mbn-profile"
       onclick="closeModal();mobBottomActive('mbn-profile');var _r=localStorage.getItem('nestly-role');if(_r==='rent'){rentShowSection('profile');}else{var _hd=document.getElementById('host-dashboard');if(_hd&&_hd.classList.contains('active')){showSection('profile');}else if(typeof switchToHost==='function'){Promise.resolve(switchToHost()).then(function(){showSection('profile');mobBottomActive('mbn-profile');});}else{showPage('host-dashboard');showSection('profile');}}">
       <span class="mbn-icon" style="position:relative;display:inline-flex;align-items:center;justify-content:center;">
