@@ -8629,7 +8629,7 @@
     }
     #streak-popup-bg.open { display:flex;opacity:1;pointer-events:all; }
     .streak-popup-box {
-      background:#faf8f5;border-radius:24px;max-width:460px;width:94%;
+      background:#faf8f5;border-radius:24px;max-width:720px;width:92%;
       box-shadow:0 32px 80px rgba(0,0,0,.45),0 0 0 1px rgba(194,113,79,.15);
       overflow:hidden;
       animation:streakPopIn .4s cubic-bezier(.34,1.56,.64,1);
@@ -8656,15 +8656,15 @@
     /* Header */
     .streak-popup-header {
       background:linear-gradient(145deg,#2a1a0e 0%,#3d1f0a 40%,#c2714f 100%);
-      padding:30px 28px 24px;text-align:center;position:relative;overflow:hidden;
+      padding:42px 36px 32px;text-align:center;position:relative;overflow:hidden;
     }
     .streak-popup-header::before {
       content:'';position:absolute;inset:0;
       background:radial-gradient(ellipse at 50% 0%,rgba(255,180,100,.18) 0%,transparent 70%);
     }
     .streak-flame-icon {
-      font-size:52px;line-height:1;margin-bottom:10px;
-      width:64px;height:64px;margin-left:auto;margin-right:auto;
+      font-size:64px;line-height:1;margin-bottom:14px;
+      width:80px;height:80px;margin-left:auto;margin-right:auto;
       display:block;
       animation:streakFlame 1.4s ease-in-out infinite alternate;
       filter:drop-shadow(0 0 16px rgba(245,158,11,.7));
@@ -8676,7 +8676,7 @@
       to   { transform:scale(1.12) rotate(3deg); filter:drop-shadow(0 0 24px rgba(245,158,11,.9)); }
     }
     .streak-popup-title {
-      font-size:24px;font-weight:800;color:#fff;
+      font-size:30px;font-weight:800;color:#fff;
       font-family:var(--font-display);margin-bottom:5px;
       position:relative;z-index:1;
       text-shadow:0 2px 12px rgba(0,0,0,.3);
@@ -8865,7 +8865,7 @@
     }
     /* Wider, more spacious layout on desktop/tablet */
     @media(min-width:769px){
-      .streak-popup-box { max-width:640px; }
+      .streak-popup-box { max-width:720px; }
       .streak-popup-header { padding:38px 40px 30px; }
       .streak-flame-icon { font-size:60px; }
       .streak-popup-title { font-size:28px; }
@@ -12908,6 +12908,13 @@
     async function _renderReferralHistory(refCode) {
       const histEl = document.getElementById('pd-referral-history');
       if (!histEl) return;
+
+      // Guard: if no referral code yet, show empty state instead of querying
+      // (an empty refCode would match ALL users with no referred_by_code, flooding history)
+      if (!refCode || String(refCode).trim().length < 6) {
+        histEl.innerHTML = `<div style="text-align:center;padding:28px;color:var(--muted);font-size:13px;">Your referral code is being set up. Refresh to see your history.</div>`;
+        return;
+      }
 
       histEl.innerHTML = `<div style="text-align:center;padding:28px;color:var(--muted);font-size:13px;">Loading history...</div>`;
 
