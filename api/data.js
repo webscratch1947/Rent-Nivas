@@ -1708,7 +1708,55 @@ async function handleRpc(spec, claims) {
     return { scanned: items.length, deleted };
   }
 
-    throw new Error(`Unsupported RPC "${spec.name}"`);
+  // ── get_or_create_referral_code ─────────────────────────────────────────────
+  // Reliable server-side referral code fetch/create.
+  // Reads the caller's DynamoDB profile directly (tries both key formats),
+  // generates a fresh 8-digit code if none exists, saves it, and returns it.
+  // This bypasses all client-side Query-builder complexity.
+  if (spec.name === 'get_or_create_referral_code') {
+    const userId = claims.sub;
+    if (!userId) throw Object.assign(new Error('Not authenticated'), { status: 401 });
+    const TBL = tableName('profiles');
+
+    // Try current userId key, then legacy id key
+    let item = null;
+    let keyUsed = null;
+    for (const k of [{ userId }, { id: userId }]) {
+      try {
+        const got = await ddb.send(new GetItemCommand({ TableName: TBL, Key: marshall(k) }));
+        if (got.Item) { item = unmarshall(got.Item); keyUsed = k; break; }
+      } catch (_) { /* try next */ }
+    }
+
+    let code = item && item.referral_code;
+
+    if (!code) {
+      // Generate a unique 8-digit numeric code
+      code = String(Math.floor(10000000 + Math.random() * 90000000));
+      if (keyUsed) {
+        const pkField = Object.keys(keyUsed)[0];
+        try {
+          await ddb.send(new UpdateItemCommand({
+            TableName: TBL,
+            Key: marshall(keyUsed),
+            UpdateExpression: 'SET referral_code = :code',
+            ExpressionAttributeValues: marshall({ ':code': code }),
+            ConditionExpression: `attribute_exists(${pkField})`,
+          }));
+          console.log('[RPC get_or_create_referral_code] Generated and saved referral code for', userId);
+        } catch (saveErr) {
+          console.warn('[RPC get_or_create_referral_code] Could not save code:', saveErr.message);
+          // Still return the generated code so the UI can display it
+        }
+      } else {
+        console.warn('[RPC get_or_create_referral_code] Profile row not found for userId:', userId);
+      }
+    }
+
+    return { referral_code: code || null };
+  }
+
+  throw new Error(`Unsupported RPC "${spec.name}"`);
 }
 
 module.exports = async function handler(req, res) {
