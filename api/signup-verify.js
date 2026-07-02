@@ -333,10 +333,42 @@ module.exports = async function handler(req, res) {
       }));
       console.log(`[SignupVerify] ✅ verification success: email_verified=true set for ${email}`);
 
-      // Retrieve the pending referral code (stored during 'request') and
-      // write it to the user's DynamoDB profile. This replaces the old
-      // Cognito custom:referral_code approach which failed because the
-      // attribute is not declared in the User Pool schema.
+      // ── Generate + save this user's OWN referral code immediately ──────────
+      // Previously this was done lazily (random code on first profile view) which
+      // caused the code to change on every page refresh when the profile row didn't
+      // exist yet. Now we generate it here — deterministic hash of the Cognito sub
+      // so it is always the same value and written to DynamoDB exactly once.
+      let confirmedUserId = null;
+      try {
+        const cognitoUserForCode = await findExistingUserByEmail(email);
+        if (cognitoUserForCode) {
+          const attrsForCode = (cognitoUserForCode.Attributes || []).reduce((a, x) => { a[x.Name] = x.Value; return a; }, {});
+          confirmedUserId = attrsForCode.sub || cognitoUserForCode.Username;
+          // Deterministic 8-char uppercase code: first 8 hex chars of SHA-256(userId)
+          const ownCode = crypto.createHash('sha256').update(confirmedUserId).digest('hex').slice(0, 8).toUpperCase();
+          // Save with if_not_exists so we never overwrite a manually assigned code
+          try {
+            await ddb.send(new UpdateItemCommand({
+              TableName: TABLE_USERS,
+              Key: marshall({ userId: confirmedUserId }),
+              UpdateExpression: 'SET referral_code = if_not_exists(referral_code, :code)',
+              ConditionExpression: 'attribute_exists(userId)',
+              ExpressionAttributeValues: marshall({ ':code': ownCode }),
+            }));
+            console.log(`[SignupVerify] ✅ referral_code=${ownCode} saved for userId=${confirmedUserId}`);
+          } catch (codeErr) {
+            // Profile row not created yet (first login hasn't happened) — safe to skip.
+            // get_or_create_referral_code RPC will handle it on first profile view.
+            if (codeErr.name !== 'ConditionalCheckFailedException') {
+              console.warn('[SignupVerify] Could not save referral_code:', codeErr.message);
+            }
+          }
+        }
+      } catch (codeGenErr) {
+        console.warn('[SignupVerify] referral_code generation step failed (non-fatal):', codeGenErr.message);
+      }
+
+      // ── Write pending_referral_code (who referred THIS user) ───────────────
       const pendingReferralCode = record.pendingReferralCode || await getPendingReferralCode(email);
       if (pendingReferralCode) {
         await writePendingReferralToProfile(email, pendingReferralCode);
