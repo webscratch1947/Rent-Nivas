@@ -11593,6 +11593,7 @@
 
         user = sessionData.user;
         window.user = user;
+        if (typeof window.rnStreakSetUser === 'function') window.rnStreakSetUser(user.id);
         await loadCreditsFromDB();
         syncMobNavAuth();
         const banned = await checkUserBan();
@@ -13900,6 +13901,7 @@
       user = session.user;
       window.user = user;
       console.log('[Nestly] initDash user:', user.email);
+      if (typeof window.rnStreakSetUser === 'function') window.rnStreakSetUser(user.id);
       if (typeof window._checkCrown === 'function') setTimeout(window._checkCrown, 1500);
 
       // Instant localStorage ban check (0ms, no network)
@@ -19076,6 +19078,7 @@
         if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION' || event === 'TOKEN_REFRESHED') && session?.user) {
           user = session.user;
           window.user = user;
+          if (typeof window.rnStreakSetUser === 'function') window.rnStreakSetUser(user.id);
           await loadCreditsFromDB();
           syncMobNavAuth();
           if (typeof window._checkCrown === 'function') setTimeout(window._checkCrown, 1500);
@@ -19808,7 +19811,14 @@
           var totalRefs = (regRows.length + houseRows.length);
           var storageKey = 'rn-last-ref-total-' + user.id;
           var lastKnown = parseInt(localStorage.getItem(storageKey) || '-1', 10);
-          if (lastKnown !== -1 && totalRefs > lastKnown) rnrefShowSuccessPopup();
+          var _popupShownKey = 'rn-ref-popup-shown-' + user.id;
+          var _popupAlreadyShown = localStorage.getItem(_popupShownKey);
+          if (totalRefs > 0 && !_popupAlreadyShown) {
+            rnrefShowSuccessPopup();
+            localStorage.setItem(_popupShownKey, '1');
+          } else if (lastKnown !== -1 && totalRefs > lastKnown) {
+            rnrefShowSuccessPopup();
+          }
           localStorage.setItem(storageKey, totalRefs);
         } catch(e){}
 
@@ -20933,7 +20943,22 @@
   <script>
     (function () {
       'use strict';
-      var STREAK_KEY = 'rn-streak-v1';
+      var STREAK_KEY = 'rn-streak-v1'; // updated to per-user key once user is known
+      // Call after window.user is set to scope streak data to this specific user
+      window.rnStreakSetUser = function(userId) {
+        if (!userId) return;
+        var userKey = 'rn-streak-v1-' + userId;
+        // Migrate global key to user-scoped key only if user-scoped is empty and global has real data
+        if (!localStorage.getItem(userKey)) {
+          try {
+            var old = JSON.parse(localStorage.getItem('rn-streak-v1') || 'null');
+            if (old && old.day > 0) {
+              localStorage.setItem(userKey, JSON.stringify(old));
+            }
+          } catch(e) {}
+        }
+        STREAK_KEY = userKey;
+      };
       var CREDITS_PER_DAY = [1, 2, 3, 4, 5, 6, 7]; // Day 1=1 Day 2=2 … Day 7=7 credits
       var DAY_MS = 24 * 60 * 60 * 1000;
       // Expose getClaimableDay globally so profile stat dot can check it
