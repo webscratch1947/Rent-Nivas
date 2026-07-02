@@ -316,7 +316,18 @@ function keyFor(table, row, filters) {
 function applyFilters(items, filters) {
   let out = items;
   (filters || []).forEach(f => {
-    if (f.op === 'eq') out = out.filter(item => String(item[f.column] ?? '') === String(f.value ?? ''));
+    if (f.op === 'eq') out = out.filter(item => {
+      // FIX: strict null handling — previously both null and '' collapsed to ''
+      // via `?? ''`, so an empty referral code matched EVERY user who had no
+      // referred_by_code set (null), flooding the referral history with every
+      // user on the platform. Now null/undefined only match null/undefined,
+      // and an empty string '' does NOT match null (matches real DB behaviour).
+      const fval = f.value;
+      const ival = item[f.column];
+      if (fval === null || fval === undefined) return ival === null || ival === undefined;
+      if (ival === null || ival === undefined) return false;
+      return String(ival) === String(fval);
+    });
     if (f.op === 'in') out = out.filter(item => (f.values || []).map(String).includes(String(item[f.column] ?? '')));
   });
   return out;
@@ -1749,7 +1760,12 @@ async function handleRpc(spec, claims) {
           // Still return the generated code so the UI can display it
         }
       } else {
+        // Profile row not found — do NOT return a randomly-generated code that
+        // was never saved. Returning an unsaved code means the code changes on
+        // every page refresh (each call makes a new random number). Return null
+        // so the UI knows the profile isn't ready yet and can retry/wait.
         console.warn('[RPC get_or_create_referral_code] Profile row not found for userId:', userId);
+        return { referral_code: null };
       }
     }
 
