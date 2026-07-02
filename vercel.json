@@ -2,6 +2,7 @@
   "version": 2,
   "rewrites": [
     { "source": "/env-inject.js", "destination": "/api/env-inject.js" },
+    { "source": "/ref\\::code(\\d+)", "destination": "/index.html" },
     { "source": "/ref/:code", "destination": "/index.html" }
   ],
   "headers": [
