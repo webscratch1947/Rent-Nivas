@@ -1720,10 +1720,10 @@ async function handleRpc(spec, claims) {
   }
 
   // ── get_or_create_referral_code ─────────────────────────────────────────────
-  // Reliable server-side referral code fetch/create.
-  // Reads the caller's DynamoDB profile directly (tries both key formats),
-  // generates a fresh 8-digit code if none exists, saves it, and returns it.
-  // This bypasses all client-side Query-builder complexity.
+  // Reads the caller's referral_code from their DynamoDB profile.
+  // If no code exists yet (edge case for users who registered before the new
+  // signup flow), generates a DETERMINISTIC code from the userId hash and saves
+  // it — so it is always the same value, never a new random code each refresh.
   if (spec.name === 'get_or_create_referral_code') {
     const userId = claims.sub;
     if (!userId) throw Object.assign(new Error('Not authenticated'), { status: 401 });
@@ -1739,37 +1739,38 @@ async function handleRpc(spec, claims) {
       } catch (_) { /* try next */ }
     }
 
-    let code = item && item.referral_code;
-
-    if (!code) {
-      // Generate a unique 8-digit numeric code
-      code = String(Math.floor(10000000 + Math.random() * 90000000));
-      if (keyUsed) {
-        const pkField = Object.keys(keyUsed)[0];
-        try {
-          await ddb.send(new UpdateItemCommand({
-            TableName: TBL,
-            Key: marshall(keyUsed),
-            UpdateExpression: 'SET referral_code = :code',
-            ExpressionAttributeValues: marshall({ ':code': code }),
-            ConditionExpression: `attribute_exists(${pkField})`,
-          }));
-          console.log('[RPC get_or_create_referral_code] Generated and saved referral code for', userId);
-        } catch (saveErr) {
-          console.warn('[RPC get_or_create_referral_code] Could not save code:', saveErr.message);
-          // Still return the generated code so the UI can display it
-        }
-      } else {
-        // Profile row not found — do NOT return a randomly-generated code that
-        // was never saved. Returning an unsaved code means the code changes on
-        // every page refresh (each call makes a new random number). Return null
-        // so the UI knows the profile isn't ready yet and can retry/wait.
-        console.warn('[RPC get_or_create_referral_code] Profile row not found for userId:', userId);
-        return { referral_code: null };
-      }
+    const existingCode = item && item.referral_code;
+    if (existingCode) {
+      return { referral_code: existingCode };
     }
 
-    return { referral_code: code || null };
+    // No code in profile yet. Generate a DETERMINISTIC code from the userId
+    // (SHA-256 hash → first 8 hex chars → uppercase). This is the same value
+    // every time so the code will never "change on refresh".
+    const crypto = require('crypto');
+    const deterministicCode = crypto.createHash('sha256').update(userId).digest('hex').slice(0, 8).toUpperCase();
+
+    if (keyUsed) {
+      // Profile row exists — save the code so future reads are fast
+      try {
+        await ddb.send(new UpdateItemCommand({
+          TableName: TBL,
+          Key: marshall(keyUsed),
+          UpdateExpression: 'SET referral_code = if_not_exists(referral_code, :code)',
+          ExpressionAttributeValues: marshall({ ':code': deterministicCode }),
+        }));
+        console.log('[RPC get_or_create_referral_code] Saved deterministic code for', userId);
+      } catch (saveErr) {
+        console.warn('[RPC get_or_create_referral_code] Could not save code:', saveErr.message);
+        // Still return the deterministic code — it will be the same next time too
+      }
+      return { referral_code: deterministicCode };
+    }
+
+    // Profile row doesn't exist yet — return null so UI shows "loading" state.
+    // The code will be set when the profile row is created on first login.
+    console.warn('[RPC get_or_create_referral_code] No profile row found for userId:', userId);
+    return { referral_code: null };
   }
 
   throw new Error(`Unsupported RPC "${spec.name}"`);
