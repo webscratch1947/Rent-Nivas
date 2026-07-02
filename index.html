@@ -19674,10 +19674,8 @@
         overlay.style.display = 'flex';
 
         function finish() {
-          setTimeout(function(){ // extra pause after the animation itself has actually finished
-            overlay.style.display = 'none';
-            cb();
-          }, 700);
+          overlay.style.display = 'none';
+          cb();
         }
 
         var svgEl = wrap.querySelector('svg');
