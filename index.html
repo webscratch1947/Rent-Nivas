@@ -19494,27 +19494,34 @@
     </div>
   </div>
 
-  <!-- ══ REFERRAL PAGE (new — replaces old partner-page as the referral entry point) ══ -->
+  <!-- ══ REFERRAL PAGE (new — matches the provided reference design) ══ -->
   <style>
     #referral-page{background:var(--bg);}
-    .rnref-wrap{max-width:520px;margin:0 auto;padding:0 16px 100px;font-family:var(--font);}
-    .rnref-hero{background:linear-gradient(135deg,#4f3ae0,#6b4bf0);border-radius:0 0 26px 26px;padding:16px 22px 26px;position:relative;overflow:hidden;color:#fff;margin:0 -16px 20px;}
-    .rnref-back-btn{background:rgba(255,255,255,.16);border:none;width:36px;height:36px;border-radius:11px;color:#fff;font-size:18px;display:flex;align-items:center;justify-content:center;cursor:pointer;margin-bottom:18px;font-family:var(--font);}
-    .rnref-hero-img{position:absolute;top:60px;right:18px;width:88px;height:88px;object-fit:contain;opacity:.96;}
-    .rnref-hero-title{font-size:14px;font-weight:600;opacity:.85;margin-bottom:6px;font-family:var(--font);}
-    .rnref-hero-sub{font-size:26px;font-weight:800;line-height:1.2;max-width:65%;font-family:var(--font);}
-    .rnref-total-card{display:flex;align-items:center;gap:14px;background:var(--white);border:1.5px solid var(--border);border-radius:16px;padding:16px 18px;margin-bottom:22px;box-shadow:var(--sh3);font-family:var(--font);}
-    .rnref-total-icon{width:44px;height:44px;border-radius:12px;background:#fff7e0;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;}
-    .rnref-total-lbl{font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;font-family:var(--font);}
-    .rnref-total-val{font-size:19px;font-weight:800;color:var(--ink);font-family:var(--font);}
-    .rnref-hist-head{font-size:16px;font-weight:800;color:var(--ink);margin-bottom:12px;font-family:var(--font);}
+    .rnref-wrap{max-width:520px;margin:0 auto;padding:0 0 100px;font-family:var(--font);}
+    .rnref-header{background:linear-gradient(135deg,#2e02e9,#4a3aff);border-radius:0 0 40px 40px;padding:18px 22px 70px;position:relative;overflow:hidden;color:#fff;}
+    .rnref-header::before{content:'';position:absolute;top:-20px;right:-20px;width:160px;height:160px;background:rgba(255,255,255,.1);border-radius:50%;filter:blur(30px);}
+    .rnref-back-btn{background:rgba(255,255,255,.16);border:none;width:36px;height:36px;border-radius:11px;color:#fff;font-size:18px;display:flex;align-items:center;justify-content:center;cursor:pointer;margin-bottom:18px;font-family:var(--font);position:relative;z-index:1;}
+    .rnref-badge{display:inline-block;padding:4px 12px;background:rgba(255,255,255,.2);border-radius:20px;color:#fff;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;position:relative;z-index:1;}
+    .rnref-header-title{font-size:22px;font-weight:800;position:relative;z-index:1;}
+    .rnref-hero{background:var(--white);border-radius:22px;box-shadow:0 20px 50px rgba(46,2,233,.15);border:1px solid var(--white);padding:22px;margin:-52px 16px 20px;position:relative;z-index:2;}
+    .rnref-hero-top{display:flex;justify-content:space-between;align-items:flex-start;}
+    .rnref-hero-lbl{font-size:13px;font-weight:500;color:var(--muted);margin-bottom:4px;font-family:var(--font);}
+    .rnref-hero-amt{font-size:32px;font-weight:800;color:var(--blue);letter-spacing:-.5px;font-family:var(--font);}
+    .rnref-hero-amt span{font-size:14px;font-weight:700;color:var(--muted);}
+    .rnref-hero-img{width:64px;height:64px;object-fit:contain;flex-shrink:0;}
+    .rnref-total-card{margin-top:20px;padding:14px 16px;background:var(--bg2);border-radius:16px;display:flex;align-items:center;justify-content:space-between;}
+    .rnref-total-left{display:flex;align-items:center;gap:12px;}
+    .rnref-total-icon{width:40px;height:40px;border-radius:12px;background:var(--blue);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;}
+    .rnref-total-lbl{font-size:10px;font-weight:700;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;font-family:var(--font);}
+    .rnref-total-val{font-size:18px;font-weight:800;color:var(--ink);font-family:var(--font);}
+    .rnref-section{padding:0 16px;}
+    .rnref-hist-head{font-size:11px;font-weight:800;color:var(--ink);opacity:.6;text-transform:uppercase;letter-spacing:1px;margin:0 0 16px 6px;font-family:var(--font);}
     .rnref-toggle{position:relative;display:grid;grid-template-columns:1fr 1fr;background:var(--bg2);border-radius:14px;padding:4px;margin-bottom:16px;}
     .rnref-toggle-thumb{position:absolute;top:4px;left:4px;width:calc(50% - 4px);height:calc(100% - 8px);background:var(--white);border-radius:11px;box-shadow:0 2px 8px rgba(0,0,0,.08);transition:transform .25s cubic-bezier(.4,0,.2,1);}
     .rnref-toggle-btn{position:relative;z-index:1;background:none;border:none;padding:10px 0;font-size:14px;font-weight:700;color:var(--muted);cursor:pointer;border-radius:11px;transition:color .2s;font-family:var(--font);}
     .rnref-toggle-btn.active{color:var(--ink);}
     #rnref-toggle.on-register .rnref-toggle-thumb{transform:translateX(100%);}
-    .rnref-row{display:flex;align-items:center;gap:12px;padding:13px 4px;border-bottom:1px solid var(--border);}
-    .rnref-row:last-child{border-bottom:none;}
+    .rnref-row{display:flex;align-items:center;gap:12px;padding:13px;background:var(--white);border:1px solid var(--border);border-radius:16px;margin-bottom:10px;}
     .rnref-avatar{width:42px;height:42px;border-radius:12px;object-fit:cover;background:var(--bg2);flex-shrink:0;font-size:18px;display:flex;align-items:center;justify-content:center;}
     .rnref-row-main{min-width:0;flex:1;}
     .rnref-row-name{font-size:14px;font-weight:700;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:var(--font);}
@@ -19522,40 +19529,77 @@
     .rnref-row-reward{font-size:11px;font-weight:700;background:#ecfdf5;color:#065f46;border:1px solid #6ee7b7;padding:3px 9px;border-radius:9px;white-space:nowrap;flex-shrink:0;font-family:var(--font);}
     .rnref-open-btn{font-size:12px;font-weight:700;color:var(--blue);background:#eef2ff;border:none;padding:6px 12px;border-radius:9px;cursor:pointer;flex-shrink:0;font-family:var(--font);}
     .rnref-empty{text-align:center;padding:44px 16px;color:var(--muted);font-size:13px;font-family:var(--font);}
+    .rnref-faq-head{display:flex;align-items:center;justify-content:space-between;margin:30px 0 12px;}
+    .rnref-faq-title{font-size:16px;font-weight:800;color:var(--ink);font-family:var(--font);}
+    .rnref-faq-item{background:var(--bg2);border-radius:16px;margin-bottom:10px;overflow:hidden;}
+    .rnref-faq-q{width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px;background:none;border:none;text-align:left;cursor:pointer;font-family:var(--font);}
+    .rnref-faq-q span{font-size:13px;font-weight:700;color:var(--ink);}
+    .rnref-faq-chev{width:26px;height:26px;border-radius:50%;background:var(--white);display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:transform .25s;font-size:11px;color:var(--blue);}
+    .rnref-faq-item.open .rnref-faq-chev{transform:rotate(180deg);}
+    .rnref-faq-a{max-height:0;overflow:hidden;transition:max-height .25s ease,padding .25s ease;padding:0 16px;}
+    .rnref-faq-item.open .rnref-faq-a{max-height:200px;padding:0 16px 16px;}
+    .rnref-faq-a p{font-size:12.5px;line-height:1.6;color:var(--muted);font-family:var(--font);margin:0;}
+    .rnref-invite-btn{display:block;width:calc(100% - 32px);margin:22px 16px 0;background:var(--blue);color:#fff;border:none;padding:15px;border-radius:16px;font-size:15px;font-weight:800;cursor:pointer;font-family:var(--font);box-shadow:0 8px 25px rgba(46,2,233,.25);}
   </style>
   <div class="page" id="referral-page">
     <div class="rnref-wrap">
-      <div class="rnref-hero">
+      <div class="rnref-header">
         <button class="rnref-back-btn" onclick="closeModal();if(typeof switchToHost==='function'){switchToHost();}else{showPage('host-dashboard');}mobBottomActive('mbn-home')">←</button>
-        <img src="/person-refer.svg" class="rnref-hero-img" alt="">
-        <div class="rnref-hero-title">Refer your friend</div>
-        <div class="rnref-hero-sub">Get 0.50 credits</div>
+        <div class="rnref-badge">Referral Program</div>
+        <div class="rnref-header-title">Refer your friend</div>
       </div>
-      <div class="rnref-total-card">
-        <div class="rnref-total-icon">🪙</div>
-        <div>
-          <div class="rnref-total-lbl">Total Reward</div>
-          <div class="rnref-total-val" id="rnref-total-val">— Credits</div>
+      <div class="rnref-hero">
+        <div class="rnref-hero-top">
+          <div>
+            <div class="rnref-hero-lbl">Get</div>
+            <div class="rnref-hero-amt">0.50 <span>credits</span></div>
+          </div>
+          <img src="/person-refer.svg" class="rnref-hero-img" alt="">
+        </div>
+        <div class="rnref-total-card">
+          <div class="rnref-total-left">
+            <div class="rnref-total-icon">🪙</div>
+            <div>
+              <div class="rnref-total-lbl">Total Reward</div>
+              <div class="rnref-total-val" id="rnref-total-val">— Credits</div>
+            </div>
+          </div>
         </div>
       </div>
-      <div class="rnref-hist-head">Referral History</div>
-      <div class="rnref-toggle" id="rnref-toggle">
-        <button class="rnref-toggle-btn active" data-tab="house" onclick="rnrefSwitchTab('house')">House</button>
-        <button class="rnref-toggle-btn" data-tab="register" onclick="rnrefSwitchTab('register')">Register</button>
-        <div class="rnref-toggle-thumb"></div>
+
+      <div class="rnref-section">
+        <div class="rnref-hist-head">Referral History</div>
+        <div class="rnref-toggle" id="rnref-toggle">
+          <button class="rnref-toggle-btn active" data-tab="house" onclick="rnrefSwitchTab('house')">House</button>
+          <button class="rnref-toggle-btn" data-tab="register" onclick="rnrefSwitchTab('register')">Register</button>
+          <div class="rnref-toggle-thumb"></div>
+        </div>
+        <div id="rnref-hist-list"></div>
+
+        <div class="rnref-faq-head">
+          <div class="rnref-faq-title">Got questions?</div>
+        </div>
+        <div id="rnref-faq-list"></div>
       </div>
-      <div id="rnref-hist-list"></div>
+
+      <button class="rnref-invite-btn" onclick="rnrefInviteFriends()">Invite Friends Now</button>
     </div>
   </div>
 
   <!-- Splash overlay — plays refer.svg once, first time referral tab is opened this session -->
-  <div id="rnref-splash" style="display:none;position:fixed;inset:0;z-index:200010;background:#4f3ae0;align-items:center;justify-content:center;">
+  <div id="rnref-splash" style="display:none;position:fixed;inset:0;z-index:200010;background:#2e02e9;align-items:center;justify-content:center;">
     <div id="rnref-splash-svg" style="width:min(520px,86vw);"></div>
   </div>
 
   <script>
     var _rnrefData = { house: [], register: [] };
     var _rnrefTab = 'house';
+    var _rnrefCode = '';
+    var RNREF_FAQ = [
+      { q: 'What is the Refer and Earn program?', a: 'Share your referral code with friends. When they register or list a house using your code, you both get rewarded — 0.50 credits every time.' },
+      { q: 'When do I receive my reward?', a: 'Registration referrals are credited as soon as your friend signs up. House referrals are credited once the listing goes live.' },
+      { q: 'Is there a limit to how many friends I can refer?', a: 'No — there\'s no cap. Refer as many friends as you like and earn 0.50 credits for every successful referral.' }
+    ];
 
     // ── Splash (refer.svg) — once per session, only when the Referral tab is opened ──
     function _rnrefPlaySplash(cb) {
@@ -19639,6 +19683,7 @@
         var prof = profRes.data || {};
         var refCode = prof.referral_code;
         if (!refCode) { await ensureReferralCode(); var r2 = await sb.from('profiles').select('referral_code').eq('id', user.id).maybeSingle(); refCode = r2.data && r2.data.referral_code; }
+        _rnrefCode = refCode || '';
 
         var credits = parseFloat(prof.credits || 0);
         document.getElementById('rnref-total-val').textContent = (credits % 1 === 0 ? credits : credits.toFixed(2)) + ' Credits';
@@ -19672,9 +19717,36 @@
         } catch(e){}
 
         rnrefRenderList();
+        rnrefRenderFaq();
       } catch (e) {
         console.warn('[Referral] load error:', e && e.message);
         listEl.innerHTML = '<div class="rnref-empty">Could not load referral data.</div>';
+      }
+    }
+
+    function rnrefRenderFaq() {
+      var el = document.getElementById('rnref-faq-list');
+      if (!el || el.dataset.rendered) return;
+      el.dataset.rendered = '1';
+      el.innerHTML = RNREF_FAQ.map(function(f, i){
+        return '<div class="rnref-faq-item" id="rnref-faq-' + i + '">' +
+          '<button class="rnref-faq-q" onclick="rnrefToggleFaq(' + i + ')"><span>' + esc(f.q) + '</span><span class="rnref-faq-chev">▾</span></button>' +
+          '<div class="rnref-faq-a"><p>' + esc(f.a) + '</p></div></div>';
+      }).join('');
+    }
+
+    function rnrefToggleFaq(i) {
+      var item = document.getElementById('rnref-faq-' + i);
+      if (item) item.classList.toggle('open');
+    }
+
+    function rnrefInviteFriends() {
+      var code = _rnrefCode || '';
+      var msg = 'Join me on Rent Nivas! Use my referral code ' + code + ' when you sign up: https://rentnivas.com/?ref=' + code;
+      if (navigator.share) {
+        navigator.share({ title: 'Rent Nivas Referral', text: msg }).catch(function(){});
+      } else if (navigator.clipboard) {
+        navigator.clipboard.writeText(msg).then(function(){ if (typeof toast === 'function') toast('Referral link copied!', 'success'); });
       }
     }
 
