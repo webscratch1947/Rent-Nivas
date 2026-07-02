@@ -19546,12 +19546,12 @@
     .rnref-hero{background:var(--white);border-radius:20px;box-shadow:0 20px 50px rgba(46,2,233,.15);border:1px solid var(--white);padding:24px;margin:-56px 16px 20px;position:relative;z-index:2;}
     .rnref-hero-top{display:flex;justify-content:space-between;align-items:flex-start;}
     .rnref-hero-lbl{font-size:14px;font-weight:600;color:var(--muted);margin-bottom:5px;}
-    .rnref-hero-amt{font-size:36px;font-weight:800;color:var(--blue);letter-spacing:-.6px;}
-    .rnref-hero-amt span{font-size:15px;font-weight:700;color:var(--muted);}
+    .rnref-hero-amt{font-size:28px;font-weight:700;color:var(--blue);letter-spacing:-.3px;}
+    .rnref-hero-amt span{font-size:13px;font-weight:600;color:var(--muted);margin-left:2px;}
     .rnref-hero-img{width:68px;height:68px;object-fit:contain;flex-shrink:0;}
     .rnref-total-card{margin-top:20px;padding:15px 16px;background:var(--bg2);border-radius:14px;display:flex;align-items:center;justify-content:space-between;}
     .rnref-total-left{display:flex;align-items:center;gap:12px;}
-    .rnref-total-icon{width:42px;height:42px;border-radius:10px;background:var(--blue);display:flex;align-items:center;justify-content:center;font-size:19px;flex-shrink:0;}
+    .rnref-total-icon{width:42px;height:42px;border-radius:8px;background:var(--blue);display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0;}
     .rnref-total-lbl{font-size:10.5px;font-weight:700;color:var(--muted);letter-spacing:.6px;text-transform:uppercase;}
     .rnref-total-val{font-size:19px;font-weight:800;color:var(--ink);}
     .rnref-section{padding:0 16px;}
@@ -19589,7 +19589,7 @@
       .rnref-header-title{font-size:32px;}
       .rnref-hero{margin:-64px 0 0;padding:30px 34px;display:grid;grid-template-columns:1.3fr 1fr;gap:28px;align-items:center;}
       .rnref-hero-top{grid-column:1;}
-      .rnref-hero-amt{font-size:42px;}
+      .rnref-hero-amt{font-size:32px;}
       .rnref-hero-img{width:84px;height:84px;}
       .rnref-total-card{grid-column:2;margin-top:0;height:100%;}
       .rnref-section{padding:0;margin-top:28px;display:grid;grid-template-columns:1.5fr 1fr;gap:32px;align-items:start;}
@@ -19617,7 +19617,7 @@
         </div>
         <div class="rnref-total-card">
           <div class="rnref-total-left">
-            <div class="rnref-total-icon">🪙</div>
+            <div class="rnref-total-icon">💰</div>
             <div>
               <div class="rnref-total-lbl">Total Credits</div>
               <div class="rnref-total-val" id="rnref-total-val">— Credits</div>
@@ -19681,10 +19681,12 @@
         }
 
         var svgEl = wrap.querySelector('svg');
-        var animEls = svgEl ? Array.prototype.slice.call(svgEl.querySelectorAll('animate,animateTransform,animateMotion,set'))
-          .filter(function(a){ return a.getAttribute('repeatCount') !== 'indefinite'; }) : [];
+        var animEls = svgEl ? Array.prototype.slice.call(svgEl.querySelectorAll('animate,animateTransform,animateMotion,set')) : [];
 
-        // Compute the true finite duration from begin+dur (covers every keyframe, not just the last one in DOM order)
+        // This SVG's animations all use repeatCount="indefinite" (they loop forever by design),
+        // so there's no native "end" event to wait for. Instead, time one full loop: the true
+        // duration from begin+dur across every keyframe (covers every element, not just the
+        // last one in DOM order), then close after exactly one complete cycle has played.
         var maxEnd = 0;
         animEls.forEach(function(a){
           var begin = parseFloat(a.getAttribute('begin')) || 0;
@@ -19693,25 +19695,9 @@
           if (end > maxEnd) maxEnd = end;
         });
 
-        if (svgEl && typeof svgEl.getCurrentTime === 'function' && animEls.length) {
-          // Native SMIL is running — poll the document timeline against the computed end time
-          // (more reliable across browsers than a single element's endEvent, since some
-          // browsers don't fire endEvent for chained/`begin`-offset animations).
-          var checkMs = 60;
-          var poll = setInterval(function(){
-            try {
-              if (svgEl.getCurrentTime() >= maxEnd - 0.02) {
-                clearInterval(poll);
-                finish();
-              }
-            } catch (e) { clearInterval(poll); finish(); }
-          }, checkMs);
-          // Absolute safety net in case the timeline never reports completion
-          setTimeout(function(){ clearInterval(poll); finish(); }, (maxEnd * 1000) + 2500);
-        } else {
-          // Fallback: fixed timeout based on computed duration
-          setTimeout(finish, Math.max(1500, (maxEnd || 2) * 1000 + 300));
-        }
+        // Always use the fixed-duration path — polling getCurrentTime() doesn't make sense for
+        // indefinitely-looping animations since the timeline never reaches "the end".
+        setTimeout(finish, Math.max(1800, (maxEnd || 2) * 1000));
       }).catch(function(){ cb(); });
     }
 
