@@ -19496,40 +19496,40 @@
 
   <!-- ══ REFERRAL PAGE (new — replaces old partner-page as the referral entry point) ══ -->
   <style>
-    .rnref-hero{background:linear-gradient(135deg,#4f3ae0,#6b4bf0);border-radius:22px;padding:26px 22px 24px;position:relative;overflow:hidden;color:#fff;margin-bottom:16px;}
-    .rnref-hero-img{position:absolute;top:14px;right:14px;width:96px;height:96px;object-fit:contain;opacity:.96;}
-    .rnref-hero-title{font-size:15px;font-weight:600;opacity:.9;margin-bottom:6px;}
-    .rnref-hero-sub{font-size:22px;font-weight:800;line-height:1.25;max-width:72%;}
-    .rnref-total-card{display:flex;align-items:center;gap:14px;background:var(--white);border:1.5px solid var(--border);border-radius:18px;padding:16px 18px;margin-bottom:22px;box-shadow:var(--sh3);}
-    .rnref-total-icon{width:44px;height:44px;border-radius:50%;background:#fff7e0;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;}
-    .rnref-total-lbl{font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;}
-    .rnref-total-val{font-size:19px;font-weight:800;color:var(--ink);}
-    .rnref-hist-head{font-size:16px;font-weight:800;color:var(--ink);margin-bottom:12px;}
+    #referral-page{background:var(--bg);}
+    .rnref-wrap{max-width:520px;margin:0 auto;padding:0 16px 100px;font-family:var(--font);}
+    .rnref-hero{background:linear-gradient(135deg,#4f3ae0,#6b4bf0);border-radius:0 0 26px 26px;padding:16px 22px 26px;position:relative;overflow:hidden;color:#fff;margin:0 -16px 20px;}
+    .rnref-back-btn{background:rgba(255,255,255,.16);border:none;width:36px;height:36px;border-radius:11px;color:#fff;font-size:18px;display:flex;align-items:center;justify-content:center;cursor:pointer;margin-bottom:18px;font-family:var(--font);}
+    .rnref-hero-img{position:absolute;top:60px;right:18px;width:88px;height:88px;object-fit:contain;opacity:.96;}
+    .rnref-hero-title{font-size:14px;font-weight:600;opacity:.85;margin-bottom:6px;font-family:var(--font);}
+    .rnref-hero-sub{font-size:26px;font-weight:800;line-height:1.2;max-width:65%;font-family:var(--font);}
+    .rnref-total-card{display:flex;align-items:center;gap:14px;background:var(--white);border:1.5px solid var(--border);border-radius:16px;padding:16px 18px;margin-bottom:22px;box-shadow:var(--sh3);font-family:var(--font);}
+    .rnref-total-icon{width:44px;height:44px;border-radius:12px;background:#fff7e0;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;}
+    .rnref-total-lbl{font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;font-family:var(--font);}
+    .rnref-total-val{font-size:19px;font-weight:800;color:var(--ink);font-family:var(--font);}
+    .rnref-hist-head{font-size:16px;font-weight:800;color:var(--ink);margin-bottom:12px;font-family:var(--font);}
     .rnref-toggle{position:relative;display:grid;grid-template-columns:1fr 1fr;background:var(--bg2);border-radius:14px;padding:4px;margin-bottom:16px;}
     .rnref-toggle-thumb{position:absolute;top:4px;left:4px;width:calc(50% - 4px);height:calc(100% - 8px);background:var(--white);border-radius:11px;box-shadow:0 2px 8px rgba(0,0,0,.08);transition:transform .25s cubic-bezier(.4,0,.2,1);}
-    .rnref-toggle-btn{position:relative;z-index:1;background:none;border:none;padding:10px 0;font-size:14px;font-weight:700;color:var(--muted);cursor:pointer;border-radius:11px;transition:color .2s;}
+    .rnref-toggle-btn{position:relative;z-index:1;background:none;border:none;padding:10px 0;font-size:14px;font-weight:700;color:var(--muted);cursor:pointer;border-radius:11px;transition:color .2s;font-family:var(--font);}
     .rnref-toggle-btn.active{color:var(--ink);}
-    .rnref-toggle-btn[data-tab="register"].active ~ .rnref-toggle-thumb,
     #rnref-toggle.on-register .rnref-toggle-thumb{transform:translateX(100%);}
     .rnref-row{display:flex;align-items:center;gap:12px;padding:13px 4px;border-bottom:1px solid var(--border);}
     .rnref-row:last-child{border-bottom:none;}
-    .rnref-avatar{width:42px;height:42px;border-radius:50%;object-fit:cover;background:var(--bg2);flex-shrink:0;font-size:18px;display:flex;align-items:center;justify-content:center;}
+    .rnref-avatar{width:42px;height:42px;border-radius:12px;object-fit:cover;background:var(--bg2);flex-shrink:0;font-size:18px;display:flex;align-items:center;justify-content:center;}
     .rnref-row-main{min-width:0;flex:1;}
-    .rnref-row-name{font-size:14px;font-weight:700;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-    .rnref-row-sub{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-    .rnref-row-reward{font-size:11px;font-weight:700;background:#ecfdf5;color:#065f46;border:1px solid #6ee7b7;padding:3px 9px;border-radius:20px;white-space:nowrap;flex-shrink:0;}
-    .rnref-open-btn{font-size:12px;font-weight:700;color:var(--blue);background:#eef2ff;border:none;padding:6px 12px;border-radius:10px;cursor:pointer;flex-shrink:0;}
-    .rnref-empty{text-align:center;padding:44px 16px;color:var(--muted);font-size:13px;}
+    .rnref-row-name{font-size:14px;font-weight:700;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:var(--font);}
+    .rnref-row-sub{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:var(--font);}
+    .rnref-row-reward{font-size:11px;font-weight:700;background:#ecfdf5;color:#065f46;border:1px solid #6ee7b7;padding:3px 9px;border-radius:9px;white-space:nowrap;flex-shrink:0;font-family:var(--font);}
+    .rnref-open-btn{font-size:12px;font-weight:700;color:var(--blue);background:#eef2ff;border:none;padding:6px 12px;border-radius:9px;cursor:pointer;flex-shrink:0;font-family:var(--font);}
+    .rnref-empty{text-align:center;padding:44px 16px;color:var(--muted);font-size:13px;font-family:var(--font);}
   </style>
   <div class="page" id="referral-page">
-    <div class="purchased-topbar" style="position:static;">
-      <button class="detail-back-btn" onclick="closeModal();if(typeof switchToHost==='function'){switchToHost();}else{showPage('host-dashboard');}mobBottomActive('mbn-home')">← Back</button>
-    </div>
-    <div style="max-width:520px;margin:0 auto;padding:16px 16px 100px;">
+    <div class="rnref-wrap">
       <div class="rnref-hero">
+        <button class="rnref-back-btn" onclick="closeModal();if(typeof switchToHost==='function'){switchToHost();}else{showPage('host-dashboard');}mobBottomActive('mbn-home')">←</button>
         <img src="/person-refer.svg" class="rnref-hero-img" alt="">
-        <div class="rnref-hero-title">Refer your friends</div>
-        <div class="rnref-hero-sub">Earn 0.50 credit every house and register referral</div>
+        <div class="rnref-hero-title">Refer your friend</div>
+        <div class="rnref-hero-sub">Get 0.50 credits</div>
       </div>
       <div class="rnref-total-card">
         <div class="rnref-total-icon">🪙</div>
@@ -19565,22 +19565,47 @@
       fetch('/refer.svg').then(function(r){ return r.text(); }).then(function(txt){
         wrap.innerHTML = txt;
         overlay.style.display = 'flex';
-        // Estimate total playtime from the SVG's own SMIL timing (max begin+dur of finite animations)
+
+        function finish() {
+          setTimeout(function(){ // extra pause after the animation itself has actually finished
+            overlay.style.display = 'none';
+            sessionStorage.setItem('rnref-splash-shown', '1');
+            cb();
+          }, 700);
+        }
+
+        var svgEl = wrap.querySelector('svg');
+        var animEls = svgEl ? Array.prototype.slice.call(svgEl.querySelectorAll('animate,animateTransform,animateMotion,set'))
+          .filter(function(a){ return a.getAttribute('repeatCount') !== 'indefinite'; }) : [];
+
+        // Compute the true finite duration from begin+dur (covers every keyframe, not just the last one in DOM order)
         var maxEnd = 0;
-        wrap.querySelectorAll('animate,animateTransform,set,animateMotion').forEach(function(a){
-          var rc = a.getAttribute('repeatCount');
-          if (rc === 'indefinite') return;
+        animEls.forEach(function(a){
           var begin = parseFloat(a.getAttribute('begin')) || 0;
           var dur = parseFloat(a.getAttribute('dur')) || 0;
           var end = begin + dur;
           if (end > maxEnd) maxEnd = end;
         });
-        var ms = Math.max(1200, Math.min(6000, (maxEnd || 1.6) * 1000 + 300));
-        setTimeout(function(){
-          overlay.style.display = 'none';
-          sessionStorage.setItem('rnref-splash-shown', '1');
-          cb();
-        }, ms);
+
+        if (svgEl && typeof svgEl.getCurrentTime === 'function' && animEls.length) {
+          // Native SMIL is running — poll the document timeline against the computed end time
+          // (more reliable across browsers than a single element's endEvent, since some
+          // browsers don't fire endEvent for chained/`begin`-offset animations).
+          var checkMs = 60;
+          var poll = setInterval(function(){
+            try {
+              if (svgEl.getCurrentTime() >= maxEnd - 0.02) {
+                clearInterval(poll);
+                finish();
+              }
+            } catch (e) { clearInterval(poll); finish(); }
+          }, checkMs);
+          // Absolute safety net in case the timeline never reports completion
+          setTimeout(function(){ clearInterval(poll); finish(); }, (maxEnd * 1000) + 2500);
+        } else {
+          // Fallback: fixed timeout based on computed duration
+          setTimeout(finish, Math.max(1500, (maxEnd || 2) * 1000 + 300));
+        }
       }).catch(function(){ cb(); });
     }
 
