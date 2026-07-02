@@ -9619,6 +9619,9 @@
           <button class="nav-btn" id="rnb-partner" onclick="goToPartnerArea()">
             <span class="icon">🤝</span><span class="label">Partner Panel</span><span class="nav-badge partner-nav-badge" style="display:none;"></span>
           </button>
+          <button class="nav-btn" id="rnb-referral" onclick="openReferralPanel()">
+            <span class="icon">🎁</span><span class="label">Referral</span>
+          </button>
           <button class="nav-btn" onclick="showLeaderboard()"><span class="icon">🏆</span><span class="label">Leaderboard</span></button>
           <button class="nav-btn" onclick="_rnStartUserTutorial()"><span class="icon">🎓</span><span class="label">Watch Tutorial</span></button>
           <button class="nav-btn" onclick="window.open('/language.html','_blank')"><span class="icon">🌐</span><span class="label" data-i18n="rent_nav_language">Language</span></button>
@@ -9903,6 +9906,8 @@
               class="label" data-i18n="dash_nav_settings">Settings</span></button>
           <button class="nav-btn" id="nb-partner" onclick="goToPartnerArea()"><span class="icon">🤝</span><span
               class="label">Partner Panel</span><span class="nav-badge partner-nav-badge" style="display:none;"></span></button>
+          <button class="nav-btn" id="nb-referral" onclick="openReferralPanel()"><span class="icon">🎁</span><span
+              class="label">Referral</span></button>
           <button class="nav-btn" onclick="showLeaderboard()"><span class="icon">🏆</span><span
               class="label">Leaderboard</span></button>
           <button class="nav-btn" onclick="_rnStartUserTutorial()"><span class="icon">🎓</span><span
@@ -19690,11 +19695,21 @@
           .select('id,name,email,avatar_url,created_at').eq('referred_by_code', refCode)
           .order('created_at', { ascending: false }).limit(100);
         var housePromise = sb.from('houses')
-          .select('id,title,created_at,referral_reward_given').eq('referral_code', refCode)
+          .select('id,title,images,owner_id,created_at,referral_reward_given').eq('referral_code', refCode)
           .order('created_at', { ascending: false }).limit(100);
         var res = await Promise.all([regPromise, housePromise]);
         var regRows = res[0].data || [];
         var houseRows = (res[1].data || []).filter(function(h){ return h.referral_reward_given; });
+
+        // Look up the publisher's name for each referred house
+        var ownerIds = [...new Set(houseRows.map(function(h){ return h.owner_id; }).filter(Boolean))];
+        var ownerMap = {};
+        if (ownerIds.length) {
+          try {
+            var ownerRes = await sb.from('profiles').select('id,name,email').in('id', ownerIds);
+            (ownerRes.data || []).forEach(function(p){ ownerMap[p.id] = p.name || p.email || 'Unknown user'; });
+          } catch(e){}
+        }
 
         var rewardLabel = isPartner ? '+5 XP · +0.50 Credit' : '+0.50 Credit';
 
@@ -19702,7 +19717,14 @@
           return { name: u.name || 'Unknown user', email: u.email || '', avatar: u.avatar_url || '', date: u.created_at, reward: rewardLabel };
         });
         _rnrefData.house = houseRows.map(function(h){
-          return { name: h.title || 'Untitled property', id: h.id, date: h.created_at, reward: rewardLabel };
+          return {
+            name: h.title || 'Untitled property',
+            id: h.id,
+            image: (h.images && h.images[0]) || '',
+            publisher: ownerMap[h.owner_id] || 'Unknown user',
+            date: h.created_at,
+            reward: rewardLabel
+          };
         });
 
         // Detect brand-new referral since last check → show success popup once
@@ -19764,8 +19786,11 @@
         }).join('');
       } else {
         listEl.innerHTML = rows.map(function(h){
-          return '<div class="rnref-row"><div class="rnref-avatar">🏠</div>' +
-            '<div class="rnref-row-main"><div class="rnref-row-name">' + esc(h.name) + '</div></div>' +
+          var cover = h.image
+            ? '<img class="rnref-avatar" src="' + esc(h.image) + '" alt="" onerror="this.outerHTML=\'<div class=&quot;rnref-avatar&quot;>🏠</div>\'">'
+            : '<div class="rnref-avatar">🏠</div>';
+          return '<div class="rnref-row">' + cover +
+            '<div class="rnref-row-main"><div class="rnref-row-name">' + esc(h.name) + '</div><div class="rnref-row-sub">by ' + esc(h.publisher) + '</div></div>' +
             '<button class="rnref-open-btn" onclick="adminGoToListing(\'' + h.id + '\')">Open</button>' +
             '<div class="rnref-row-reward">' + h.reward + '</div></div>';
         }).join('');
