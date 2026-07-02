@@ -204,7 +204,7 @@
             // MOBILE BOTTOM NAV
             mbn_home: 'Home',
             mbn_rent: 'Rent',
-            mbn_credits: 'Credits',
+            mbn_referral: 'Referral',
             mbn_profile: 'Profile',
 
             // MOBILE SIDEBAR LOGGED OUT
@@ -457,7 +457,7 @@
             sett_danger_p: 'ये क्रियाएं स्थायी हैं और पूर्ववत नहीं की जा सकतीं।',
             sett_change_pw: '🔑 पासवर्ड बदलें',
             sett_signout_all: 'सभी डिवाइस से साइन आउट',
-            mbn_home: 'होम', mbn_rent: 'किराया', mbn_credits: 'क्रेडिट', mbn_profile: 'प्रोफ़ाइल',
+            mbn_home: 'होम', mbn_rent: 'किराया', mbn_referral: 'रेफ़रल', mbn_profile: 'प्रोफ़ाइल',
             detail_back: '← लिस्टिंग पर वापस', detail_unlocked_btn: '🔓 अनलॉक्ड', detail_browse_back: '← लिस्टिंग खोजें',
             kpi_total: 'कुल लिस्टिंग', kpi_total_sub: 'अब तक',
             kpi_pub: 'प्रकाशित', kpi_pub_sub: 'अभी सक्रिय',
@@ -652,7 +652,7 @@
             sett_credits_note: 'చెల్లింపులు నిలిపివేసినప్పుడు అన్‌లాక్ ఉచితం',
             sett_danger_h: '⚠️ ప్రమాదకర జోన్', sett_danger_p: 'ఈ చర్యలు శాశ్వతమైనవి.',
             sett_change_pw: '🔑 పాస్‌వర్డ్ మార్చండి', sett_signout_all: 'అన్ని పరికరాల నుండి సైన్ అవుట్',
-            mbn_home: 'హోమ్', mbn_rent: 'అద్దె', mbn_credits: 'క్రెడిట్‌లు', mbn_profile: 'ప్రొఫైల్',
+            mbn_home: 'హోమ్', mbn_rent: 'అద్దె', mbn_referral: 'రెఫరల్', mbn_profile: 'ప్రొఫైల్',
             detail_back: '← జాబితాకు తిరిగి', detail_unlocked_btn: '🔓 అన్‌లాక్డ్', detail_browse_back: '← జాబితాలు వెతకండి',
             kpi_total: 'మొత్తం జాబితాలు', kpi_total_sub: 'అన్ని సమయాలు',
             kpi_pub: 'ప్రచురించబడింది', kpi_pub_sub: 'ఇప్పుడు సక్రియం',
@@ -847,7 +847,7 @@
             sett_credits_note: 'கட்டணங்கள் முடக்கப்படும்போது அன்லாக் இலவசம்',
             sett_danger_h: '⚠️ ஆபத்தான பகுதி', sett_danger_p: 'இந்த செயல்கள் நிரந்தரமானவை.',
             sett_change_pw: '🔑 கடவுச்சொல் மாற்றவும்', sett_signout_all: 'அனைத்து சாதனங்களிலிருந்து வெளியேறு',
-            mbn_home: 'முகப்பு', mbn_rent: 'வாடகை', mbn_credits: 'கிரெடிட்கள்', mbn_profile: 'சுயவிவரம்',
+            mbn_home: 'முகப்பு', mbn_rent: 'வாடகை', mbn_referral: 'பரிந்துரை', mbn_profile: 'சுயவிவரம்',
             detail_back: '← பட்டியலுக்கு திரும்பு', detail_unlocked_btn: '🔓 அன்லாக்டு', detail_browse_back: '← பட்டியல்களை தேடுங்கள்',
             kpi_total: 'மொத்த பட்டியல்கள்', kpi_total_sub: 'எல்லா நேரமும்',
             kpi_pub: 'வெளியிடப்பட்டது', kpi_pub_sub: 'இப்போது செயலில்',
@@ -1028,7 +1028,7 @@
             sett_credits_note: 'पेमेंट बंद असताना अनलॉक मोफत',
             sett_danger_h: '⚠️ धोका क्षेत्र', sett_danger_p: 'या क्रिया कायमस्वरूपी आहेत.',
             sett_change_pw: '🔑 पासवर्ड बदला', sett_signout_all: 'सर्व डिव्हाइसमधून साइन आउट',
-            mbn_home: 'मुख्यपृष्ठ', mbn_rent: 'भाडे', mbn_credits: 'क्रेडिट', mbn_profile: 'प्रोफाइल',
+            mbn_home: 'मुख्यपृष्ठ', mbn_rent: 'भाडे', mbn_referral: 'रेफरल', mbn_profile: 'प्रोफाइल',
             detail_back: '← लिस्टिंगवर परत', detail_unlocked_btn: '🔓 अनलॉक्ड', detail_browse_back: '← लिस्टिंग शोधा',
             kpi_total: 'एकूण लिस्टिंग', kpi_total_sub: 'सर्व वेळ',
             kpi_pub: 'प्रकाशित', kpi_pub_sub: 'सध्या सक्रिय',
@@ -1199,7 +1199,7 @@
             "sett_credits_note": "পেমেন্ট বন্ধ থাকলে আনলক বিনামূল্যে",
             "sett_danger_h": "⚠️ বিপদ জোন", "sett_danger_p": "এই কাজগুলি স্থায়ী।",
             "sett_change_pw": "🔑 পাসওয়ার্ড পরিবর্তন করুন", "sett_signout_all": "সব ডিভাইস থেকে সাইন আউট",
-            "mbn_home": "হোম", "mbn_rent": "ভাড়া", "mbn_credits": "ক্রেডিট", "mbn_profile": "প্রোফাইল",
+            "mbn_home": "হোম", "mbn_rent": "ভাড়া", "mbn_referral": "রেফারেল", "mbn_profile": "প্রোফাইল",
             "detail_back": "← তালিকায় ফিরুন", "detail_unlocked_btn": "🔓 আনলকড", "detail_browse_back": "← তালিকা খুঁজুন",
             "kpi_total": "মোট তালিকা", "kpi_total_sub": "সব সময়",
             "kpi_pub": "প্রকাশিত", "kpi_pub_sub": "এখন সক্রিয়",
@@ -1367,7 +1367,7 @@
             "sett_credits_note": "ચૂકવણી અક્ષમ હોય ત્યારે અનલૉક મફત",
             "sett_danger_h": "⚠️ જોખમ ઝોન", "sett_danger_p": "આ ક્રિયાઓ કાયમી છે.",
             "sett_change_pw": "🔑 પાસવર્ડ બદલો", "sett_signout_all": "બધા ઉપકરણોમાંથી સાઇન આઉટ",
-            "mbn_home": "હોમ", "mbn_rent": "ભાડુ", "mbn_credits": "ક્રેડિટ", "mbn_profile": "પ્રોફાઇલ",
+            "mbn_home": "હોમ", "mbn_rent": "ભાડુ", "mbn_referral": "રેફરલ", "mbn_profile": "પ્રોફાઇલ",
             "detail_back": "← લિસ્ટિંગ પર પાછા", "detail_unlocked_btn": "🔓 અનલૉક્ડ", "detail_browse_back": "← લિસ્ટિંગ શોધો",
             "kpi_total": "કુલ લિસ્ટિંગ", "kpi_total_sub": "બધો સમય",
             "kpi_pub": "પ્રકાશિત", "kpi_pub_sub": "હવે સક્રિય",
@@ -1536,7 +1536,7 @@
             "sett_credits_note": "ಪಾವತಿ ನಿಷ್ಕ್ರಿಯವಾಗಿದ್ದಾಗ ಅನ್‌ಲಾಕ್ ಉಚಿತ",
             "sett_danger_h": "⚠️ ಅಪಾಯಕಾರಿ ವಲಯ", "sett_danger_p": "ಈ ಕ್ರಿಯೆಗಳು ಶಾಶ್ವತ.",
             "sett_change_pw": "🔑 ಪಾಸ್‌ವರ್ಡ್ ಬದಲಿಸಿ", "sett_signout_all": "ಎಲ್ಲಾ ಸಾಧನಗಳಿಂದ ಸೈನ್ ಔಟ್",
-            "mbn_home": "ಹೋಮ್", "mbn_rent": "ಬಾಡಿಗೆ", "mbn_credits": "ಕ್ರೆಡಿಟ್‌ಗಳು", "mbn_profile": "ಪ್ರೊಫೈಲ್",
+            "mbn_home": "ಹೋಮ್", "mbn_rent": "ಬಾಡಿಗೆ", "mbn_referral": "ರೆಫರಲ್", "mbn_profile": "ಪ್ರೊಫೈಲ್",
             "detail_back": "← ಪಟ್ಟಿಗೆ ಹಿಂದೆ", "detail_unlocked_btn": "🔓 ಅನ್‌ಲಾಕ್ಡ್", "detail_browse_back": "← ಪಟ್ಟಿ ಹುಡುಕಿ",
             "kpi_total": "ಒಟ್ಟು ಪಟ್ಟಿಗಳು", "kpi_total_sub": "ಎಲ್ಲಾ ಸಮಯ",
             "kpi_pub": "ಪ್ರಕಟಿಸಲಾಗಿದೆ", "kpi_pub_sub": "ಈಗ ಸಕ್ರಿಯ",
@@ -1704,7 +1704,7 @@
             "sett_credits_note": "പേയ്‌മെന്റ് ഓഫ് ആകുമ്പോൾ അൺലോക്ക് സൗജന്യം",
             "sett_danger_h": "⚠️ അപകടകരമായ മേഖല", "sett_danger_p": "ഈ പ്രവർത്തനങ്ങൾ സ്ഥിരമാണ്.",
             "sett_change_pw": "🔑 പാസ്‌വേഡ് മാറ്റുക", "sett_signout_all": "എല്ലാ ഉപകരണങ്ങളിൽ നിന്നും സൈൻ ഔട്ട്",
-            "mbn_home": "ഹോം", "mbn_rent": "വാടക", "mbn_credits": "ക്രെഡിറ്റ്", "mbn_profile": "പ്രൊഫൈൽ",
+            "mbn_home": "ഹോം", "mbn_rent": "വാടക", "mbn_referral": "റഫറൽ", "mbn_profile": "പ്രൊഫൈൽ",
             "detail_back": "← ലിസ്റ്റിംഗിലേക്ക് തിരിക", "detail_unlocked_btn": "🔓 അൺലോക്ക്ഡ്", "detail_browse_back": "← ലിസ്റ്റിംഗ് തിരയുക",
             "kpi_total": "ആകെ ലിസ്റ്റിംഗ്", "kpi_total_sub": "എല്ലാ സമയവും",
             "kpi_pub": "പ്രസിദ്ധീകരിച്ചു", "kpi_pub_sub": "ഇപ്പോൾ സജീവം",
@@ -1873,7 +1873,7 @@
             "sett_credits_note": "ਭੁਗਤਾਨ ਬੰਦ ਹੋਣ ਤੇ ਅਨਲੌਕ ਮੁਫ਼ਤ",
             "sett_danger_h": "⚠️ ਖ਼ਤਰਨਾਕ ਜ਼ੋਨ", "sett_danger_p": "ਇਹ ਕਾਰਵਾਈਆਂ ਸਥਾਈ ਹਨ।",
             "sett_change_pw": "🔑 ਪਾਸਵਰਡ ਬਦਲੋ", "sett_signout_all": "ਸਾਰੇ ਡਿਵਾਈਸਾਂ ਤੋਂ ਸਾਇਨ ਆਉਟ",
-            "mbn_home": "ਹੋਮ", "mbn_rent": "ਕਿਰਾਇਆ", "mbn_credits": "ਕ੍ਰੈਡਿਟ", "mbn_profile": "ਪ੍ਰੋਫਾਈਲ",
+            "mbn_home": "ਹੋਮ", "mbn_rent": "ਕਿਰਾਇਆ", "mbn_referral": "ਰੈਫਰਲ", "mbn_profile": "ਪ੍ਰੋਫਾਈਲ",
             "detail_back": "← ਲਿਸਟਿੰਗ ਤੇ ਵਾਪਸ", "detail_unlocked_btn": "🔓 ਅਨਲੌਕਡ", "detail_browse_back": "← ਲਿਸਟਿੰਗ ਲੱਭੋ",
             "kpi_total": "ਕੁੱਲ ਲਿਸਟਿੰਗਾਂ", "kpi_total_sub": "ਸਾਰਾ ਸਮਾਂ",
             "kpi_pub": "ਪ੍ਰਕਾਸ਼ਿਤ", "kpi_pub_sub": "ਹੁਣ ਸਕਿਰਿਆ",
@@ -3346,7 +3346,7 @@
         var mbnLabels = qa('.mob-bottom-btn .mbn-label');
         if (mbnLabels[0]) setText(mbnLabels[0], t.mbn_home || 'Home');
         if (mbnLabels[1]) setText(mbnLabels[1], t.mbn_rent || 'Rent');
-        if (mbnLabels[2]) setText(mbnLabels[2], t.mbn_credits || 'Credits');
+        if (mbnLabels[2]) setText(mbnLabels[2], t.mbn_referral || 'Referral');
         if (mbnLabels[3]) setText(mbnLabels[3], t.mbn_profile || 'Profile');
 
         // ── ADD LISTING BUTTON (topbar) ──
