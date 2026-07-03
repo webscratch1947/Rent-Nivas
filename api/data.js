@@ -1907,7 +1907,7 @@ async function handleRpc(spec, claims) {
       // Derive a short, uppercase, URL-safe code from the user's sub.
       // Using crypto.createHash ensures the same user always gets the same code
       // even across multiple concurrent calls (deterministic — no random).
-      code = crypto.createHash('sha256').update(userId).digest('hex').slice(0, 8).toUpperCase();
+      code = String(parseInt(crypto.createHash('sha256').update(userId).digest('hex').slice(0, 13), 16) % 100000000).padStart(8, '0');
 
       if (keyUsed) {
         const pkField = Object.keys(keyUsed)[0];
