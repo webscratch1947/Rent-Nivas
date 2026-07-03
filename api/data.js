@@ -411,36 +411,24 @@ function tryKey(table, filters) {
 // (i.e. this upsert is truly creating the row, not updating it), and only
 // for fields the caller didn't already explicitly provide.
 //
-// referral_code is a FUNCTION (not a static value) so every new profile
-// gets its own unique code generated at creation time — previously this
-// relied entirely on a client-side follow-up call (ensureReferralCode)
-// that had a bug (.is() was undefined) and so never ran successfully.
-// Generating it here means every account gets a permanent code the moment
-// the row is created, with no separate step that can fail or race.
-function freshReferralCode() {
-  return String(Math.floor(10000000 + Math.random() * 90000000));
-}
+// Referral identity/counters are NOT part of these defaults — the referral
+// system now lives entirely in the separate Referrals table (see
+// api/referrals.js), not on the Users/profiles row.
 const NEW_ROW_DEFAULTS = {
   profiles: {
     credits: 10,
     xp: 0,
     partner_xp: 0,
     chest_claimed: false,
-    referral_code: freshReferralCode,
-    referred_by_code: null,
-    total_referrals: 0,
-    registration_referrals: 0,
-    listing_referrals: 0,
     daily_streak_day: 0,
     daily_streak_claimed_at: null,
-    pending_referral_code: null,
   },
-  users: { credits: 10, xp: 0, partner_xp: 0, referral_code: freshReferralCode, referred_by_code: null, total_referrals: 0, registration_referrals: 0, listing_referrals: 0, daily_streak_day: 0, daily_streak_claimed_at: null, pending_referral_code: null },
-  Users: { credits: 10, xp: 0, partner_xp: 0, referral_code: freshReferralCode, referred_by_code: null, total_referrals: 0, registration_referrals: 0, listing_referrals: 0, daily_streak_day: 0, daily_streak_claimed_at: null, pending_referral_code: null },
+  users: { credits: 10, xp: 0, partner_xp: 0, daily_streak_day: 0, daily_streak_claimed_at: null },
+  Users: { credits: 10, xp: 0, partner_xp: 0, daily_streak_day: 0, daily_streak_claimed_at: null },
 };
 
-// Resolves any function-valued defaults (e.g. freshReferralCode) into a concrete value.
-// Called once per row creation so each new row gets its own freshly-generated value
+// Resolves any function-valued defaults into a concrete value. Called once
+// per row creation so each new row gets its own freshly-generated value
 // instead of every row in a batch sharing one.
 function resolveDefaults(defaults) {
   const out = {};
@@ -485,17 +473,9 @@ async function putRows(spec, merge) {
             ddb.send(new GetItemCommand({ TableName, Key: marshall(legacyKey) })));
           if (legacyRes.Item) {
             const legacyRow = unmarshall(legacyRes.Item);
-            // CRITICAL: strip referral identity fields from legacy rows.
             // If this row belonged to a deleted account and someone re-registers
-            // with the same email, we must NOT carry over referral_code or
-            // referred_by_code — doing so causes the new user to inherit all
-            // referral history of the old account.
-            delete legacyRow.referral_code;
-            delete legacyRow.referred_by_code;
-            delete legacyRow.referred_by_user_id;
-            delete legacyRow.total_referrals;
-            delete legacyRow.registration_referrals;
-            delete legacyRow.listing_referrals;
+            // with the same email, we must NOT carry over daily-streak state
+            // from a deleted account onto a brand-new one.
             delete legacyRow.daily_streak_day;
             delete legacyRow.daily_streak_claimed_at;
             existingAppRow = Object.assign({}, legacyRow, { id: next.id });
@@ -655,364 +635,13 @@ async function deleteRows(spec) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// REFERRAL SYSTEM HELPERS
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * Check whether a given user_id has an accepted Partner Panel application.
- * Returns true if PartnerApplications contains a row with
- *   { user_id, status: 'accepted' }.
- */
-async function hasPartnerAccess(userId) {
-  try {
-    const TableName = tableName('partner_requests');
-    const scanned = await runDdb('read', 'partner_requests', () =>
-      ddb.send(new ScanCommand({ TableName }))
-    );
-    const rows = (scanned.Items || []).map(i => unmarshall(i));
-    // Check both snake_case (user_id) and camelCase (userId) field names
-    // because old code paths may have written either form.
-    return rows.some(r =>
-      (r.user_id === userId || r.userId === userId) &&
-      r.status === 'accepted'
-    );
-  } catch (err) {
-    console.error('[Referral] hasPartnerAccess check failed:', err.message);
-    return false;
-  }
-}
-
-/**
- * Award a referral reward to `referrerId`.
- * type = 'registration'  → +15 XP (partner) or +0.50 credits (non-partner)
- * type = 'listing'       → +10 XP (partner) or +0.50 credits (non-partner)
- *
- * Atomic-safe: reads the current profile, adds the delta, writes back.
- * Returns the applied reward shape.
- */
-async function applyReferralReward(referrerId, type) {
-  const isPartner = await hasPartnerAccess(referrerId);
-
-  // Fetch referrer profile — we need current XP / credits / counters
-  const referrer = await readItems({
-    table: 'profiles',
-    op: 'select',
-    select: 'id,xp,credits,partner_xp,registration_referrals,listing_referrals,total_referrals',
-    filters: [{ op: 'eq', column: 'id', value: referrerId }],
-    maybeSingle: true,
-  });
-
-  if (!referrer || !referrer.id) {
-    throw new Error(`Referrer profile not found for id=${referrerId}`);
-  }
-
-  const currentXP       = parseInt(referrer.xp              || referrer.partner_xp || '0', 10);
-  const currentCredits  = parseFloat(referrer.credits        || '0');
-  const currentTotal    = parseInt(referrer.total_referrals  || '0', 10);
-  const currentReg      = parseInt(referrer.registration_referrals || '0', 10);
-  const currentList     = parseInt(referrer.listing_referrals      || '0', 10);
-
-  let patch = {
-    total_referrals: currentTotal + 1,
-    updated_at: new Date().toISOString(),
-  };
-
-  let rewardDesc;
-  if (type === 'registration') {
-    patch.registration_referrals = currentReg + 1;
-    if (isPartner) {
-      patch.xp         = currentXP + 15;
-      patch.partner_xp = currentXP + 15;
-      rewardDesc = '+15 XP (partner registration referral)';
-    } else {
-      patch.credits = Math.round((currentCredits + 0.50) * 100) / 100;
-      rewardDesc = '+0.50 credits (registration referral)';
-    }
-  } else if (type === 'listing') {
-    patch.listing_referrals = currentList + 1;
-    if (isPartner) {
-      patch.xp         = currentXP + 10;
-      patch.partner_xp = currentXP + 10;
-      rewardDesc = '+10 XP (partner listing referral)';
-    } else {
-      patch.credits = Math.round((currentCredits + 0.50) * 100) / 100;
-      rewardDesc = '+0.50 credits (listing referral)';
-    }
-  } else {
-    throw new Error(`Unknown referral reward type "${type}"`);
-  }
-
-  await updateRows({
-    table: 'profiles',
-    op: 'update',
-    values: patch,
-    filters: [{ op: 'eq', column: 'id', value: referrerId }],
-  });
-
-  console.log(`[Referral] Awarded to referrer ${referrerId}: ${rewardDesc}`);
-  return { referrer_id: referrerId, is_partner: isPartner, reward: rewardDesc };
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// MIGRATION HELPER
-// Backfills any existing Users row that is missing the required referral fields.
-// Called transparently inside process_registration_referral and
-// award_referral_reward so all touched profiles are always up-to-date.
-// Fields added (only when absent):
-//   referral_code            – 8-digit numeric string, unique per user
-//   referred_by_code         – null (not yet referred)
-//   referred_by_user_id      – null
-//   partner_xp               – 0
-//   credits                  – 10  (preserve existing if already set)
-//   total_referrals          – 0
-//   registration_referrals   – 0
-//   listing_referrals        – 0
-// ─────────────────────────────────────────────────────────────────────────────
-async function migrateProfileReferralFields(userId) {
-  try {
-    const profile = await readItems({
-      table: 'profiles',
-      op: 'select',
-      select: 'id,name,email,referral_code,referred_by_code,partner_xp,credits,total_referrals,registration_referrals,listing_referrals',
-      filters: [{ op: 'eq', column: 'id', value: userId }],
-      maybeSingle: true,
-    });
-
-    if (!profile || !profile.id) return; // nothing to migrate
-
-    const patch = {};
-    if (!profile.referral_code) {
-      patch.referral_code = String(Math.floor(10000000 + Math.random() * 90000000));
-    }
-    if (!profile.name && profile.email) {
-      // Old/broken accounts (created before name was reliably saved) show up
-      // as a blank "—" everywhere a name is displayed — including in the
-      // referral-code-verified box on the Add Listing form, and the admin
-      // user list. Derive a readable placeholder from their email so the UI
-      // never shows a bare dash for an existing real user.
-      patch.name = profile.email.split('@')[0];
-    }
-    if (profile.referred_by_code === undefined) patch.referred_by_code = null;
-    if (profile.partner_xp     === undefined)  patch.partner_xp = 0;
-    // Only set credits to 10 if the field is completely missing/undefined (new user).
-    // Do NOT floor existing users to 10 — this was overwriting legitimate credit
-    // balances on accounts where the legacy id-keyed row had no credits field,
-    // causing them to show as 10 in the leaderboard even when the userId-keyed
-    // row had real (higher) credits.
-    const currentCredits = parseFloat(profile.credits);
-    if (isNaN(currentCredits) || profile.credits === undefined || profile.credits === null) patch.credits = 10;
-    if (profile.total_referrals          === undefined) patch.total_referrals = 0;
-    if (profile.registration_referrals   === undefined) patch.registration_referrals = 0;
-    if (profile.listing_referrals        === undefined) patch.listing_referrals = 0;
-
-    if (Object.keys(patch).length > 0) {
-      await updateRows({
-        table: 'profiles',
-        op: 'update',
-        values: patch,
-        filters: [{ op: 'eq', column: 'id', value: userId }],
-      });
-      console.log(`[Referral] Migrated referral fields for user ${userId}:`, Object.keys(patch).join(', '));
-    }
-  } catch (err) {
-    // Non-fatal — log and continue
-    console.warn(`[Referral] migrateProfileReferralFields failed for ${userId}:`, err.message);
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
 // RPC HANDLER
 // ─────────────────────────────────────────────────────────────────────────────
+// NOTE: the referral system (registration/listing referral rewards) no
+// longer lives here — it has its own dedicated endpoint, api/referrals.js,
+// backed by a separate "Referrals" DynamoDB table. See that file for
+// hasPartnerAccess / reward logic / process_registration / award_listing.
 async function handleRpc(spec, claims) {
-
-  // ── process_registration_referral ─────────────────────────────────────────
-  // Called once per new user on their first login.
-  // Idempotent: stamps profiles.referred_by_code on the new user so a second
-  // call (same session refresh) is a no-op.
-  if (spec.name === 'process_registration_referral') {
-    let code = String((spec.params && spec.params.p_referral_code) || '').trim();
-
-    // Fallback 1: referral code written to DynamoDB profile by signup-verify.js
-    // during email confirm (used when Cognito User Pool lacks custom:referral_code).
-    let userEmail = String(claims.email || '').trim().toLowerCase();
-    if (!code) {
-      try {
-        const selfProfile = await readItems({
-          table: 'profiles',
-          op: 'select',
-          select: 'id,email,pending_referral_code',
-          filters: [{ op: 'eq', column: 'id', value: claims.sub }],
-          maybeSingle: true,
-        });
-        if (selfProfile && selfProfile.pending_referral_code) {
-          code = String(selfProfile.pending_referral_code).trim();
-          console.log('[Referral] Using pending_referral_code from profile for user ' + claims.sub + ': ' + code);
-        }
-        // Capture email from profile row as a fallback for the VerificationCodes lookup below
-        if (!userEmail && selfProfile && selfProfile.email) {
-          userEmail = String(selfProfile.email).trim().toLowerCase();
-        }
-      } catch (e) {
-        console.warn('[Referral] Could not read pending_referral_code:', e.message);
-      }
-    }
-
-    // Fallback 2: referral code stored in VerificationCodes by signup-verify.js
-    // at signup time. This is the authoritative source when the profile row did
-    // not yet exist at email-confirmation time (the most common new-user case —
-    // writePendingReferralToProfile uses a ConditionExpression that silently
-    // skips the write when the profile row doesn't exist yet). Previously this
-    // code path was documented in a comment but never actually implemented, so
-    // referral codes submitted at signup were always silently dropped for users
-    // who hadn't logged in yet before confirming their email.
-    if (!code && userEmail) {
-      try {
-        const TABLE_CODES = process.env.TABLE_VERIFICATION_CODES || 'VerificationCodes';
-        const pk = `signup_verify#${userEmail}`;
-        const vcRes = await ddb.send(new GetItemCommand({
-          TableName: TABLE_CODES,
-          Key: marshall({ pk })
-        }));
-        if (vcRes.Item) {
-          const vcItem = unmarshall(vcRes.Item);
-          if (vcItem.pendingReferralCode) {
-            code = String(vcItem.pendingReferralCode).trim();
-            console.log('[Referral] Using pendingReferralCode from VerificationCodes for user ' + claims.sub + ' (' + userEmail + '): ' + code);
-          }
-        }
-      } catch (e) {
-        console.warn('[Referral] Could not read pendingReferralCode from VerificationCodes:', e.message);
-      }
-    }
-
-    if (!code) return { processed: false, reason: 'no_code' };
-
-    // Backfill referral fields on the new user if needed
-    await migrateProfileReferralFields(claims.sub);
-
-    // Fetch the new user's profile — check for already-processed guard
-    const newUser = await readItems({
-      table: 'profiles',
-      op: 'select',
-      select: 'id,referred_by_code,referred_by_user_id',
-      filters: [{ op: 'eq', column: 'id', value: claims.sub }],
-      maybeSingle: true,
-    });
-
-    // Duplicate-reward guard: if referred_by_code is already set, skip
-    if (newUser && newUser.referred_by_code) {
-      console.log(`[Referral] Registration referral already processed for user ${claims.sub} — skipping`);
-      return { processed: false, reason: 'already_processed' };
-    }
-
-    // Look up the referrer by their referral code
-    const referrer = await readItems({
-      table: 'profiles',
-      op: 'select',
-      select: 'id,email,name,referral_code',
-      filters: [{ op: 'eq', column: 'referral_code', value: code }],
-      maybeSingle: true,
-    });
-
-    // Validate referrer exists and is not the new user themselves
-    if (!referrer || !referrer.id || referrer.id === claims.sub) {
-      return { processed: false, reason: 'referrer_not_found' };
-    }
-
-    // Backfill referral fields on the referrer if needed
-    await migrateProfileReferralFields(referrer.id);
-
-    // Stamp the new user so this is idempotent going forward
-    await updateRows({
-      table: 'profiles',
-      op: 'update',
-      values: { referred_by_code: code, referred_by_user_id: referrer.id },
-      filters: [{ op: 'eq', column: 'id', value: claims.sub }],
-    });
-
-    // Award the referrer their reward
-    const reward = await applyReferralReward(referrer.id, 'registration');
-
-    // Clear pending_referral_code so repeated calls stay idempotent
-    await updateRows({
-      table: 'profiles',
-      op: 'update',
-      values: { pending_referral_code: null },
-      filters: [{ op: 'eq', column: 'id', value: claims.sub }],
-    }).catch(e => console.warn('[Referral] Could not clear pending_referral_code:', e.message));
-
-    // Delete the VerificationCodes row so it cannot replay on re-registration.
-    if (userEmail) {
-      try {
-        const TABLE_CODES = process.env.TABLE_VERIFICATION_CODES || 'VerificationCodes';
-        await ddb.send(new DeleteItemCommand({ TableName: TABLE_CODES, Key: marshall({ pk: 'signup_verify#' + userEmail }) }));
-      } catch (e) { console.warn('[Referral] Could not delete VerificationCodes row:', e.message); }
-    }
-
-    console.log(`[Referral] Registration referral processed: new_user=${claims.sub} referrer=${referrer.id}`);
-    return { processed: true, referrer_id: referrer.id, reward };
-  }
-
-  // ── award_referral_reward ──────────────────────────────────────────────────
-  // Called when a referred user publishes their first property listing.
-  // p_house_id is passed; we look up the referral_code on the property,
-  // then find the referrer who owns that code, and award them.
-  // Duplicate-reward guard: a reward is only issued once per property.
-  if (spec.name === 'award_referral_reward') {
-    const houseId = String((spec.params && spec.params.p_house_id) || '').trim();
-    if (!houseId) return { awarded: false, reason: 'no_house_id' };
-
-    // Fetch the property
-    const house = await readItems({
-      table: 'houses',
-      op: 'select',
-      select: 'id,referral_code,referral_reward_given,owner_id',
-      filters: [{ op: 'eq', column: 'id', value: houseId }],
-      maybeSingle: true,
-    });
-
-    if (!house || !house.id) return { awarded: false, reason: 'house_not_found' };
-
-    // Duplicate-reward guard: only award once per listing
-    if (house.referral_reward_given) {
-      console.log(`[Referral] Listing reward already given for house ${houseId} — skipping`);
-      return { awarded: false, reason: 'already_awarded' };
-    }
-
-    const refCode = String(house.referral_code || '').trim();
-    if (!refCode) return { awarded: false, reason: 'no_referral_code' };
-
-    // Self-referral guard: don't reward the property owner for using their own code
-    const referrer = await readItems({
-      table: 'profiles',
-      op: 'select',
-      select: 'id,referral_code',
-      filters: [{ op: 'eq', column: 'referral_code', value: refCode }],
-      maybeSingle: true,
-    });
-
-    if (!referrer || !referrer.id) return { awarded: false, reason: 'referrer_not_found' };
-    if (referrer.id === house.owner_id || referrer.id === claims.sub) {
-      return { awarded: false, reason: 'self_referral' };
-    }
-
-    // Backfill referral fields on the referrer if needed
-    await migrateProfileReferralFields(referrer.id);
-
-    // Mark the listing so duplicate calls are no-ops
-    await updateRows({
-      table: 'houses',
-      op: 'update',
-      values: { referral_reward_given: true },
-      filters: [{ op: 'eq', column: 'id', value: houseId }],
-    });
-
-    // Award the referrer
-    const reward = await applyReferralReward(referrer.id, 'listing');
-
-    console.log(`[Referral] Listing referral reward given: house=${houseId} referrer=${referrer.id}`);
-    return { awarded: true, referrer_id: referrer.id, reward };
-  }
 
   // ── claim_daily_reward ────────────────────────────────────────────────────
   // Awards 1 credit per day × 7 days = 7 credits per cycle. 24-hour cooldown.
@@ -1053,13 +682,12 @@ async function handleRpc(spec, claims) {
   }
 
   // ── admin_backfill_profile_defaults ────────────────────────────────────────
-  // One-time/repeatable admin fix: scans every row in Users and applies
-  // migrateProfileReferralFields (which fills in credits:10, xp:0, referral_code,
-  // etc. ONLY for fields that are currently missing — never overwrites a real
-  // existing value) to every profile that's missing them. Safe to run multiple
-  // times. This fixes accounts that were created before the race-condition fix
-  // in putRows() existed, where some signups ended up with no `credits` field
-  // at all because a non-credit-granting profile upsert won the race.
+  // One-time/repeatable admin fix: scans every row in Users and tops up any
+  // account below 10 credits, and merges legacy id-keyed/userId-keyed
+  // duplicate rows. Safe to run multiple times. This fixes accounts that
+  // were created before the race-condition fix in putRows() existed, where
+  // some signups ended up with no `credits` field at all because a
+  // non-credit-granting profile upsert won the race.
   if (spec.name === 'admin_backfill_profile_defaults') {
     const adminEmails = (process.env.ADMIN_EMAILS || '').split(',').map(v => v.trim().toLowerCase()).filter(Boolean);
     const isAdminCaller = (claims['cognito:groups'] || []).includes('admin') || adminEmails.includes(String(claims.email || '').toLowerCase());
@@ -1103,7 +731,6 @@ async function handleRpc(spec, claims) {
       const bestCredits = Math.max(isNaN(legacyCredits) ? 0 : legacyCredits, isNaN(currentCredits) ? 0 : currentCredits);
       const merged = Object.assign({}, legacy, current); // current wins on conflicts...
       merged.credits = bestCredits;                       // ...except credits, always the higher one
-      if (!merged.referral_code && legacy.referral_code) merged.referral_code = legacy.referral_code;
       if ((!merged.name || merged.name === 'User') && legacy.name) merged.name = legacy.name;
       delete merged.id; // 'id' isn't a real attribute on the userId-keyed item
       merged.userId = uid;
@@ -1123,17 +750,10 @@ async function handleRpc(spec, claims) {
     let creditsTopped = 0;
     for (const row of rows) {
       if (!row.id) continue;
-      const before = JSON.stringify({
-        credits: row.credits, xp: row.xp, partner_xp: row.partner_xp,
-        referral_code: row.referral_code, total_referrals: row.total_referrals,
-      });
-      await migrateProfileReferralFields(row.id);
       // One-time admin top-up: give every account at least 10 credits.
       // This is deliberately ONLY done here (manually triggered by an
-      // admin clicking the button), never inside migrateProfileReferralFields
-      // itself — that function also runs automatically on every referral
-      // event, and unconditionally bumping low balances back to 10 there
-      // would silently undo any credits a user had legitimately spent.
+      // admin clicking the button) — never automatically — so it never
+      // silently undoes credits a user has legitimately spent.
       const currentCredits = parseFloat(row.credits) || 0;
       if (currentCredits < 10) {
         await updateRows({
@@ -1143,10 +763,8 @@ async function handleRpc(spec, claims) {
           filters: [{ op: 'eq', column: 'id', value: row.id }],
         });
         creditsTopped++;
+        fixed++;
       }
-      // Re-read to log accurately (migrateProfileReferralFields only patches missing fields)
-      const after = await readItems({ table: 'profiles', op: 'select', select: 'credits,xp,partner_xp,referral_code,total_referrals', filters: [{ op: 'eq', column: 'id', value: row.id }], maybeSingle: true });
-      if (JSON.stringify({ credits: after?.credits, xp: after?.xp, partner_xp: after?.partner_xp, referral_code: after?.referral_code, total_referrals: after?.total_referrals }) !== before) fixed++;
     }
 
     // Dedupe partner_requests: for any user with multiple application rows,
@@ -1272,7 +890,7 @@ async function handleRpc(spec, claims) {
       if (!email) return;
       (byEmail[email] = byEmail[email] || []).push({
         id: r.id, name: r.name, email: r.email || email, credits: r.credits,
-        xp: r.xp, partner_xp: r.partner_xp, referral_code: r.referral_code,
+        xp: r.xp, partner_xp: r.partner_xp,
         created_at: r.created_at,
       });
     });
@@ -1296,8 +914,6 @@ async function handleRpc(spec, claims) {
   //     created/owns gets orphaned or silently lost.
   //   - credits and xp/partner_xp are SUMMED onto the keeper (not
   //     overwritten), so no value is lost either direction.
-  //   - keeper's referral_code is preserved if it has one; otherwise the
-  //     loser's is adopted (so a working code is never thrown away).
   //   - Cognito login for the loser is deleted, then its profile row.
   // This does NOT touch the keeper's password or login — only the loser's
   // login is removed. The keeper becomes the one and only account for
@@ -1382,16 +998,11 @@ async function handleRpc(spec, claims) {
     const mergedCredits = (parseFloat(keeper.credits) || 0) + (parseFloat(loser.credits) || 0);
     const mergedXp = (parseInt(keeper.xp) || 0) + (parseInt(loser.xp) || 0);
     const mergedPartnerXp = (parseInt(keeper.partner_xp) || 0) + (parseInt(loser.partner_xp) || 0);
-    const mergedTotalReferrals = (parseInt(keeper.total_referrals) || 0) + (parseInt(loser.total_referrals) || 0);
     const keeperPatch = {
       credits: Math.round(mergedCredits * 100) / 100,
       xp: mergedXp,
       partner_xp: mergedPartnerXp,
-      total_referrals: mergedTotalReferrals,
     };
-    // Keep keeper's referral_code if it has one; otherwise adopt loser's
-    // (so a working code already shared with others isn't thrown away).
-    if (!keeper.referral_code && loser.referral_code) keeperPatch.referral_code = loser.referral_code;
 
     await updateRows({ table: 'profiles', op: 'update', values: keeperPatch, filters: [{ op: 'eq', column: 'id', value: keeperUserId }] });
 
@@ -1525,7 +1136,7 @@ async function handleRpc(spec, claims) {
     const ownerProfile = await readItems({
       table: 'profiles',
       op: 'select',
-      select: 'id,credits,listing_referrals',
+      select: 'id,credits',
       filters: [{ op: 'eq', column: 'id', value: ownerId }],
       maybeSingle: true,
     });
@@ -1535,7 +1146,6 @@ async function handleRpc(spec, claims) {
     }
 
     const currentCredits = parseFloat(ownerProfile.credits || 0);
-    const currentListingReferrals = parseInt(ownerProfile.listing_referrals || 0, 10);
     const newCredits = Math.round((currentCredits + rate) * 100) / 100;
 
     // Update owner credits atomically
@@ -1545,10 +1155,9 @@ async function handleRpc(spec, claims) {
     await ddb.send(new UpdateItemCommand({
       TableName: TBL,
       Key: marshall({ userId: ownerId }),
-      UpdateExpression: 'SET credits = :c, listing_referrals = :lr, updated_at = :ua',
+      UpdateExpression: 'SET credits = :c, updated_at = :ua',
       ExpressionAttributeValues: marshall({
         ':c': newCredits,
-        ':lr': currentListingReferrals + 1,
         ':ua': new Date().toISOString(),
       }),
       ConditionExpression: 'attribute_exists(userId)',
@@ -1728,53 +1337,10 @@ async function handleRpc(spec, claims) {
     return { scanned: items.length, deleted };
   }
 
-  // ── get_or_create_referral_code ─────────────────────────────────────────────
-  // Reliable server-side referral code fetch/create.
-  // Reads the caller's DynamoDB profile directly (tries both key formats),
-  // generates a fresh 8-digit code if none exists, saves it, and returns it.
-  // This bypasses all client-side Query-builder complexity.
-  if (spec.name === 'get_or_create_referral_code') {
-    const userId = claims.sub;
-    if (!userId) throw Object.assign(new Error('Not authenticated'), { status: 401 });
-    const TBL = tableName('profiles');
-
-    // Try current userId key, then legacy id key
-    let item = null;
-    let keyUsed = null;
-    for (const k of [{ userId }, { id: userId }]) {
-      try {
-        const got = await ddb.send(new GetItemCommand({ TableName: TBL, Key: marshall(k) }));
-        if (got.Item) { item = unmarshall(got.Item); keyUsed = k; break; }
-      } catch (_) { /* try next */ }
-    }
-
-    let code = item && item.referral_code;
-
-    if (!code) {
-      // Generate a unique 8-digit numeric code
-      code = String(Math.floor(10000000 + Math.random() * 90000000));
-      if (keyUsed) {
-        const pkField = Object.keys(keyUsed)[0];
-        try {
-          await ddb.send(new UpdateItemCommand({
-            TableName: TBL,
-            Key: marshall(keyUsed),
-            UpdateExpression: 'SET referral_code = :code',
-            ExpressionAttributeValues: marshall({ ':code': code }),
-            ConditionExpression: `attribute_exists(${pkField})`,
-          }));
-          console.log('[RPC get_or_create_referral_code] Generated and saved referral code for', userId);
-        } catch (saveErr) {
-          console.warn('[RPC get_or_create_referral_code] Could not save code:', saveErr.message);
-          // Still return the generated code so the UI can display it
-        }
-      } else {
-        console.warn('[RPC get_or_create_referral_code] Profile row not found for userId:', userId);
-      }
-    }
-
-    return { referral_code: code || null };
-  }
+  // NOTE: referral code fetch/create ("get_or_create_referral_code") has
+  // moved to POST /api/referrals with action='ensure' — it now reads/writes
+  // the dedicated Referrals table instead of a field on the Users profile.
+  // See api/referrals.js.
 
   throw new Error(`Unsupported RPC "${spec.name}"`);
 }
