@@ -286,9 +286,19 @@ module.exports = async function handler(req, res) {
       //     by storePendingReferralCode above) is read by
       //     POST /api/referrals action='process_registration' on first
       //     login, via getPendingReferralCode as a fallback.
-
+      //
+      // FIX (referral rewards never firing): this used to call deleteCode()
+      // here, which DeleteItems the entire VerificationCodes row for this
+      // email — but that is the SAME row that pendingReferralCode lives on.
+      // That meant the referral code was wiped the instant the user verified
+      // their email, before process_registration_referral (which runs later,
+      // on first login) ever got a chance to read it — so referrers never
+      // got credit. markCodeUsed() already sets used=true, which getCode()
+      // treats as invalid for replay, so deleting the row here was never
+      // needed for security. process_registration_referral itself deletes
+      // this row once it has consumed pendingReferralCode (see api/data.js),
+      // so we just leave that cleanup to it.
       await markCodeUsed('signup_verify', email);
-      await deleteCode('signup_verify', email);
       return send(res, 200, { data: {} });
     } catch (err) {
       console.error(`[SignupVerify] ❌ confirm FAILED for ${email}:`, err);
