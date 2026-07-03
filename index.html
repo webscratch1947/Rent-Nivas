@@ -16043,7 +16043,8 @@
       const daysEl = document.getElementById('pst-days');
       if (daysEl) {
         // Show current streak day (0 = no streak yet)
-        const streakDay = parseInt(prof?.daily_streak_day || '0', 10);
+        let streakDay = parseInt(prof?.daily_streak_day || '0', 10);
+        if (!streakDay) { try { const _ls = JSON.parse(localStorage.getItem('rn-streak-v1') || 'null'); streakDay = (_ls && _ls.day) || 0; } catch(e){} }
         daysEl.textContent = streakDay > 0 ? '🔥 ' + streakDay + '/7' : '—';
         // Show dot indicator if reward is claimable
         const dot = document.getElementById('pst-streak-dot');
@@ -16122,7 +16123,8 @@
       if (since) since.textContent = memberInfo.label;
       const daysEl = document.getElementById('rent-pst-days');
       if (daysEl) {
-        const streakDay = parseInt(prof?.daily_streak_day || '0', 10);
+        let streakDay = parseInt(prof?.daily_streak_day || '0', 10);
+        if (!streakDay) { try { const _ls = JSON.parse(localStorage.getItem('rn-streak-v1') || 'null'); streakDay = (_ls && _ls.day) || 0; } catch(e){} }
         daysEl.textContent = streakDay > 0 ? '🔥 ' + streakDay + '/7' : '—';
         const dot = document.getElementById('rent-pst-streak-dot');
         if (dot && typeof window.getClaimableDay === 'function') {
