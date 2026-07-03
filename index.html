@@ -12841,7 +12841,7 @@
 
         if (!statsRes.ok) throw new Error(statsRes.error || 'Failed to load referral stats');
         const s = statsRes.data || {};
-        const refCode = s.referralId || '';
+        const refCode = s.referralCode || '';
         if (refCode) showReferralCodeInSidebar(refCode);
 
         // Render referral code card
@@ -12869,7 +12869,25 @@
         setEl('pd-stat-credits', credits % 1 === 0 ? credits + ' Credits' : credits.toFixed(2) + ' Credits');
 
         // ── 2. Render referral history from the stats payload ──────────────
-        _renderReferralHistory(refCode, s.history || []);
+        // get_referral_data returns referredUsers/referredListings, not a
+        // pre-built "history" array — build the shape _renderReferralHistory
+        // expects here instead of reading a field the API never returns.
+        const isPartnerForHistory = await _pdIsPartner(user.id);
+        const historyRewardType   = isPartnerForHistory ? 'xp' : 'credits';
+        const historyRewardAmount = isPartnerForHistory ? 5 : 0.50;
+        const referredUsersForHist    = Array.isArray(s.referredUsers)    ? s.referredUsers    : [];
+        const referredListingsForHist = Array.isArray(s.referredListings) ? s.referredListings : [];
+        const builtHistory = [
+          ...referredUsersForHist.map(u => ({
+            type: 'registration', name: u.name, email: u.email, createdAt: u.joinedAt,
+            rewardType: historyRewardType, rewardAmount: historyRewardAmount,
+          })),
+          ...referredListingsForHist.map(l => ({
+            type: 'listing', name: l.title, createdAt: l.listedAt,
+            rewardType: historyRewardType, rewardAmount: historyRewardAmount,
+          })),
+        ];
+        _renderReferralHistory(refCode, builtHistory);
 
         // ── 3. Check for new referrals → show success popup once ──────────
         if (!showRefreshToast) {
@@ -15574,7 +15592,7 @@
         if (!isEdit && payload.referral_code) {
           try {
             const ownRes = await _rnReferralApi('ensure');
-            const ownCode = ownRes.ok && ownRes.data && ownRes.data.referralId;
+            const ownCode = ownRes.ok && ownRes.data && ownRes.data.referral_code;
             if (ownCode && String(ownCode) === String(payload.referral_code)) {
               setLoader(false);
               toast("You can't use your own referral code for your own listing.", 'error');
@@ -16062,7 +16080,7 @@
       try {
         const statsRes = await _rnReferralApi('stats');
         const s = statsRes.ok ? (statsRes.data || {}) : {};
-        const refCode = s.referralId || '';
+        const refCode = s.referralCode || '';
         if (refCode) showReferralCodeInSidebar(refCode);
         const card = document.getElementById('prof-referral-card');
         if (refCode) {
@@ -16141,7 +16159,7 @@
       try {
         const statsRes = await _rnReferralApi('stats');
         const s = statsRes.ok ? (statsRes.data || {}) : {};
-        const refCode = s.referralId || '';
+        const refCode = s.referralCode || '';
         if (refCode) showReferralCodeInSidebar(refCode);
         const card = document.getElementById('rent-prof-referral-card');
         if (refCode) {
@@ -18480,7 +18498,7 @@
           const resp = await fetch('/api/data', {
             method: 'POST',
             headers: headers,
-            body: JSON.stringify({ rpc: rpcName, params })
+            body: JSON.stringify({ op: 'rpc', name: rpcName, params })
           });
           const json = await resp.json().catch(() => ({}));
           if (!resp.ok) return { ok: false, error: (json && json.error) || 'Request failed', data: null };
@@ -18498,7 +18516,7 @@
         if (!user) return;
         try {
           const res = await _rnReferralApi('ensure');
-          const code = res.ok && res.data && res.data.referralId;
+          const code = res.ok && res.data && res.data.referral_code;
           if (code) showReferralCodeInSidebar(String(code));
         } catch (e) {
           console.warn('[RN] ensureReferralCode error:', e.message);
@@ -19708,7 +19726,7 @@
         var isPartner = await _pdIsPartner(user.id);
         var statsRes = await _rnReferralApi('stats');
         var s = statsRes.ok ? (statsRes.data || {}) : {};
-        var refCode = s.referralId || '';
+        var refCode = s.referralCode || '';
         _rnrefCode = refCode;
 
         document.getElementById('rnref-code-val').textContent = refCode || '————';
