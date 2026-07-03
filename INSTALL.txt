@@ -1,0 +1,79 @@
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Rent Nivas — Referral System v2 Installation Guide
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+FILES IN THIS ZIP
+─────────────────
+  api/check-referral.js   ← Replace your existing file (complete rewrite)
+  api/data.js             ← Replace your existing file (referral sections rewritten)
+  referral.js             ← NEW file, goes in your project ROOT (same folder as index.html)
+  INSTALL.txt             ← This file
+
+STEP 1 — Create the DynamoDB table
+───────────────────────────────────
+  In AWS DynamoDB, create a new table:
+
+    Table name:     Referrals
+    Partition key:  referralId   (String)
+    (No sort key needed)
+
+  Provisioned or On-Demand — either mode works.
+  No GSI needed. No sort key.
+
+STEP 2 — Add the environment variable (Vercel dashboard)
+──────────────────────────────────────────────────────────
+  TABLE_REFERRALS = Referrals
+
+  (All your other env vars stay exactly as they are.)
+
+STEP 3 — Replace the API files
+────────────────────────────────
+  Copy  api/check-referral.js  from this zip → your project's  api/check-referral.js
+  Copy  api/data.js            from this zip → your project's  api/data.js
+
+  Commit + push → Vercel redeploys automatically.
+
+STEP 4 — Add referral.js to your project root
+───────────────────────────────────────────────
+  Copy  referral.js  from this zip → the root of your project
+  (same folder that contains index.html).
+
+STEP 5 — One-line change in index.html
+────────────────────────────────────────
+  Open index.html and add this line just before the closing </body> tag:
+
+    <script src="/referral.js"></script>
+
+  That's it. No other changes to index.html are needed.
+
+WHAT CHANGED
+─────────────
+  OLD system:
+    • Referral codes stored as  referral_code  on every Users row
+    • Counts (total_referrals etc.) stored on Users rows
+    • Referral history required scanning the entire Users + Properties tables
+
+  NEW system:
+    • Each user's referral code gets its own row in the Referrals table
+      (referralId = the code itself → O(1) GetItem, no scanning)
+    • History stored inline: referredUsers[] + referredListings[] arrays
+    • Users table keeps only referral_code (pointer) + referred_by_code
+      (idempotency flag) — no counters on Users rows
+
+BACKWARD COMPATIBILITY
+───────────────────────
+  ✓ Existing users who already have a referral_code on their Users row
+    will keep working — get_or_create_referral_code reads it from Users
+    first and creates the matching Referrals row lazily on next panel open.
+
+  ✓ check-referral falls back to a Users scan when the Referrals row
+    doesn't exist yet (pre-migration users), so the signup form never
+    breaks for existing codes.
+
+  ✓ No data migration script required. Referrals rows are created on
+    demand as users open the Referral panel.
+
+  ✗ Old referral_code/total_referrals fields on Users are no longer
+    written to by new events — only read for backward compatibility.
+    The Referrals table is the source of truth going forward.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
