@@ -965,7 +965,23 @@ async function handleRpc(spec, claims) {
 
     // ── Award referrer (credits / XP on their Users row) ─────────────────────
     // Reached only by the one call that won the conditional stamp above.
-    const reward = await awardReferralReward(referrerId, 'registration');
+    // FIX: this used to be a bare `await` with no try/catch. Since the new
+    // user is stamped with referred_by_code BEFORE this line (irreversibly,
+    // via the conditional write above), any error thrown here — e.g. a
+    // transient DynamoDB hiccup, or the referrer's profile row not existing
+    // under the expected key — used to bubble up as an unhandled 500 AND
+    // permanently lose the reward, because a retry would see referred_by_code
+    // already set and short-circuit with 'already_processed' without ever
+    // re-attempting the award. Catch it, log loudly so it's traceable, and
+    // still report success for the registration itself — but surface the
+    // reward failure explicitly instead of losing it silently.
+    let reward = null;
+    try {
+      reward = await awardReferralReward(referrerId, 'registration');
+    } catch (rewardErr) {
+      console.error(`[Referral] AWARD FAILED for referrer=${referrerId} new_user=${claims.sub} code=${code}:`, rewardErr);
+      reward = { referrer_id: referrerId, error: rewardErr.message || 'Award failed' };
+    }
 
     // ── Clear pending_referral_code so future calls are idempotent ────────────
     await updateRows({
@@ -1127,7 +1143,17 @@ async function handleRpc(spec, claims) {
     }
 
     // ── Award the referrer (credits / XP on their Users row) ─────────────
-    const reward = await awardReferralReward(referrerId, 'listing');
+    // Same fix as the registration path: the "already awarded" flag on the
+    // house is already set above, so a bare throw here would permanently
+    // lose the reward (a retry would just hit the "already_awarded" guard
+    // and never re-attempt the award). Catch and surface instead.
+    let reward = null;
+    try {
+      reward = await awardReferralReward(referrerId, 'listing');
+    } catch (rewardErr) {
+      console.error(`[Referral] AWARD FAILED for referrer=${referrerId} house=${houseId} code=${refCode}:`, rewardErr);
+      reward = { referrer_id: referrerId, error: rewardErr.message || 'Award failed' };
+    }
 
     console.log(`[Referral] Listing referral reward given: house=${houseId} referrer=${referrerId} code=${refCode}`);
     return { awarded: true, referrer_id: referrerId, reward };
