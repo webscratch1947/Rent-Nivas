@@ -18444,24 +18444,49 @@
       async function _rnReferralApi(action, body) {
         try {
           const headers = { 'Content-Type': 'application/json' };
-          if (action !== 'validate') {
-            try {
-              const raw = localStorage.getItem('rentnivas-auth');
-              if (raw) {
-                const s = JSON.parse(raw);
-                const token = s && (s.id_token || s.access_token);
-                if (token) headers['Authorization'] = 'Bearer ' + token;
-              }
-            } catch (e) {}
+          const RPC_MAP = {
+            ensure:               'get_or_create_referral_code',
+            stats:                'get_referral_data',
+            process_registration: 'process_registration_referral',
+            award_listing:        'award_listing_referral',
+          };
+
+          // validate → /api/check-referral (public, no auth)
+          if (action === 'validate') {
+            const resp = await fetch('/api/check-referral', {
+              method: 'POST',
+              headers: headers,
+              body: JSON.stringify({ code: (body && body.code) || '' })
+            });
+            const json = await resp.json().catch(() => ({}));
+            if (!resp.ok) return { ok: false, error: (json && json.error) || 'Request failed', data: null };
+            return { ok: !!(json && json.data), data: json && json.data, error: null };
           }
-          const resp = await fetch('/api/referrals', {
+
+          // all other actions → /api/data as RPC
+          const rpcName = RPC_MAP[action];
+          if (!rpcName) return { ok: false, error: 'Unknown action: ' + action, data: null };
+          const params = {};
+          if (action === 'process_registration' && body && body.code)    params.p_referral_code = body.code;
+          if (action === 'award_listing'         && body && body.houseId) params.p_house_id      = body.houseId;
+          try {
+            const raw = localStorage.getItem('rentnivas-auth');
+            if (raw) {
+              const s = JSON.parse(raw);
+              const token = s && (s.id_token || s.access_token);
+              if (token) headers['Authorization'] = 'Bearer ' + token;
+            }
+          } catch (e) {}
+          const resp = await fetch('/api/data', {
             method: 'POST',
             headers: headers,
-            body: JSON.stringify(Object.assign({ action: action }, body || {}))
+            body: JSON.stringify({ rpc: rpcName, params })
           });
           const json = await resp.json().catch(() => ({}));
           if (!resp.ok) return { ok: false, error: (json && json.error) || 'Request failed', data: null };
-          return { ok: true, data: json && json.data, error: null };
+          let data = json && json.data;
+          if (Array.isArray(data) && data.length === 1) data = data[0];
+          return { ok: true, data: data ?? null, error: null };
         } catch (e) {
           return { ok: false, error: e.message || 'Network error', data: null };
         }
