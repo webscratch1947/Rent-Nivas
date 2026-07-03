@@ -15621,7 +15621,7 @@
 
         // ── REFERRAL REWARD ──
         // First-time listing only (not edits), and only if a referral
-        // code was entered. Awards the referrer +10 XP (if they're an
+        // code was entered. Awards the referrer +5 XP (if they're an
         // approved partner) or +0.50 credits (otherwise).
         if (!isEdit && payload.referral_code) {
           try {
@@ -18508,7 +18508,7 @@
       // ── REGISTRATION REFERRAL ──
       // If this user signed up using someone's referral code (stashed in
       // their auth user_metadata at signup time), reward that referrer
-      // once: +15 XP if they're an approved partner, otherwise +0.50 credits.
+      // once: +5 XP if they're an approved partner, otherwise +0.50 credits.
       // The server-side handler is idempotent (it stamps the user as already
       // processed the first time it succeeds), so calling this more than once
       // across sessions is harmless. If no code is available client-side, the
