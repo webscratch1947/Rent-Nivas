@@ -688,14 +688,20 @@ async function hasPartnerAccess(userId) {
 }
 
 /**
- * Award a referral reward to `referrerId`.
- *   type = 'registration'  → +15 XP (partner) or +0.50 credits (non-partner)
- *   type = 'listing'       → +10 XP (partner) or +0.50 credits (non-partner)
+ * Award a referral reward to `referrerId`. Flat rate, same for every trigger
+ * (registration OR house listing):
+ *   - Has an accepted Partner Panel application → +5 XP
+ *   - Otherwise                                  → +0.50 credits
  *
- * Only modifies the Users table (credits / XP).
- * Referral counts are incremented separately by each RPC handler.
+ * `kind` is just 'registration' | 'listing' for logging purposes — it does
+ * NOT change the reward amount anymore (both used to differ: 15/10 XP —
+ * that asymmetry is gone, this is the one true reward path now).
+ *
+ * Only modifies the profiles row (credits / xp / partner_xp).
+ * Referral counts (totalReferrals etc.) are incremented separately by the
+ * calling RPC handler against the Referrals table.
  */
-async function applyReferralReward(referrerId, type) {
+async function awardReferralReward(referrerId, kind) {
   const isPartner = await hasPartnerAccess(referrerId);
 
   const referrer = await readItems({
@@ -710,32 +716,19 @@ async function applyReferralReward(referrerId, type) {
     throw new Error(`Referrer profile not found for id=${referrerId}`);
   }
 
-  const currentXP      = parseInt(referrer.xp || referrer.partner_xp || '0', 10);
-  const currentCredits = parseFloat(referrer.credits || '0');
-
   let patch = { updated_at: new Date().toISOString() };
   let rewardDesc;
 
-  if (type === 'registration') {
-    if (isPartner) {
-      patch.xp         = currentXP + 15;
-      patch.partner_xp = currentXP + 15;
-      rewardDesc = '+15 XP (partner registration referral)';
-    } else {
-      patch.credits = Math.round((currentCredits + 0.50) * 100) / 100;
-      rewardDesc = '+0.50 credits (registration referral)';
-    }
-  } else if (type === 'listing') {
-    if (isPartner) {
-      patch.xp         = currentXP + 10;
-      patch.partner_xp = currentXP + 10;
-      rewardDesc = '+10 XP (partner listing referral)';
-    } else {
-      patch.credits = Math.round((currentCredits + 0.50) * 100) / 100;
-      rewardDesc = '+0.50 credits (listing referral)';
-    }
+  if (isPartner) {
+    const currentXP        = parseInt(referrer.xp || 0, 10);
+    const currentPartnerXP = parseInt(referrer.partner_xp || 0, 10);
+    patch.xp         = currentXP + 5;
+    patch.partner_xp = currentPartnerXP + 5;
+    rewardDesc = `+5 XP (partner ${kind} referral)`;
   } else {
-    throw new Error(`Unknown referral reward type "${type}"`);
+    const currentCredits = parseFloat(referrer.credits || 0);
+    patch.credits = Math.round((currentCredits + 0.50) * 100) / 100;
+    rewardDesc = `+0.50 credits (${kind} referral)`;
   }
 
   await updateRows({
@@ -972,7 +965,7 @@ async function handleRpc(spec, claims) {
 
     // ── Award referrer (credits / XP on their Users row) ─────────────────────
     // Reached only by the one call that won the conditional stamp above.
-    const reward = await applyReferralReward(referrerId, 'registration');
+    const reward = await awardReferralReward(referrerId, 'registration');
 
     // ── Clear pending_referral_code so future calls are idempotent ────────────
     await updateRows({
@@ -994,13 +987,18 @@ async function handleRpc(spec, claims) {
     return { processed: true, referrer_id: referrerId, reward };
   }
 
-  // ── award_referral_reward ──────────────────────────────────────────────────
+  // ── award_listing_referral ───────────────────────────────────────────────
   // Called when a referred user publishes their first property listing.
   // p_house_id is passed; we look up the referral_code on the property,
   // then find the referrer via the Referrals table, and award them.
   // Duplicate-reward guard: a reward is only issued once per property.
   // ALL tracking data is stored in the Referrals table (v2).
-  if (spec.name === 'award_referral_reward') {
+  //
+  // NOTE: this RPC name must match RPC_MAP.award_listing in index.html
+  // exactly — a previous mismatch ('award_referral_reward' here vs.
+  // 'award_listing_referral' on the client) meant every listing referral
+  // silently 400'd with "Unsupported RPC" and no reward was ever given.
+  if (spec.name === 'award_listing_referral') {
     const houseId = String((spec.params && spec.params.p_house_id) || '').trim();
     if (!houseId) return { awarded: false, reason: 'no_house_id' };
 
@@ -1129,7 +1127,7 @@ async function handleRpc(spec, claims) {
     }
 
     // ── Award the referrer (credits / XP on their Users row) ─────────────
-    const reward = await applyReferralReward(referrerId, 'listing');
+    const reward = await awardReferralReward(referrerId, 'listing');
 
     console.log(`[Referral] Listing referral reward given: house=${houseId} referrer=${referrerId} code=${refCode}`);
     return { awarded: true, referrer_id: referrerId, reward };
