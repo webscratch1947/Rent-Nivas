@@ -13746,6 +13746,15 @@
         window._nestlyPollTimer = null;
       }
       localStorage.removeItem('nestly-role');
+      // FIX (account data leaking on shared/reused browsers): 'nestly-credits'
+      // and the legacy global 'rn-streak-v1' key were never cleared on logout.
+      // On a browser used to test multiple accounts (e.g. one email after
+      // another), the NEXT brand-new account would read/inherit the previous
+      // account's cached credits and daily-streak progress — e.g. a fresh
+      // signup showing 18 credits and "Day 3 already claimed" that were
+      // actually left over from the prior account on the same device.
+      localStorage.removeItem('nestly-credits');
+      localStorage.removeItem('rn-streak-v1');
       document.getElementById('ban-overlay')?.classList.add('hidden');
       document.getElementById('perm-ban-page').style.display = 'none';
       showPage('landing-page');
@@ -20907,7 +20916,14 @@
       window.rnStreakSetUser = function(userId) {
         if (!userId) return;
         var userKey = 'rn-streak-v1-' + userId;
-        // Migrate global key to user-scoped key only if user-scoped is empty and global has real data
+        // Migrate global key to user-scoped key only if user-scoped is empty and global has real data.
+        // FIX: this used to leave the global 'rn-streak-v1' key in place after
+        // migrating it, so on a browser reused for multiple accounts (e.g.
+        // testing signups with different emails), every NEXT brand-new user
+        // would inherit whatever streak day the PREVIOUS account had reached
+        // (e.g. a fresh signup showing "Day 3 already claimed"). Once we've
+        // copied it into this user's own key, remove the global key so it
+        // can never leak into a different account again.
         if (!localStorage.getItem(userKey)) {
           try {
             var old = JSON.parse(localStorage.getItem('rn-streak-v1') || 'null');
@@ -20916,6 +20932,7 @@
             }
           } catch(e) {}
         }
+        try { localStorage.removeItem('rn-streak-v1'); } catch(e) {}
         STREAK_KEY = userKey;
       };
       var CREDITS_PER_DAY = [1, 2, 3, 4, 5, 6, 7]; // Day 1=1 Day 2=2 … Day 7=7 credits
