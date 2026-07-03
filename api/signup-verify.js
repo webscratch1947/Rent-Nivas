@@ -92,63 +92,6 @@ async function getPendingReferralCode(email) {
   }
 }
 
-// After email verification is confirmed, write pending_referral_code to the
-// user's DynamoDB profile row so process_registration_referral can read it
-// on their first login. This is the replacement for storing the code as a
-// Cognito custom attribute (custom:referral_code), which requires the
-// attribute to be pre-declared in the User Pool schema.
-async function writePendingReferralToProfile(email, referralCode) {
-  if (!referralCode) return;
-  try {
-    // Look up the user's Cognito sub by email so we can write to the
-    // correct DynamoDB row (keyed by userId = Cognito sub).
-    const cognitoUser = await findExistingUserByEmail(email);
-    if (!cognitoUser) {
-      console.warn(`[SignupVerify] writePendingReferralToProfile: no Cognito user for ${email}`);
-      return;
-    }
-    // CRITICAL: cognitoUser.Username is the email string (since the pool was created
-    // with Username: email in AdminCreateUserCommand). The real Cognito sub (UUID)
-    // lives in cognitoUser.Attributes under the 'sub' attribute.
-    // Using Username here would create a ghost DynamoDB row keyed by the email
-    // string instead of the real userId UUID — producing anonymous leaderboard entries.
-    const attrs = (cognitoUser.Attributes || []).reduce((acc, a) => { acc[a.Name] = a.Value; return acc; }, {});
-    const userId = attrs.sub || cognitoUser.Username;
-    if (!attrs.sub) {
-      console.warn(`[SignupVerify] writePendingReferralToProfile: could not find sub in Cognito attributes for ${email}, falling back to Username`);
-    }
-
-    // UpdateItem with attribute_not_exists guard so we never accidentally CREATE
-    // a ghost row — only update an existing one (created at first login).
-    // If the row doesn't exist yet, the frontend referral fallback via
-    // process_registration_referral will still pick up the code from
-    // pending_referral_code stored in the VerificationCodes record.
-    try {
-      await ddb.send(new UpdateItemCommand({
-        TableName: TABLE_USERS,
-        Key: marshall({ userId }),
-        UpdateExpression: 'SET pending_referral_code = :rc',
-        ConditionExpression: 'attribute_exists(userId)',
-        ExpressionAttributeValues: marshall({ ':rc': String(referralCode) })
-      }));
-      console.log(`[SignupVerify] ✅ pending_referral_code written to existing profile for userId=${userId}`);
-    } catch (condErr) {
-      if (condErr.name === 'ConditionalCheckFailedException') {
-        // Row doesn't exist yet (user hasn't logged in for the first time).
-        // The referral code is already safely stored in VerificationCodes
-        // (via storePendingReferralCode) and will be read by
-        // process_registration_referral on first login. No ghost row created.
-        console.log(`[SignupVerify] Profile row not yet created for userId=${userId} — skipping DynamoDB write (referral code already in VerificationCodes)`);
-      } else {
-        throw condErr;
-      }
-    }
-  } catch (err) {
-    // Non-fatal — the frontend will fall back gracefully
-    console.warn('[SignupVerify] writePendingReferralToProfile failed:', err.message || err);
-  }
-}
-
 module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') return send(res, 204, {});
   if (req.method !== 'POST') return send(res, 405, { error: { message: 'Method not allowed' } });
@@ -207,8 +150,9 @@ module.exports = async function handler(req, res) {
         // NOTE: Only update name — do NOT try to set custom:referral_code as a
         // Cognito attribute. That attribute is not declared in the User Pool
         // schema, so Cognito rejects it with a ValidationException. Instead,
-        // the referral code is stored in DynamoDB (see storePendingReferralCode
-        // and writePendingReferralToProfile below).
+        // the referral code is stashed via storePendingReferralCode() (see
+        // below) and picked up server-side by /api/referrals during
+        // process_registration.
         const updateAttrs = [];
         if (name) updateAttrs.push({ Name: 'name', Value: name });
         if (updateAttrs.length) {
@@ -333,46 +277,15 @@ module.exports = async function handler(req, res) {
       }));
       console.log(`[SignupVerify] ✅ verification success: email_verified=true set for ${email}`);
 
-      // ── Generate + save this user's OWN referral code immediately ──────────
-      // Previously this was done lazily (random code on first profile view) which
-      // caused the code to change on every page refresh when the profile row didn't
-      // exist yet. Now we generate it here — deterministic hash of the Cognito sub
-      // so it is always the same value and written to DynamoDB exactly once.
-      let confirmedUserId = null;
-      try {
-        const cognitoUserForCode = await findExistingUserByEmail(email);
-        if (cognitoUserForCode) {
-          const attrsForCode = (cognitoUserForCode.Attributes || []).reduce((a, x) => { a[x.Name] = x.Value; return a; }, {});
-          confirmedUserId = attrsForCode.sub || cognitoUserForCode.Username;
-          // Deterministic 8-char uppercase code: first 8 hex chars of SHA-256(userId)
-          const ownCode = crypto.createHash('sha256').update(confirmedUserId).digest('hex').slice(0, 8).toUpperCase();
-          // Save with if_not_exists so we never overwrite a manually assigned code
-          try {
-            await ddb.send(new UpdateItemCommand({
-              TableName: TABLE_USERS,
-              Key: marshall({ userId: confirmedUserId }),
-              UpdateExpression: 'SET referral_code = if_not_exists(referral_code, :code)',
-              ConditionExpression: 'attribute_exists(userId)',
-              ExpressionAttributeValues: marshall({ ':code': ownCode }),
-            }));
-            console.log(`[SignupVerify] ✅ referral_code=${ownCode} saved for userId=${confirmedUserId}`);
-          } catch (codeErr) {
-            // Profile row not created yet (first login hasn't happened) — safe to skip.
-            // get_or_create_referral_code RPC will handle it on first profile view.
-            if (codeErr.name !== 'ConditionalCheckFailedException') {
-              console.warn('[SignupVerify] Could not save referral_code:', codeErr.message);
-            }
-          }
-        }
-      } catch (codeGenErr) {
-        console.warn('[SignupVerify] referral_code generation step failed (non-fatal):', codeGenErr.message);
-      }
-
-      // ── Write pending_referral_code (who referred THIS user) ───────────────
-      const pendingReferralCode = record.pendingReferralCode || await getPendingReferralCode(email);
-      if (pendingReferralCode) {
-        await writePendingReferralToProfile(email, pendingReferralCode);
-      }
+      // NOTE: referral-code generation/ownership and "who referred this user"
+      // are no longer handled here. Both now live in the new referral system
+      // (api/referrals.js, backed by the Referrals table):
+      //   - a user's own code is created lazily via POST /api/referrals
+      //     action='ensure' the first time they open the referral panel.
+      //   - the pending code captured at signup (stored in VerificationCodes
+      //     by storePendingReferralCode above) is read by
+      //     POST /api/referrals action='process_registration' on first
+      //     login, via getPendingReferralCode as a fallback.
 
       await markCodeUsed('signup_verify', email);
       await deleteCode('signup_verify', email);
