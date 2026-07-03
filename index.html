@@ -12831,35 +12831,29 @@
     async function loadPartnerReferralStats(showRefreshToast) {
       if (!user) return;
 
-      // ── 1. Ensure referral code exists ──────────────────────────────────
       try {
-        const { data: prof, error: profErr } = await sb.from('profiles')
-          .select('referral_code,partner_xp,xp,credits,total_referrals,registration_referrals,listing_referrals')
-          .eq('id', user.id).maybeSingle();
+        // Referral counts + history now come from the Referrals table via
+        // /api/referrals; XP/credits still live on the profile row.
+        const [statsRes, prof] = await Promise.all([
+          _rnReferralApi('stats'),
+          fetchProfileRow()
+        ]);
 
-        if (profErr) throw profErr;
-
-        let refCode = prof?.referral_code;
-
-        // Ensure a permanent referral code exists — ensureReferralCode() creates it once and saves it
-        if (!refCode) {
-          await ensureReferralCode();
-          const { data: refData } = await sb.from('profiles').select('referral_code').eq('id', user.id).maybeSingle();
-          refCode = refData?.referral_code || '';
-        } else {
-          showReferralCodeInSidebar(refCode);
-        }
+        if (!statsRes.ok) throw new Error(statsRes.error || 'Failed to load referral stats');
+        const s = statsRes.data || {};
+        const refCode = s.referralId || '';
+        if (refCode) showReferralCodeInSidebar(refCode);
 
         // Render referral code card
         const codeEl = document.getElementById('pd-ref-code-display');
         if (codeEl) codeEl.textContent = refCode || '——————';
 
         // Show stats
-        const totalXP    = parseInt(prof?.partner_xp ?? prof?.xp ?? 0, 10);
-        const credits    = parseFloat(prof?.credits ?? 0);
-        const totalRefs  = parseInt(prof?.total_referrals ?? 0, 10);
-        const regRefs    = parseInt(prof?.registration_referrals ?? 0, 10);
-        const listRefs   = parseInt(prof?.listing_referrals ?? 0, 10);
+        const totalXP    = parseInt(prof?.partner_xp ?? prof?.xp ?? 0, 10) || 0;
+        const credits    = parseFloat(prof?.credits ?? 0) || 0;
+        const totalRefs  = parseInt(s.totalReferrals ?? 0, 10) || 0;
+        const regRefs    = parseInt(s.registrationReferrals ?? 0, 10) || 0;
+        const listRefs   = parseInt(s.listingReferrals ?? 0, 10) || 0;
 
         // Sync DB XP to localStorage so profile ring reflects the real value after login
         if (!isNaN(totalXP)) { setPartnerXP(totalXP); updateProfileBtnRing(); }
@@ -12874,8 +12868,8 @@
         setEl('pd-stat-xp',      totalXP + ' XP');
         setEl('pd-stat-credits', credits % 1 === 0 ? credits + ' Credits' : credits.toFixed(2) + ' Credits');
 
-        // ── 2. Build referral history ──────────────────────────────────────
-        await _renderReferralHistory(refCode);
+        // ── 2. Render referral history from the stats payload ──────────────
+        _renderReferralHistory(refCode, s.history || []);
 
         // ── 3. Check for new referrals → show success popup once ──────────
         if (!showRefreshToast) {
@@ -12905,67 +12899,33 @@
       }
     }
 
-    async function _renderReferralHistory(refCode) {
+    function _renderReferralHistory(refCode, history) {
       const histEl = document.getElementById('pd-referral-history');
       if (!histEl) return;
 
-      // Guard: if no referral code yet, show empty state instead of querying
-      // (an empty refCode would match ALL users with no referred_by_code, flooding history)
+      // Guard: if no referral code yet, show empty state
       if (!refCode || String(refCode).trim().length < 6) {
         histEl.innerHTML = `<div style="text-align:center;padding:28px;color:var(--muted);font-size:13px;">Your referral code is being set up. Refresh to see your history.</div>`;
         return;
       }
 
-      histEl.innerHTML = `<div style="text-align:center;padding:28px;color:var(--muted);font-size:13px;">Loading history...</div>`;
-
       try {
-        const isPartner = await _pdIsPartner(user.id);
-
-        // Fetch users who registered using this referral code
-        const regPromise = sb.from('profiles')
-          .select('id,name,email,created_at,referred_by_code')
-          .eq('referred_by_code', refCode)
-          .order('created_at', { ascending: false })
-          .limit(100);
-
-        // Fetch properties created with this referral code
-        const listPromise = sb.from('houses')
-          .select('id,title,referral_code,created_at,owner_id,referral_reward_given')
-          .eq('referral_code', refCode)
-          .order('created_at', { ascending: false })
-          .limit(100);
-
-        const [regResult, listResult] = await Promise.all([regPromise, listPromise]);
-
-        const regRows  = (regResult.data  || []);
-        const listRows = (listResult.data || []);
-
-        // Merge into a unified event list
-        const events = [];
-
-        regRows.forEach(u => {
-          events.push({
-            type:       'registration',
-            date:       u.created_at,
-            user_name:  u.name || u.email || 'Unknown user',
-            user_email: u.email || '',
-            action:     'Signed up',
-            reward:     isPartner ? '+15 XP' : '+0.50 Credits',
-            reward_type: isPartner ? 'xp' : 'credits',
-          });
-        });
-
-        listRows.forEach(h => {
-          if (!h.referral_reward_given) return; // only show confirmed rewards
-          events.push({
-            type:       'listing',
-            date:       h.created_at,
-            user_name:  h.title || 'Untitled property',
-            user_email: '',
-            action:     'Created listing',
-            reward:     isPartner ? '+10 XP' : '+0.50 Credits',
-            reward_type: isPartner ? 'xp' : 'credits',
-          });
+        // History rows already come pre-built from the Referrals table item
+        // (each event has: type, name/email, houseId, rewardType, rewardAmount, createdAt).
+        const events = (history || []).map(ev => {
+          const isXP = ev.rewardType === 'xp';
+          const rewardLabel = isXP
+            ? '+' + (ev.rewardAmount ?? '') + ' XP'
+            : '+' + (typeof ev.rewardAmount === 'number' ? ev.rewardAmount.toFixed(2) : ev.rewardAmount) + ' Credits';
+          return {
+            type:        ev.type === 'listing' ? 'listing' : 'registration',
+            date:        ev.createdAt,
+            user_name:   ev.type === 'listing' ? (ev.name || 'Untitled property') : (ev.name || ev.email || 'Unknown user'),
+            user_email:  ev.type === 'listing' ? '' : (ev.email || ''),
+            action:      ev.type === 'listing' ? 'Created listing' : 'Signed up',
+            reward:      rewardLabel,
+            reward_type: isXP ? 'xp' : 'credits',
+          };
         });
 
         // Sort newest first
@@ -15609,12 +15569,13 @@
 
         // ── SELF-REFERRAL GUARD ──
         // Don't let someone use their own referral code on their own listing.
-        // (award_referral_reward also blocks the reward server-side, but this
+        // (award_listing also blocks the reward server-side, but this
         // stops the bad value from ever being saved in the first place.)
         if (!isEdit && payload.referral_code) {
           try {
-            const { data: ownProfile } = await sb.from('profiles').select('referral_code').eq('id', cu.id).maybeSingle();
-            if (ownProfile?.referral_code && String(ownProfile.referral_code) === String(payload.referral_code)) {
+            const ownRes = await _rnReferralApi('ensure');
+            const ownCode = ownRes.ok && ownRes.data && ownRes.data.referralId;
+            if (ownCode && String(ownCode) === String(payload.referral_code)) {
               setLoader(false);
               toast("You can't use your own referral code for your own listing.", 'error');
               return;
@@ -15664,10 +15625,10 @@
         // approved partner) or +0.50 credits (otherwise).
         if (!isEdit && payload.referral_code) {
           try {
-            const { data: rewardRes, error: rewardErr } = await sb.rpc('award_referral_reward', { p_house_id: houseId });
-            console.log('[Nestly] Referral reward result:', rewardRes, rewardErr);
+            const rewardRes = await _rnReferralApi('award_listing', { houseId: houseId });
+            console.log('[Nestly] Referral reward result:', rewardRes.data, rewardRes.error);
           } catch (e) {
-            console.warn('[Nestly] award_referral_reward error:', e.message || e);
+            console.warn('[Nestly] award_listing error:', e.message || e);
           }
         }
 
@@ -16096,16 +16057,12 @@
 
       applyAvatarEverywhere(name, prof?.avatar_url, 'host', prof?.verified);
 
-      // Referral stats — use ensureReferralCode() as single source of truth
+      // Referral stats — pulled from the Referrals table via /api/referrals
       try {
-        let refCode = prof?.referral_code;
-        if (!refCode) {
-          await ensureReferralCode();
-          const { data: refData } = await sb.from('profiles').select('referral_code').eq('id', user.id).maybeSingle();
-          refCode = refData?.referral_code || '';
-        } else {
-          showReferralCodeInSidebar(refCode);
-        }
+        const statsRes = await _rnReferralApi('stats');
+        const s = statsRes.ok ? (statsRes.data || {}) : {};
+        const refCode = s.referralId || '';
+        if (refCode) showReferralCodeInSidebar(refCode);
         const card = document.getElementById('prof-referral-card');
         if (refCode) {
           const codeEl = document.getElementById('prof-ref-code');
@@ -16113,22 +16070,8 @@
           if (codeEl) codeEl.textContent = refCode;
           const countEl = document.getElementById('prof-ref-count');
           const friendsEl = document.getElementById('prof-ref-friends');
-          if (countEl) {
-            if (prof?.listing_referrals !== undefined && prof?.listing_referrals !== null) {
-              countEl.textContent = prof.listing_referrals;
-            } else {
-              const { count } = await sb.from('houses').select('*', { count: 'exact', head: true }).eq('referral_code', refCode);
-              countEl.textContent = count ?? 0;
-            }
-          }
-          if (friendsEl) {
-            if (prof?.registration_referrals !== undefined && prof?.registration_referrals !== null) {
-              friendsEl.textContent = prof.registration_referrals;
-            } else {
-              const { count: fcount } = await sb.from('profiles').select('*', { count: 'exact', head: true }).eq('referred_by_code', refCode);
-              friendsEl.textContent = fcount ?? 0;
-            }
-          }
+          if (countEl) countEl.textContent = s.listingReferrals ?? 0;
+          if (friendsEl) friendsEl.textContent = s.registrationReferrals ?? 0;
         }
       } catch(e) { /* referral fields may not exist yet — safe to ignore */ }
     }
@@ -16192,16 +16135,12 @@
 
       applyAvatarEverywhere(name, prof?.avatar_url, 'rent', prof?.verified);
 
-      // Referral stats — use ensureReferralCode() as single source of truth
+      // Referral stats — pulled from the Referrals table via /api/referrals
       try {
-        let refCode = prof?.referral_code;
-        if (!refCode) {
-          await ensureReferralCode();
-          const { data: refData } = await sb.from('profiles').select('referral_code').eq('id', user.id).maybeSingle();
-          refCode = refData?.referral_code || '';
-        } else {
-          showReferralCodeInSidebar(refCode);
-        }
+        const statsRes = await _rnReferralApi('stats');
+        const s = statsRes.ok ? (statsRes.data || {}) : {};
+        const refCode = s.referralId || '';
+        if (refCode) showReferralCodeInSidebar(refCode);
         const card = document.getElementById('rent-prof-referral-card');
         if (refCode) {
           const codeEl = document.getElementById('rent-prof-ref-code');
@@ -16209,22 +16148,8 @@
           if (codeEl) codeEl.textContent = refCode;
           const countEl = document.getElementById('rent-prof-ref-count');
           const friendsEl = document.getElementById('rent-prof-ref-friends');
-          if (countEl) {
-            if (prof?.listing_referrals !== undefined && prof?.listing_referrals !== null) {
-              countEl.textContent = prof.listing_referrals;
-            } else {
-              const { count } = await sb.from('houses').select('*', { count: 'exact', head: true }).eq('referral_code', refCode);
-              countEl.textContent = count ?? 0;
-            }
-          }
-          if (friendsEl) {
-            if (prof?.registration_referrals !== undefined && prof?.registration_referrals !== null) {
-              friendsEl.textContent = prof.registration_referrals;
-            } else {
-              const { count: fcount } = await sb.from('profiles').select('*', { count: 'exact', head: true }).eq('referred_by_code', refCode);
-              friendsEl.textContent = fcount ?? 0;
-            }
-          }
+          if (countEl) countEl.textContent = s.listingReferrals ?? 0;
+          if (friendsEl) friendsEl.textContent = s.registrationReferrals ?? 0;
         }
       } catch(e) { /* referral fields may not exist yet — safe to ignore */ }
     }
@@ -18512,14 +18437,41 @@
       }
 
       // ══ REFERRAL CODE SYSTEM ══
+      // All referral logic now lives server-side in /api/referrals (backed by the
+      // Referrals DynamoDB table). This small helper wraps the fetch + auth header.
+      async function _rnReferralApi(action, body) {
+        try {
+          const headers = { 'Content-Type': 'application/json' };
+          if (action !== 'validate') {
+            try {
+              const raw = localStorage.getItem('rentnivas-auth');
+              if (raw) {
+                const s = JSON.parse(raw);
+                const token = s && (s.id_token || s.access_token);
+                if (token) headers['Authorization'] = 'Bearer ' + token;
+              }
+            } catch (e) {}
+          }
+          const resp = await fetch('/api/referrals', {
+            method: 'POST',
+            headers: headers,
+            body: JSON.stringify(Object.assign({ action: action }, body || {}))
+          });
+          const json = await resp.json().catch(() => ({}));
+          if (!resp.ok) return { ok: false, error: (json && json.error) || 'Request failed', data: null };
+          return { ok: true, data: json && json.data, error: null };
+        } catch (e) {
+          return { ok: false, error: e.message || 'Network error', data: null };
+        }
+      }
 
-      // Calls the server-side RPC which directly reads/creates the referral code
-      // in DynamoDB — no client-side Query-builder involved, no edge cases.
+      // Calls the server-side referrals API which reads/creates the referral
+      // code directly in the Referrals DynamoDB table.
       async function ensureReferralCode() {
         if (!user) return;
         try {
-          const result = await sb.rpc('get_or_create_referral_code', {});
-          const code = result && result.data && result.data.referral_code;
+          const res = await _rnReferralApi('ensure');
+          const code = res.ok && res.data && res.data.referralId;
           if (code) showReferralCodeInSidebar(String(code));
         } catch (e) {
           console.warn('[RN] ensureReferralCode error:', e.message);
@@ -18530,9 +18482,10 @@
       // If this user signed up using someone's referral code (stashed in
       // their auth user_metadata at signup time), reward that referrer
       // once: +15 XP if they're an approved partner, otherwise +0.50 credits.
-      // The DB function is idempotent (it stamps profiles.referred_by_code
-      // on this user the first time it succeeds), so calling this more
-      // than once across sessions is harmless.
+      // The server-side handler is idempotent (it stamps the user as already
+      // processed the first time it succeeds), so calling this more than once
+      // across sessions is harmless. If no code is available client-side, the
+      // server also checks for a pending code stored during signup verification.
       async function processPendingSignupReferral() {
         if (!user) return;
 
@@ -18540,32 +18493,11 @@
         // attribute to be declared in the User Pool — may be null if not configured).
         let code = (user.user_metadata && user.user_metadata.referral_code) ? String(user.user_metadata.referral_code).trim() : '';
 
-        // Fallback: code written to DynamoDB profile by signup-verify.js during
-        // email confirmation. This path is used when the Cognito User Pool does
-        // NOT have the custom:referral_code attribute (which caused the error:
-        // "Attributes did not conform to the schema").
-        if (!code || code.length < 6) {
-          try {
-            const { data: profData } = await sb.from('profiles')
-              .select('pending_referral_code')
-              .eq('id', user.id)
-              .maybeSingle();
-            if (profData && profData.pending_referral_code) {
-              code = String(profData.pending_referral_code).trim();
-              console.log('[RN] Using pending_referral_code from profile:', code);
-            }
-          } catch (e) {
-            console.warn('[RN] Could not read pending_referral_code:', e.message || e);
-          }
-        }
-
-        if (!code || code.length < 6) return;
-
         try {
-          const { data, error } = await sb.rpc('process_registration_referral', { p_referral_code: code });
-          console.log('[RN] Registration referral result:', data, error);
+          const res = await _rnReferralApi('process_registration', code ? { code: code } : {});
+          console.log('[RN] Registration referral result:', res.data, res.error);
         } catch (e) {
-          console.warn('[RN] process_registration_referral error:', e.message || e);
+          console.warn('[RN] process_registration error:', e.message || e);
         }
         // Clear metadata flag so we stop re-checking every session
         try {
@@ -18582,20 +18514,11 @@
         if (okEl) okEl.style.display = 'none';
         if (errEl) errEl.style.display = 'none';
         try {
-          // FIX: this used to go through sb.from('profiles')... which requires
-          // an authenticated session (/api/data always rejects with "Not
-          // authenticated" otherwise). On the signup form the person isn't
-          // logged in yet, so every code — even a real one — came back as
-          // "doesn't match any account". /api/check-referral is a public,
-          // unauthenticated endpoint built specifically for this lookup.
-          const resp = await fetch('/api/check-referral', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ code: code })
-          });
-          const json = await resp.json().catch(() => ({}));
-          const data = json && json.data;
-          if (!resp.ok || !data) { if (errEl) errEl.style.display = 'block'; return; }
+          // Public lookup — the signup form isn't authenticated yet, so this
+          // hits the 'validate' action on /api/referrals, which is public.
+          const res = await _rnReferralApi('validate', { code: code });
+          const data = res.ok ? res.data : null;
+          if (!data) { if (errEl) errEl.style.display = 'block'; return; }
           if (nameEl) nameEl.textContent = data.name || data.email || 'a verified user';
           if (okEl) okEl.style.display = 'block';
         } catch (e) { if (errEl) errEl.style.display = 'block'; }
@@ -18660,13 +18583,10 @@
         if (resultEl) resultEl.style.display = 'none';
         if (errorEl) errorEl.style.display = 'none';
         try {
-          const { data, error } = await sb.from('profiles').select('id,name,email').eq('referral_code', code).maybeSingle();
-          if (error || !data) {
+          const res = await _rnReferralApi('validate', { code: code });
+          const data = res.ok ? res.data : null;
+          if (!data) {
             if (errorEl) { errorEl.textContent = '❌ Invalid referral code. Please check and try again.'; errorEl.style.display = 'block'; }
-            return;
-          }
-          if (user && data.id === user.id) {
-            if (errorEl) { errorEl.textContent = "❌ That's your own referral code — enter someone else's instead."; errorEl.style.display = 'block'; }
             return;
           }
           if (nameEl) nameEl.textContent = data.name || (data.email ? data.email.split('@')[0] : 'Rent Nivas user');
@@ -19759,48 +19679,29 @@
       listEl.innerHTML = '<div class="rnref-empty">Loading...</div>';
       try {
         var isPartner = await _pdIsPartner(user.id);
-        var profRes = await sb.from('profiles')
-          .select('referral_code,credits,total_referrals').eq('id', user.id).maybeSingle();
-        var prof = profRes.data || {};
-        var refCode = prof.referral_code;
-        if (!refCode) { await ensureReferralCode(); var r2 = await sb.from('profiles').select('referral_code').eq('id', user.id).maybeSingle(); refCode = r2.data && r2.data.referral_code; }
-        _rnrefCode = refCode || '';
+        var statsRes = await _rnReferralApi('stats');
+        var s = statsRes.ok ? (statsRes.data || {}) : {};
+        var refCode = s.referralId || '';
+        _rnrefCode = refCode;
 
-        var credits = parseFloat(prof.credits || 0);
         document.getElementById('rnref-code-val').textContent = refCode || '————';
 
-        var regPromise = sb.from('profiles')
-          .select('id,name,email,avatar_url,created_at').eq('referred_by_code', refCode)
-          .order('created_at', { ascending: false }).limit(100);
-        var housePromise = sb.from('houses')
-          .select('id,title,images,owner_id,created_at,referral_reward_given').eq('referral_code', refCode)
-          .order('created_at', { ascending: false }).limit(100);
-        var res = await Promise.all([regPromise, housePromise]);
-        var regRows = res[0].data || [];
-        var houseRows = (res[1].data || []).filter(function(h){ return h.referral_reward_given; });
-
-        // Look up the publisher's name for each referred house
-        var ownerIds = [...new Set(houseRows.map(function(h){ return h.owner_id; }).filter(Boolean))];
-        var ownerMap = {};
-        if (ownerIds.length) {
-          try {
-            var ownerRes = await sb.from('profiles').select('id,name,email').in('id', ownerIds);
-            (ownerRes.data || []).forEach(function(p){ ownerMap[p.id] = p.name || p.email || 'Unknown user'; });
-          } catch(e){}
-        }
+        var history = s.history || [];
+        var regRows = history.filter(function(ev){ return ev.type !== 'listing'; });
+        var houseRows = history.filter(function(ev){ return ev.type === 'listing'; });
 
         var rewardLabel = isPartner ? '+5 XP · +0.50 Credit' : '+0.50 Credit';
 
-        _rnrefData.register = regRows.map(function(u){
-          return { name: u.name || 'Unknown user', email: u.email || '', avatar: u.avatar_url || '', date: u.created_at, reward: rewardLabel };
+        _rnrefData.register = regRows.map(function(ev){
+          return { name: ev.name || 'Unknown user', email: ev.email || '', avatar: '', date: ev.createdAt, reward: rewardLabel };
         });
-        _rnrefData.house = houseRows.map(function(h){
+        _rnrefData.house = houseRows.map(function(ev){
           return {
-            name: h.title || 'Untitled property',
-            id: h.id,
-            image: (h.images && h.images[0]) || '',
-            publisher: ownerMap[h.owner_id] || 'Unknown user',
-            date: h.created_at,
+            name: ev.name || 'Untitled property',
+            id: ev.houseId,
+            image: '',
+            publisher: ev.email || 'Unknown user',
+            date: ev.createdAt,
             reward: rewardLabel
           };
         });
