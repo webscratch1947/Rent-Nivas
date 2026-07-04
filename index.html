@@ -12841,7 +12841,7 @@
 
         if (!statsRes.ok) throw new Error(statsRes.error || 'Failed to load referral stats');
         const s = statsRes.data || {};
-        const refCode = s.referralCode || '';
+        const refCode = s.referralId || '';
         if (refCode) showReferralCodeInSidebar(refCode);
 
         // Render referral code card
@@ -12869,25 +12869,7 @@
         setEl('pd-stat-credits', credits % 1 === 0 ? credits + ' Credits' : credits.toFixed(2) + ' Credits');
 
         // ── 2. Render referral history from the stats payload ──────────────
-        // get_referral_data returns referredUsers/referredListings, not a
-        // pre-built "history" array — build the shape _renderReferralHistory
-        // expects here instead of reading a field the API never returns.
-        const isPartnerForHistory = await _pdIsPartner(user.id);
-        const historyRewardType   = isPartnerForHistory ? 'xp' : 'credits';
-        const historyRewardAmount = isPartnerForHistory ? 5 : 0.50;
-        const referredUsersForHist    = Array.isArray(s.referredUsers)    ? s.referredUsers    : [];
-        const referredListingsForHist = Array.isArray(s.referredListings) ? s.referredListings : [];
-        const builtHistory = [
-          ...referredUsersForHist.map(u => ({
-            type: 'registration', name: u.name, email: u.email, createdAt: u.joinedAt,
-            rewardType: historyRewardType, rewardAmount: historyRewardAmount,
-          })),
-          ...referredListingsForHist.map(l => ({
-            type: 'listing', name: l.title, createdAt: l.listedAt,
-            rewardType: historyRewardType, rewardAmount: historyRewardAmount,
-          })),
-        ];
-        _renderReferralHistory(refCode, builtHistory);
+        _renderReferralHistory(refCode, s.history || []);
 
         // ── 3. Check for new referrals → show success popup once ──────────
         if (!showRefreshToast) {
@@ -13373,7 +13355,7 @@
     async function fetchAndShowWarnings() {
       if (!user) return;
       try {
-        const uCreated = user.created_at || null;
+        const uCreated = window._userProfileCreatedAt || user.created_at || null;
         // Fetch personal warnings for this user AND global warnings in parallel,
         // then merge — avoids the .or() shim limitation.
         const [personalRes, globalRes] = await Promise.all([
@@ -13499,7 +13481,7 @@
     async function fetchAndShowAnnouncements() {
       if (!user) return;
       try {
-        const uCreated = user.created_at || null;
+        const uCreated = window._userProfileCreatedAt || user.created_at || null;
         const { data: anns, error } = await withTimeout(
           sb
             .from('admin_announcements')
@@ -13746,15 +13728,6 @@
         window._nestlyPollTimer = null;
       }
       localStorage.removeItem('nestly-role');
-      // FIX (account data leaking on shared/reused browsers): 'nestly-credits'
-      // and the legacy global 'rn-streak-v1' key were never cleared on logout.
-      // On a browser used to test multiple accounts (e.g. one email after
-      // another), the NEXT brand-new account would read/inherit the previous
-      // account's cached credits and daily-streak progress — e.g. a fresh
-      // signup showing 18 credits and "Day 3 already claimed" that were
-      // actually left over from the prior account on the same device.
-      localStorage.removeItem('nestly-credits');
-      localStorage.removeItem('rn-streak-v1');
       document.getElementById('ban-overlay')?.classList.add('hidden');
       document.getElementById('perm-ban-page').style.display = 'none';
       showPage('landing-page');
@@ -13988,6 +13961,8 @@
           // Refresh credits display with authoritative live value
           localStorage.setItem('nestly-credits', Math.max(0, pr.data.credits || 0));
           updateCreditsBadges();
+          // Store profile created_at globally for announcement/warning filtering
+          if (pr.data.created_at) window._userProfileCreatedAt = pr.data.created_at;
         }
       }
 
@@ -15601,7 +15576,7 @@
         if (!isEdit && payload.referral_code) {
           try {
             const ownRes = await _rnReferralApi('ensure');
-            const ownCode = ownRes.ok && ownRes.data && ownRes.data.referral_code;
+            const ownCode = ownRes.ok && ownRes.data && ownRes.data.referralId;
             if (ownCode && String(ownCode) === String(payload.referral_code)) {
               setLoader(false);
               toast("You can't use your own referral code for your own listing.", 'error');
@@ -15648,7 +15623,7 @@
 
         // ── REFERRAL REWARD ──
         // First-time listing only (not edits), and only if a referral
-        // code was entered. Awards the referrer +5 XP (if they're an
+        // code was entered. Awards the referrer +10 XP (if they're an
         // approved partner) or +0.50 credits (otherwise).
         if (!isEdit && payload.referral_code) {
           try {
@@ -16089,7 +16064,7 @@
       try {
         const statsRes = await _rnReferralApi('stats');
         const s = statsRes.ok ? (statsRes.data || {}) : {};
-        const refCode = s.referralCode || '';
+        const refCode = s.referralId || '';
         if (refCode) showReferralCodeInSidebar(refCode);
         const card = document.getElementById('prof-referral-card');
         if (refCode) {
@@ -16168,7 +16143,7 @@
       try {
         const statsRes = await _rnReferralApi('stats');
         const s = statsRes.ok ? (statsRes.data || {}) : {};
-        const refCode = s.referralCode || '';
+        const refCode = s.referralId || '';
         if (refCode) showReferralCodeInSidebar(refCode);
         const card = document.getElementById('rent-prof-referral-card');
         if (refCode) {
@@ -18507,7 +18482,7 @@
           const resp = await fetch('/api/data', {
             method: 'POST',
             headers: headers,
-            body: JSON.stringify({ op: 'rpc', name: rpcName, params })
+            body: JSON.stringify({ rpc: rpcName, params })
           });
           const json = await resp.json().catch(() => ({}));
           if (!resp.ok) return { ok: false, error: (json && json.error) || 'Request failed', data: null };
@@ -18525,7 +18500,7 @@
         if (!user) return;
         try {
           const res = await _rnReferralApi('ensure');
-          const code = res.ok && res.data && res.data.referral_code;
+          const code = res.ok && res.data && res.data.referralId;
           if (code) showReferralCodeInSidebar(String(code));
         } catch (e) {
           console.warn('[RN] ensureReferralCode error:', e.message);
@@ -18535,7 +18510,7 @@
       // ── REGISTRATION REFERRAL ──
       // If this user signed up using someone's referral code (stashed in
       // their auth user_metadata at signup time), reward that referrer
-      // once: +5 XP if they're an approved partner, otherwise +0.50 credits.
+      // once: +15 XP if they're an approved partner, otherwise +0.50 credits.
       // The server-side handler is idempotent (it stamps the user as already
       // processed the first time it succeeds), so calling this more than once
       // across sessions is harmless. If no code is available client-side, the
@@ -19735,7 +19710,7 @@
         var isPartner = await _pdIsPartner(user.id);
         var statsRes = await _rnReferralApi('stats');
         var s = statsRes.ok ? (statsRes.data || {}) : {};
-        var refCode = s.referralCode || '';
+        var refCode = s.referralId || '';
         _rnrefCode = refCode;
 
         document.getElementById('rnref-code-val').textContent = refCode || '————';
@@ -20916,14 +20891,7 @@
       window.rnStreakSetUser = function(userId) {
         if (!userId) return;
         var userKey = 'rn-streak-v1-' + userId;
-        // Migrate global key to user-scoped key only if user-scoped is empty and global has real data.
-        // FIX: this used to leave the global 'rn-streak-v1' key in place after
-        // migrating it, so on a browser reused for multiple accounts (e.g.
-        // testing signups with different emails), every NEXT brand-new user
-        // would inherit whatever streak day the PREVIOUS account had reached
-        // (e.g. a fresh signup showing "Day 3 already claimed"). Once we've
-        // copied it into this user's own key, remove the global key so it
-        // can never leak into a different account again.
+        // Migrate global key to user-scoped key only if user-scoped is empty and global has real data
         if (!localStorage.getItem(userKey)) {
           try {
             var old = JSON.parse(localStorage.getItem('rn-streak-v1') || 'null');
@@ -20932,7 +20900,6 @@
             }
           } catch(e) {}
         }
-        try { localStorage.removeItem('rn-streak-v1'); } catch(e) {}
         STREAK_KEY = userKey;
       };
       var CREDITS_PER_DAY = [1, 2, 3, 4, 5, 6, 7]; // Day 1=1 Day 2=2 … Day 7=7 credits
