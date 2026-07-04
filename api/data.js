@@ -719,15 +719,16 @@ async function awardReferralReward(referrerId, kind) {
   let patch = { updated_at: new Date().toISOString() };
   let rewardDesc;
 
+  const currentCredits = parseFloat(referrer.credits || 0);
+  patch.credits = Math.round((currentCredits + 0.50) * 100) / 100;
+
   if (isPartner) {
     const currentXP        = parseInt(referrer.xp || 0, 10);
     const currentPartnerXP = parseInt(referrer.partner_xp || 0, 10);
     patch.xp         = currentXP + 5;
     patch.partner_xp = currentPartnerXP + 5;
-    rewardDesc = `+5 XP (partner ${kind} referral)`;
+    rewardDesc = `+5 XP · +0.50 credits (partner ${kind} referral)`;
   } else {
-    const currentCredits = parseFloat(referrer.credits || 0);
-    patch.credits = Math.round((currentCredits + 0.50) * 100) / 100;
     rewardDesc = `+0.50 credits (${kind} referral)`;
   }
 
@@ -1157,6 +1158,134 @@ async function handleRpc(spec, claims) {
 
     console.log(`[Referral] Listing referral reward given: house=${houseId} referrer=${referrerId} code=${refCode}`);
     return { awarded: true, referrer_id: referrerId, reward };
+  }
+
+  // ── admin_backfill_missed_rewards ────────────────────────────────────────
+  // One-time (safe to re-run) sweep that pays out rewards that were silently
+  // lost to two now-fixed bugs:
+  //   1. reward_owner_for_unlock queried a nonexistent 'properties' table,
+  //      so NO owner ever got their unlock credit until this was fixed.
+  //   2. award_listing_referral was called under the wrong RPC name
+  //      ('award_referral_reward'), so NO house-listing referral ever paid
+  //      out until the name mismatch was fixed.
+  //   3. Partner referrers used to receive XP only (no credits) for every
+  //      referral, before the rule changed to XP + credits. This tops up
+  //      the missing 0.50/referral for partners who were shorted.
+  // Every step here reuses the exact same idempotency guards as the live
+  // code path (house.referral_reward_given, purchase.owner_rewarded), so
+  // this can be run repeatedly with no risk of double-paying anyone.
+  if (spec.name === 'admin_backfill_missed_rewards') {
+    const adminEmails = (process.env.ADMIN_EMAILS || '').split(',').map(v => v.trim().toLowerCase()).filter(Boolean);
+    const isAdminCaller = (claims['cognito:groups'] || []).includes('admin') || adminEmails.includes(String(claims.email || '').toLowerCase());
+    if (!isAdminCaller) throw new Error('Admin access required');
+
+    const result = {
+      ownerRewardsPaid: 0, ownerRewardsSkipped: 0, ownerRewardsFailed: 0,
+      listingReferralsPaid: 0, listingReferralsSkipped: 0, listingReferralsFailed: 0,
+      partnerTopUpsPaid: 0, partnerTopUpsSkipped: 0, partnerTopUpsFailed: 0,
+    };
+
+    // Fake "admin" claims to reuse the existing RPC handlers' internal logic
+    // without a real end-user session attached to each historical event.
+    const adminClaims = { sub: '__backfill__', email: '', 'cognito:groups': ['admin'] };
+
+    // ── 1. Missed owner-unlock rewards ──────────────────────────────────────
+    try {
+      const purchasesTbl = tableName('purchases');
+      const scanned = await runDdb('read', 'purchases', () => ddb.send(new ScanCommand({ TableName: purchasesTbl })));
+      const purchases = (scanned.Items || []).map(item => fromDbItem('purchases', unmarshall(item)));
+      for (const p of purchases) {
+        if (p.owner_rewarded) { result.ownerRewardsSkipped++; continue; }
+        if (!p.id || !p.listing_id) { result.ownerRewardsSkipped++; continue; }
+        try {
+          const res = await handleRpc({
+            name: 'reward_owner_for_unlock',
+            params: { property_id: p.listing_id, purchase_id: p.id, buyer_id: p.user_id },
+          }, adminClaims);
+          if (res && res.rewarded) result.ownerRewardsPaid++;
+          else result.ownerRewardsSkipped++;
+        } catch (e) {
+          console.error('[Backfill] owner reward failed for purchase', p.id, e.message);
+          result.ownerRewardsFailed++;
+        }
+      }
+    } catch (e) {
+      console.error('[Backfill] purchases scan failed:', e.message);
+    }
+
+    // ── 2. Missed house-listing referral rewards ────────────────────────────
+    try {
+      const housesTbl = tableName('houses');
+      const scanned = await runDdb('read', 'houses', () => ddb.send(new ScanCommand({ TableName: housesTbl })));
+      const houses = (scanned.Items || []).map(item => fromDbItem('houses', unmarshall(item)));
+      for (const h of houses) {
+        if (h.referral_reward_given) { result.listingReferralsSkipped++; continue; }
+        if (!h.referral_code) { result.listingReferralsSkipped++; continue; }
+        try {
+          const res = await handleRpc({ name: 'award_listing_referral', params: { p_house_id: h.id } }, adminClaims);
+          if (res && res.awarded) result.listingReferralsPaid++;
+          else result.listingReferralsSkipped++;
+        } catch (e) {
+          console.error('[Backfill] listing referral failed for house', h.id, e.message);
+          result.listingReferralsFailed++;
+        }
+      }
+    } catch (e) {
+      console.error('[Backfill] houses scan failed:', e.message);
+    }
+
+    // ── 3. Top up partner referrers who only got XP under the old rule ─────
+    try {
+      const scanned = await runDdb('read', 'Referrals', () => ddb.send(new ScanCommand({ TableName: TABLE_REFERRALS })));
+      const referralRows = (scanned.Items || []).map(item => unmarshall(item));
+      for (const r of referralRows) {
+        if (!r.userId || r.regCreditTopUpApplied) { result.partnerTopUpsSkipped++; continue; }
+        const regCount = parseInt(r.registrationReferrals || 0, 10);
+        if (!regCount) { result.partnerTopUpsSkipped++; continue; }
+        try {
+          const isPartner = await hasPartnerAccess(r.userId);
+          if (!isPartner) {
+            // Not a partner — under both the old and new rule they already
+            // got their 0.50 credits at the time, nothing owed. Just stamp
+            // so we don't re-check this row every time the sweep runs.
+            await ddb.send(new UpdateItemCommand({
+              TableName: TABLE_REFERRALS, Key: marshall({ referralId: r.referralId }),
+              UpdateExpression: 'SET regCreditTopUpApplied = :t',
+              ExpressionAttributeValues: marshall({ ':t': true }),
+            }));
+            result.partnerTopUpsSkipped++;
+            continue;
+          }
+          const owedCredits = Math.round(regCount * 0.50 * 100) / 100;
+          const referrerProfile = await readItems({
+            table: 'profiles', op: 'select', select: 'id,credits',
+            filters: [{ op: 'eq', column: 'id', value: r.userId }], maybeSingle: true,
+          });
+          if (!referrerProfile) { result.partnerTopUpsFailed++; continue; }
+          const newCredits = Math.round((parseFloat(referrerProfile.credits || 0) + owedCredits) * 100) / 100;
+          await updateRows({
+            table: 'profiles', op: 'update',
+            values: { credits: newCredits, updated_at: new Date().toISOString() },
+            filters: [{ op: 'eq', column: 'id', value: r.userId }],
+          });
+          await ddb.send(new UpdateItemCommand({
+            TableName: TABLE_REFERRALS, Key: marshall({ referralId: r.referralId }),
+            UpdateExpression: 'SET regCreditTopUpApplied = :t',
+            ExpressionAttributeValues: marshall({ ':t': true }),
+          }));
+          console.log(`[Backfill] Topped up partner ${r.userId} with ${owedCredits} missed referral credits`);
+          result.partnerTopUpsPaid++;
+        } catch (e) {
+          console.error('[Backfill] partner top-up failed for referral row', r.referralId, e.message);
+          result.partnerTopUpsFailed++;
+        }
+      }
+    } catch (e) {
+      console.error('[Backfill] Referrals scan failed:', e.message);
+    }
+
+    console.log('[Backfill] admin_backfill_missed_rewards result:', result);
+    return result;
   }
 
   // ── claim_daily_reward ────────────────────────────────────────────────────
@@ -1646,7 +1775,7 @@ async function handleRpc(spec, claims) {
 
     // Get the property to find owner_id
     const property = await readItems({
-      table: 'properties',
+      table: 'houses',
       op: 'select',
       select: 'id,owner_id',
       filters: [{ op: 'eq', column: 'id', value: property_id }],
