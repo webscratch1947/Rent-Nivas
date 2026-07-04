@@ -20005,7 +20005,7 @@
             : '<div class="rnref-avatar">🏠</div>';
           return '<div class="rnref-row">' + cover +
             '<div class="rnref-row-main"><div class="rnref-row-name">' + esc(h.name) + '</div><div class="rnref-row-sub">by ' + esc(h.publisher) + '</div></div>' +
-            '<button class="rnref-open-btn" onclick="adminGoToListing(\'' + h.id + '\')">Open</button></div>';
+            '</div>';
         }).join('');
       }
     }
@@ -22195,31 +22195,34 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
       try { if (window._RNTut && typeof window._RNTut.stopAudio === 'function') window._RNTut.stopAudio(); } catch(e) {}
     }
 
-    if (wrap && !wrap.querySelector('svg')) {
-      // Fetch SVG first — only show overlay once it's ready so chest is visible from the start
-      fetch('/coins-animation.svg')
-        .then(function(r) { return r.text(); })
-        .then(function(svgText) {
-          if (!wrap) return;
-          // Convert to "play once, freeze on last frame" — the raw file loops
-          // forever (repeatCount="indefinite"), which is why tapping the chest
-          // never settled on the open/coins frame and looked stuck/broken.
-          var onceText = svgText
-            .replace(/repeatCount="indefinite"/g, 'repeatCount="1" fill="freeze"')
-            .replace(/\sfill="remove"/g, ' fill="freeze"')
-            .replace(/(<(?:animate|animateTransform|animateMotion|set)(?![^>]*\sfill=)[^>]*?)(\/?>)/g, '$1 fill="freeze"$2');
-          wrap.innerHTML = onceText;
-          _applyFirstFrame(wrap.querySelector('svg'));
+    if (wrap) {
+      // Use <object> so SVG renders in its own document scope — preserves
+      // gradients, filters and SMIL animations without innerHTML corruption.
+      if (!wrap.querySelector('object')) {
+        var obj = document.createElement('object');
+        obj.type = 'image/svg+xml';
+        obj.data = '/coins-animation.svg';
+        obj.style.cssText = 'width:100%;height:100%;display:block;';
+        obj.onload = function() {
+          try {
+            var svgDoc = obj.contentDocument;
+            var svgEl  = svgDoc && svgDoc.querySelector('svg');
+            if (svgEl) {
+              try { svgEl.pauseAnimations(); } catch(e) {}
+              try { svgEl.setCurrentTime(1); } catch(e) {}
+            }
+          } catch(e) {}
           _showOverlay();
-        })
-        .catch(function() {
-          if (wrap) wrap.innerHTML = '<div style="font-size:120px;line-height:1;text-align:center;">🎁</div>';
+        };
+        obj.onerror = function() {
+          wrap.innerHTML = '<div style="font-size:120px;line-height:1;text-align:center;">🎁</div>';
           _showOverlay();
-        });
-    } else if (wrap) {
-      // SVG already injected — reset to first frame
-      _applyFirstFrame(wrap.querySelector('svg'));
-      _showOverlay();
+        };
+        wrap.innerHTML = '';
+        wrap.appendChild(obj);
+      } else {
+        _showOverlay();
+      }
     } else {
       _showOverlay();
     }
@@ -22259,7 +22262,13 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
     if (_rnCreditsClaiming) return;
     _rnCreditsClaiming = true;
 
-    var svgEl = wrap ? wrap.querySelector('svg') : null;
+    // SVG is inside an <object> tag now — reach into its contentDocument
+    var obj = wrap ? wrap.querySelector('object') : null;
+    var svgEl = null;
+    if (obj && obj.contentDocument) {
+      svgEl = obj.contentDocument.querySelector('svg');
+    }
+    if (!svgEl) svgEl = wrap ? wrap.querySelector('svg') : null;
     if (svgEl) {
       // Play the chest animation
       try { svgEl.unpauseAnimations(); } catch(e) {}
