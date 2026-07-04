@@ -354,13 +354,14 @@ module.exports = async function handler(req, res) {
           } else {
             console.log('[SignupVerify] DynamoDB row already exists for', email, '— skipping creation');
             // If row exists but pending_referral_code not set, patch it in
-            if (referralCode) {
+            if (pendingReferralCode) {
               await ddb.send(new UpdateItemCommand({
                 TableName: TABLE_USERS,
                 Key: marshall({ userId }),
                 UpdateExpression: 'SET pending_referral_code = if_not_exists(pending_referral_code, :rc)',
                 ExpressionAttributeValues: marshall({ ':rc': pendingReferralCode }),
               })).catch(() => {});
+              console.log('[SignupVerify] Patched pending_referral_code for existing row:', email, pendingReferralCode);
             }
           }
         }
