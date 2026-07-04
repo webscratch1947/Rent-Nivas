@@ -22069,7 +22069,7 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
 
     if (wrap && !wrap.querySelector('svg')) {
       // Fetch SVG first — only show overlay once it's ready so chest is visible from the start
-      fetch('coins-animation.svg')
+      fetch('/coins-animation.svg')
         .then(function(r) { return r.text(); })
         .then(function(svgText) {
           if (!wrap) return;
