@@ -14116,7 +14116,9 @@
         fetchProfileRow().then(function(prof) {
           // Process referral NOW that we know the profile row exists in DynamoDB
           processPendingSignupReferral().catch(() => {});
-          if (prof && !prof.chest_claimed && typeof window._rnShowCreditsPrompt === 'function') {
+          const chestKey = 'rn-chest-claimed-' + user.id;
+          if (prof && !prof.chest_claimed && !localStorage.getItem(chestKey) && typeof window._rnShowCreditsPrompt === 'function') {
+            localStorage.setItem(chestKey, '1');
             sb.from('profiles').update({ chest_claimed: true }).eq('id', user.id).then(function(res){
               if (res && res.error) console.warn('[Chest] failed to mark claimed:', res.error.message);
             });
@@ -18624,7 +18626,7 @@
           const resp = await fetch('/api/data', {
             method: 'POST',
             headers: headers,
-            body: JSON.stringify({ rpc: rpcName, params })
+            body: JSON.stringify({ op: 'rpc', name: rpcName, params })
           });
           const json = await resp.json().catch(() => ({}));
           if (!resp.ok) return { ok: false, error: (json && json.error) || 'Request failed', data: null };
@@ -18988,13 +18990,13 @@
     // questions. Always refreshes the persistent button; only auto-pops the
     // modal the first time per house per session, so closing it never traps
     // the buyer in a loop where it keeps reopening every second.
+    const _rnQuestionsInProgress = new Set();
     async function maybePromptListingQuestions(house) {
       try {
         if (!house || !house.id) return;
-        // Never touch anything while the modal itself is open — prevents the
-        // background sync (or any other re-render) from wiping out whatever
-        // the user is currently typing into the modal.
+        if (_rnQuestionsInProgress.has(house.id)) return;
         if (document.getElementById('adm-modal-wrap')?.style.display === 'flex') return;
+        _rnQuestionsInProgress.add(house.id);
         const pending = await getPendingListingQuestions(house);
         _rnPendingQuestionsCache.set(house.id, pending);
         renderAnswerQuestionsButton(house, pending);
@@ -19002,6 +19004,7 @@
           _rnQuestionsAutoShown.add(house.id);
           showAnswerQuestionsModal(house, pending.purchaseId, pending.unanswered);
         }
+        _rnQuestionsInProgress.delete(house.id);
       } catch (e) {
         console.warn('[RentNivas] maybePromptListingQuestions error:', e.message || e);
       }
