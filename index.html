@@ -13749,6 +13749,10 @@
         window._nestlyPollTimer = null;
       }
       localStorage.removeItem('nestly-role');
+      // Clear streak state so next user on this device starts fresh
+      try {
+        Object.keys(localStorage).filter(k => k.startsWith('rn-streak')).forEach(k => localStorage.removeItem(k));
+      } catch(e) {}
       document.getElementById('ban-overlay')?.classList.add('hidden');
       document.getElementById('perm-ban-page').style.display = 'none';
       showPage('landing-page');
@@ -18661,22 +18665,15 @@
       // server also checks for a pending code stored during signup verification.
       async function processPendingSignupReferral() {
         if (!user) return;
-
-        // Primary: referral code from Cognito user_metadata (requires custom:referral_code
-        // attribute to be declared in the User Pool — may be null if not configured).
-        let code = (user.user_metadata && user.user_metadata.referral_code) ? String(user.user_metadata.referral_code).trim() : '';
-
+        // Server reads pending_referral_code from the Users DynamoDB row
+        // (written by signup-verify.js at email confirmation time).
+        // We pass no code — the RPC finds it itself.
         try {
-          const res = await _rnReferralApi('process_registration', code ? { code: code } : {});
-          console.log('[RN] Registration referral result:', res.data, res.error);
+          const res = await _rnReferralApi('process_registration', {});
+          console.log('[RN] Registration referral result:', res && res.data);
         } catch (e) {
           console.warn('[RN] process_registration error:', e.message || e);
         }
-        // Clear metadata flag so we stop re-checking every session
-        try {
-          await sb.auth.updateUser({ data: { referral_code: null } });
-          if (user.user_metadata) user.user_metadata.referral_code = null;
-        } catch (e) { /* non-fatal */ }
       }
 
       let _suRefTimer = null;
@@ -22196,33 +22193,15 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
     }
 
     if (wrap) {
-      // Use <object> so SVG renders in its own document scope — preserves
-      // gradients, filters and SMIL animations without innerHTML corruption.
-      if (!wrap.querySelector('object')) {
-        var obj = document.createElement('object');
-        obj.type = 'image/svg+xml';
-        obj.data = '/coins-animation.svg';
-        obj.style.cssText = 'width:100%;height:100%;display:block;';
-        obj.onload = function() {
-          try {
-            var svgDoc = obj.contentDocument;
-            var svgEl  = svgDoc && svgDoc.querySelector('svg');
-            if (svgEl) {
-              try { svgEl.pauseAnimations(); } catch(e) {}
-              try { svgEl.setCurrentTime(1); } catch(e) {}
-            }
-          } catch(e) {}
-          _showOverlay();
-        };
-        obj.onerror = function() {
-          wrap.innerHTML = '<div style="font-size:120px;line-height:1;text-align:center;">🎁</div>';
-          _showOverlay();
-        };
-        wrap.innerHTML = '';
-        wrap.appendChild(obj);
-      } else {
-        _showOverlay();
+      // Use <img> for the closed chest (static first frame) and swap to full
+      // SVG animation on tap — avoids innerHTML gradient corruption entirely.
+      if (!wrap.dataset.ready) {
+        wrap.dataset.ready = '1';
+        // Show a static preview image immediately (no fetch needed)
+        wrap.innerHTML = '<img id="rn-chest-img" src="/coins-animation.svg" ' +
+          'style="width:100%;height:100%;display:block;" alt="chest">';
       }
+      _showOverlay();
     } else {
       _showOverlay();
     }
@@ -22262,32 +22241,19 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
     if (_rnCreditsClaiming) return;
     _rnCreditsClaiming = true;
 
-    // SVG is inside an <object> tag now — reach into its contentDocument
-    var obj = wrap ? wrap.querySelector('object') : null;
-    var svgEl = null;
-    if (obj && obj.contentDocument) {
-      svgEl = obj.contentDocument.querySelector('svg');
+    // Reload SVG with cache-bust so browser replays the animation from start
+    var img = wrap ? wrap.querySelector('img') : null;
+    if (img) {
+      img.src = '/coins-animation.svg?t=' + Date.now();
     }
-    if (!svgEl) svgEl = wrap ? wrap.querySelector('svg') : null;
-    if (svgEl) {
-      // Play the chest animation
-      try { svgEl.unpauseAnimations(); } catch(e) {}
-      // After animation finishes (~2s remaining from the freeze frame) show "10 free credits" text in same overlay
-      setTimeout(function() {
-        _rnCreditsClaiming = false;
-        if (claimText) {
-          claimText.style.display = 'block';
-          requestAnimationFrame(function() { claimText.style.opacity = '1'; });
-        }
-      }, 2000);
-    } else {
-      // No SVG — show text immediately
+    // Show credits text after animation duration (~2.5s)
+    setTimeout(function() {
       _rnCreditsClaiming = false;
       if (claimText) {
         claimText.style.display = 'block';
         requestAnimationFrame(function() { claimText.style.opacity = '1'; });
       }
-    }
+    }, 2500);
   };
 
   /* ── STATE ── */
