@@ -2182,6 +2182,48 @@ async function handleRpc(spec, claims) {
   throw new Error(`Unsupported RPC "${spec.name}"`);
 }
 
+// ── cleanupDeletedHouseReferral ────────────────────────────────────────────
+// Called right before a 'houses' row delete goes through. If this house
+// carries a referral_code AND was already rewarded (referral_reward_given),
+// its snapshot sits permanently inside Referrals.referredListings for that
+// code. Read-modify-write: fetch the house first (delete filters don't give
+// us its data), look up the referrer's Referrals row, filter the dead
+// listing out, and write the trimmed array back. Best-effort — a failure
+// here must never block the actual delete from proceeding.
+async function cleanupDeletedHouseReferral(spec) {
+  const idFilter = (spec.filters || []).find(f => f.op === 'eq' && f.column === 'id');
+  const houseId = idFilter && idFilter.value;
+  if (!houseId) return;
+
+  const house = await readItems({
+    table: 'houses', op: 'select',
+    select: 'id,referral_code,referral_reward_given',
+    filters: [{ op: 'eq', column: 'id', value: houseId }],
+    maybeSingle: true,
+  }).catch(() => null);
+  if (!house || !house.referral_code || !house.referral_reward_given) return;
+
+  const refCode = String(house.referral_code).trim().toUpperCase();
+  const refRes = await ddb.send(new GetItemCommand({
+    TableName: TABLE_REFERRALS,
+    Key: marshall({ referralId: refCode }),
+  })).catch(() => null);
+  if (!refRes || !refRes.Item) return;
+
+  const refItem = unmarshall(refRes.Item);
+  const listings = Array.isArray(refItem.referredListings) ? refItem.referredListings : [];
+  const trimmed = listings.filter(l => l && l.listingId !== houseId);
+  if (trimmed.length === listings.length) return; // nothing to remove
+
+  await ddb.send(new UpdateItemCommand({
+    TableName: TABLE_REFERRALS,
+    Key: marshall({ referralId: refCode }),
+    UpdateExpression: 'SET referredListings = :list',
+    ExpressionAttributeValues: marshall({ ':list': trimmed }),
+  }));
+  console.log(`[Referral] Removed deleted house ${houseId} from referredListings for code ${refCode}`);
+}
+
 module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') return send(res, 204, {});
   if (req.method !== 'POST') return send(res, 405, { error: 'Method not allowed' });
@@ -2196,7 +2238,20 @@ module.exports = async function handler(req, res) {
     else if (spec.op === 'insert') data = await putRows(spec, false);
     else if (spec.op === 'upsert') data = await putRows(spec, true);
     else if (spec.op === 'update') data = await updateRows(spec);
-    else if (spec.op === 'delete') data = await deleteRows(spec);
+    else if (spec.op === 'delete') {
+      // ── Referral-history cleanup ────────────────────────────────────────
+      // If the house being deleted was ever awarded as a listing referral,
+      // its snapshot lives permanently in Referrals.referredListings (it's
+      // written once at award time and never touched again). Without this,
+      // a deleted house — whether removed by its owner or by an admin — kept
+      // showing up forever in the referrer's House referral history with a
+      // dead "Open" link. Strip it out of the referrer's array before the
+      // house row itself is gone.
+      if (spec.table === 'houses') {
+        try { await cleanupDeletedHouseReferral(spec); } catch (e) { console.warn('[Referral] cleanup on house delete failed:', e.message); }
+      }
+      data = await deleteRows(spec);
+    }
     else if (spec.op === 'rpc') data = await handleRpc(spec, claims);
     else throw new Error(`Unsupported operation "${spec.op}"`);
 
