@@ -232,9 +232,21 @@ module.exports = async function handler(req, res) {
   if (action === 'resend') {
     console.log(`[SignupVerify] ── resend received for email=${email}`);
     try {
+      // BUG FIX: storeCode() does a full PutItem (not an Update) on the same
+      // pk as the referral code we stashed via storePendingReferralCode() —
+      // so every resend was silently wiping out the referral attribution
+      // before the user ever finished verifying. Read it out first, then
+      // re-attach it after the fresh code is stored.
+      const priorRecord = await getCode('signup_verify', email).catch(() => null);
+      const carriedReferralCode = priorRecord && priorRecord.pendingReferralCode;
+
       const code = generateCode();
       console.log(`[SignupVerify] resend code generated for ${email}, storing in DynamoDB`);
       await storeCode('signup_verify', email, code);
+      if (carriedReferralCode) {
+        await storePendingReferralCode(email, carriedReferralCode);
+        console.log(`[SignupVerify] carried pendingReferralCode (${carriedReferralCode}) across resend for ${email}`);
+      }
       await sendCodeEmail('signup_verify', email, code);
       console.log(`[SignupVerify] ✅ resend completed (Brevo) for ${email}`);
       return send(res, 200, { data: {} });
