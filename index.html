@@ -10244,7 +10244,7 @@
                 <div class="fg"><label id="add-desc-lbl">Description</label><textarea id="h-desc"
                     placeholder="Describe your property — key features, nearby landmarks, amenities..."></textarea>
                 </div>
-                <div class="fg"><label id="add-phone-lbl">Contact Phone *</label><input type="tel" id="h-phone" placeholder="9876543210"></div>
+                <div class="fg"><label id="add-phone-lbl">Contact Phone *</label><div style="display:flex;align-items:center;gap:6px;"><span style="font-size:14px;font-weight:600;color:var(--fg2);white-space:nowrap;">+91</span><input type="tel" id="h-phone" placeholder="9876543210" maxlength="10" pattern="[0-9]{10}" style="flex:1;" oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,10)"></div></div>
               </div>
               <div class="form-sec" id="prop-details-sec">
                 <div class="form-sec-title"><span class="form-sec-icon" id="prop-details-icon">🛏</span> <span id="add-rooms-h">Space Details</span></div>
@@ -13967,11 +13967,14 @@
       }
 
       // Background: purchases, warnings, announcements, realtime (non-blocking)
+      // Announcements/warnings run AFTER profile so _userProfileCreatedAt is set
       Promise.all([
         loadUserPurchases().then(() => updateCreditsBadges()).catch(() => {}),
-        fetchAndShowWarnings(),
-        fetchAndShowAnnouncements(),
-      ]).catch(() => {}).then(() => setupRealtimeSubscriptions());
+      ]).catch(() => {}).then(() => {
+        fetchAndShowWarnings().catch(() => {});
+        fetchAndShowAnnouncements().catch(() => {});
+        setupRealtimeSubscriptions();
+      });
     }
 
     let _realtimeChannels = [];
@@ -14049,13 +14052,14 @@
       }
       showAdminNav();
       ensureReferralCode();
-      processPendingSignupReferral();
       // First-login welcome animation (once per account, post-registration)
       // Show a "tap to claim" prompt — user must click before animation starts
       setTimeout(function() {
         var uid = (user && (user.id || user.sub || user.email)) || null;
         if (!uid) return;
         fetchProfileRow().then(function(prof) {
+          // Process referral NOW that we know the profile row exists in DynamoDB
+          processPendingSignupReferral().catch(() => {});
           if (prof && !prof.chest_claimed && typeof window._rnShowCreditsPrompt === 'function') {
             sb.from('profiles').update({ chest_claimed: true }).eq('id', user.id).then(function(res){
               if (res && res.error) console.warn('[Chest] failed to mark claimed:', res.error.message);
@@ -15070,7 +15074,7 @@
     };
 
     function _rnGetFloorsData() {
-      return _rnFloors.filter(f => f.rent || f.rooms).map((f, idx) => ({
+      return _rnFloors.filter(f => f.label || f.rent || f.rooms || f.baths || f.kitchen || f.living || f.balcony || f.notes).map((f, idx) => ({
         label: f.label || `Floor ${idx+1}`,
         rent: parseFloat(f.rent)||0,
         rooms: parseInt(f.rooms)||0,
@@ -15807,13 +15811,15 @@
             return;
           }
           profileMap = new Map((profs || []).map(p => [p.id, p]));
+          // Also map by userId field (DynamoDB stores as userId not id)
+          (profs || []).forEach(p => { if (p.userId) profileMap.set(p.userId, p); });
         }
 
         if (tbody) {
           tbody.innerHTML = pRows.map((p) => {
             const pr = profileMap.get(p.user_id) || {};
-            const name = pr.name || pr.email?.split('@')?.[0] || 'Buyer';
-            const email = pr.email || '—';
+            const name = pr.name || p.buyer_name || pr.email?.split('@')?.[0] || 'Buyer';
+            const email = pr.email || p.buyer_email || '—';
             const title = p.houses?.title || 'Listing';
             return `<tr onclick="openClientDetail('${p.id}')" style="cursor:pointer;">
             <td>${esc(name)}</td>
@@ -15840,6 +15846,9 @@
       }
 
       const { data: buyer } = await sb.from('profiles').select('name, email').eq('id', row.user_id).maybeSingle();
+      // Fallback to stored buyer info in purchase row
+      const buyerName = (buyer && buyer.name) || row.buyer_name || (buyer && buyer.email?.split('@')[0]) || 'Buyer';
+      const buyerEmail = (buyer && buyer.email) || row.buyer_email || '—';
       // NOTE: relational join unsupported by this backend — fetch answers,
       // then the matching questions, then join manually in JS.
       const { data: ans, error } = await sb
@@ -15862,8 +15871,8 @@
       answers.forEach(a => { a.listing_questions = questionMap.get(a.question_id) || null; });
       detail.innerHTML = `
         <div style="padding:6px 4px;">
-          <div style="font-size:18px;font-weight:800;color:var(--ink);margin-bottom:4px;">${esc((buyer?.name || buyer?.email || 'Buyer'))}</div>
-          <div style="font-size:13px;color:var(--muted);margin-bottom:8px;">${esc(buyer?.email || '—')}</div>
+          <div style="font-size:18px;font-weight:800;color:var(--ink);margin-bottom:4px;">${esc(buyerName)}</div>
+          <div style="font-size:13px;color:var(--muted);margin-bottom:8px;">${esc(buyerEmail)}</div>
           <div style="font-size:13px;color:var(--muted);margin-bottom:14px;">Listing: <strong>${esc(row.houses?.title || 'Listing')}</strong></div>
           ${answers.length ? answers.map(a => `
             <div style="margin-bottom:12px;padding:12px;border:1px solid var(--border2);border-radius:10px;background:var(--bg2);">
@@ -18450,7 +18459,7 @@
             ensure:               'get_or_create_referral_code',
             stats:                'get_referral_data',
             process_registration: 'process_registration_referral',
-            award_listing:        'award_listing_referral',
+            award_listing:        'award_referral_reward',
           };
 
           // validate → /api/check-referral (public, no auth)
@@ -18665,6 +18674,8 @@
             const { data: purchase, error } = await sb.from('purchases').insert({
               user_id: user.id,
               listing_id: house.id,
+              buyer_name: (window.user && (window.user.name || window.user.email)) || '',
+              buyer_email: (window.user && window.user.email) || '',
               created_at: new Date().toISOString()
             }).select().maybeSingle();
             if (error) {
@@ -18676,6 +18687,8 @@
             updateCreditsBadges();
             toast('🔓 Unlocked! Full contact details are now visible.', 'success');
             renderDetailPage(house);
+            // Show screening questions if the host set any
+            setTimeout(() => maybePromptListingQuestions(house), 600);
 
             // Reward the property owner asynchronously — don't block the UI
             if (purchase?.id && house.owner_id && house.owner_id !== user.id) {
