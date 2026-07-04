@@ -17145,7 +17145,7 @@
     async function loadListingQuestions(houseId) {
       try {
         const { data, error } = await withTimeout(
-          sb.from('listing_questions').select('*').eq('listing_id', houseId).order('created_at', { ascending: true }),
+          sb.from('listing_questions').select('*').eq('property_id', houseId).order('created_at', { ascending: true }),
           5000, 'Questions load timed out'
         );
         if (error) {
@@ -17162,14 +17162,14 @@
     async function syncListingQuestions(houseId, questions) {
       try {
         await withTimeout(
-          sb.from('listing_questions').delete().eq('listing_id', houseId),
+          sb.from('listing_questions').delete().eq('property_id', houseId),
           5000, 'Delete questions timed out'
         );
         const filtered = (questions || []).filter(q => q && q.trim());
         if (!filtered.length) return;
         await withTimeout(
           sb.from('listing_questions').insert(
-            filtered.map(q => ({ listing_id: houseId, question_text: q.trim() }))
+            filtered.map(q => ({ property_id: houseId, question_text: q.trim() }))
           ),
           5000, 'Insert questions timed out'
         );
@@ -17824,7 +17824,7 @@
                 // listing_questions are keyed by listing_id, not user_id —
                 // must be cleaned up per-house here, otherwise they're
                 // orphaned referencing a listing_id that no longer exists.
-                await sb.from('listing_questions').delete().eq('listing_id', h.id).catch(() => {});
+                await sb.from('listing_questions').delete().eq('property_id', h.id).catch(() => {});
                 await sb.from('houses').delete().eq('id', h.id).catch(() => {});
                 purgeHouseFromLocalCache(h.id);
                 rentAllHouses = rentAllHouses.filter(x => x.id !== h.id);
