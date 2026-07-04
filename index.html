@@ -21091,7 +21091,14 @@
       window.rnStreakSetUser = function(userId) {
         if (!userId) return;
         var userKey = 'rn-streak-v1-' + userId;
-        // Migrate global key to user-scoped key only if user-scoped is empty and global has real data
+        // NOTE: this used to "migrate" the old global (unscoped) rn-streak-v1
+        // key into the new per-user key on first run for THAT user — but it
+        // never deleted the global key afterward. That meant every brand-new
+        // account that had never claimed anything got silently seeded with
+        // whichever previous account's streak data was still sitting in the
+        // global slot (e.g. a fresh signup showing "Day 1 already claimed").
+        // Do the migration at most once, then permanently retire the global
+        // key so it can never leak into another account again.
         if (!localStorage.getItem(userKey)) {
           try {
             var old = JSON.parse(localStorage.getItem('rn-streak-v1') || 'null');
@@ -21100,6 +21107,7 @@
             }
           } catch(e) {}
         }
+        try { localStorage.removeItem('rn-streak-v1'); } catch(e) {}
         STREAK_KEY = userKey;
       };
       var CREDITS_PER_DAY = [1, 2, 3, 4, 5, 6, 7]; // Day 1=1 Day 2=2 … Day 7=7 credits
