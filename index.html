@@ -22218,15 +22218,25 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
     }
 
     if (wrap) {
-      // Use <img> for the closed chest (static first frame) and swap to full
-      // SVG animation on tap — avoids innerHTML gradient corruption entirely.
-      if (!wrap.dataset.ready) {
-        wrap.dataset.ready = '1';
-        // Show a static preview image immediately (no fetch needed)
-        wrap.innerHTML = '<img id="rn-chest-img" src="/coins-animation.svg" ' +
-          'style="width:100%;height:100%;display:block;" alt="chest">';
-      }
-      _showOverlay();
+      // Fetch SVG and inject it so we can control SMIL animations
+      fetch('/coins-animation.svg?v=' + Date.now())
+        .then(function(r) { return r.text(); })
+        .then(function(svgText) {
+          // Give all IDs a unique prefix to avoid gradient conflicts with page DOM
+          var uid = 'ch' + Date.now();
+          svgText = svgText.replace(/id="/g, 'id="' + uid + '-')
+                           .replace(/url\(#/g, 'url(#' + uid + '-')
+                           .replace(/href="#/g, 'href="#' + uid + '-')
+                           .replace(/xlink:href="#/g, 'xlink:href="#' + uid + '-');
+          wrap.innerHTML = svgText;
+          var svgEl = wrap.querySelector('svg');
+          _applyFirstFrame(svgEl);
+          _showOverlay();
+        })
+        .catch(function() {
+          wrap.innerHTML = '<div style="font-size:120px;text-align:center;">🎁</div>';
+          _showOverlay();
+        });
     } else {
       _showOverlay();
     }
@@ -22266,19 +22276,25 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
     if (_rnCreditsClaiming) return;
     _rnCreditsClaiming = true;
 
-    // Reload SVG with cache-bust so browser replays the animation from start
-    var img = wrap ? wrap.querySelector('img') : null;
-    if (img) {
-      img.src = '/coins-animation.svg?t=' + Date.now();
-    }
-    // Show credits text after animation duration (~2.5s)
-    setTimeout(function() {
+    // Unpause the injected SVG animation
+    var svgEl = wrap ? wrap.querySelector('svg') : null;
+    if (svgEl) {
+      try { svgEl.unpauseAnimations(); } catch(e) {}
+      // Show credits text after animation completes (~2.5s)
+      setTimeout(function() {
+        _rnCreditsClaiming = false;
+        if (claimText) {
+          claimText.style.display = 'block';
+          requestAnimationFrame(function() { claimText.style.opacity = '1'; });
+        }
+      }, 2500);
+    } else {
       _rnCreditsClaiming = false;
       if (claimText) {
         claimText.style.display = 'block';
         requestAnimationFrame(function() { claimText.style.opacity = '1'; });
       }
-    }, 2500);
+    }
   };
 
   /* ── STATE ── */
