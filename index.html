@@ -19594,6 +19594,7 @@
     .rnref-row-name{font-size:14.5px;font-weight:700;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
     .rnref-row-sub{font-size:12.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
     .rnref-row-reward{font-size:11.5px;font-weight:700;background:#ecfdf5;color:#065f46;border:1px solid #6ee7b7;padding:4px 10px;border-radius:8px;white-space:nowrap;flex-shrink:0;}
+    .rnref-row-reward-mini{font-size:10px;font-weight:700;color:#059669;white-space:nowrap;flex-shrink:0;max-width:74px;overflow:hidden;text-overflow:ellipsis;text-align:right;}
     .rnref-open-btn{font-size:12.5px;font-weight:700;color:var(--blue);background:#eef2ff;border:none;padding:7px 13px;border-radius:8px;cursor:pointer;flex-shrink:0;}
     .rnref-empty{text-align:center;padding:44px 16px;color:var(--muted);font-size:13.5px;}
     .rnref-faq-head{display:flex;align-items:center;justify-content:space-between;margin:30px 0 12px;}
@@ -19770,14 +19771,17 @@
         var isPartner = await _pdIsPartner(user.id);
         var statsRes = await _rnReferralApi('stats');
         var s = statsRes.ok ? (statsRes.data || {}) : {};
-        var refCode = s.referralId || '';
+        // NOTE: get_referral_data returns { referralCode, referredUsers, referredListings },
+        // NOT { referralId, history } — reading the old field names silently returned
+        // undefined for everything, which is why the code box and both history tabs
+        // (especially Register) looked empty even though referrals were being awarded.
+        var refCode = s.referralCode || '';
         _rnrefCode = refCode;
 
         document.getElementById('rnref-code-val').textContent = refCode || '————';
 
-        var history = s.history || [];
-        var regRows = history.filter(function(ev){ return ev.type !== 'listing'; });
-        var houseRows = history.filter(function(ev){ return ev.type === 'listing'; });
+        var regRows = Array.isArray(s.referredUsers) ? s.referredUsers : [];
+        var houseRows = Array.isArray(s.referredListings) ? s.referredListings : [];
 
         var rewardLabel = isPartner ? '+5 XP · +0.50 Credit' : '+0.50 Credit';
 
@@ -19796,15 +19800,15 @@
         }
 
         _rnrefData.register = regRows.map(function(ev){
-          return { name: ev.name || 'Unknown user', email: ev.email || '', avatar: '', date: ev.createdAt, reward: rewardLabel };
+          return { name: ev.name || 'Unknown user', email: ev.email || '', avatar: ev.avatar || '', date: ev.joinedAt, reward: rewardLabel };
         });
         _rnrefData.house = houseRows.map(function(ev){
           return {
-            name: ev.name || 'Untitled property',
-            id: ev.houseId,
-            image: '',
-            publisher: ev.email || 'Unknown user',
-            date: ev.createdAt,
+            name: ev.title || 'Untitled property',
+            id: ev.listingId,
+            image: ev.image || '',
+            publisher: ev.ownerName || 'Unknown user',
+            date: ev.listedAt,
             reward: rewardLabel
           };
         });
@@ -19872,7 +19876,7 @@
           var av = u.avatar ? '<img class="rnref-avatar" src="' + esc(u.avatar) + '" alt="">' : '<div class="rnref-avatar">👤</div>';
           return '<div class="rnref-row">' + av +
             '<div class="rnref-row-main"><div class="rnref-row-name">' + esc(u.name) + '</div><div class="rnref-row-sub">' + esc(u.email) + '</div></div>' +
-            '<div class="rnref-row-reward">' + u.reward + '</div></div>';
+            '<div class="rnref-row-reward-mini">' + u.reward + '</div></div>';
         }).join('');
       } else {
         listEl.innerHTML = rows.map(function(h){
@@ -19881,8 +19885,7 @@
             : '<div class="rnref-avatar">🏠</div>';
           return '<div class="rnref-row">' + cover +
             '<div class="rnref-row-main"><div class="rnref-row-name">' + esc(h.name) + '</div><div class="rnref-row-sub">by ' + esc(h.publisher) + '</div></div>' +
-            '<button class="rnref-open-btn" onclick="adminGoToListing(\'' + h.id + '\')">Open</button>' +
-            '<div class="rnref-row-reward">' + h.reward + '</div></div>';
+            '<button class="rnref-open-btn" onclick="adminGoToListing(\'' + h.id + '\')">Open</button></div>';
         }).join('');
       }
     }
