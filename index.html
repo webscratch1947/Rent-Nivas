@@ -10259,7 +10259,19 @@
                 <!-- ══ DYNAMIC PROPERTY TYPE FIELDS ══ -->
                 <!-- House / Apartment / Villa (default) -->
                 <div id="pt-fields-residential" class="pt-fields-block">
-                  <div class="fg" style="margin-bottom:10px;"><label id="add-price-lbl">Monthly Rent (₹) *</label><input type="number" id="h-price" placeholder="35000"></div>
+                  <div class="form-2col" style="margin-bottom:10px;">
+                    <div class="fg"><label id="add-price-lbl">Monthly Rent (₹) *</label><input type="number" id="h-price" placeholder="35000"></div>
+                    <div class="fg"><label id="add-which-floor-lbl">Which Floor</label>
+                      <select id="h-which-floor">
+                        <option value="">Select floor</option>
+                        <option value="Ground">Ground Floor</option>
+                        <option value="1st">1st Floor</option>
+                        <option value="2nd">2nd Floor</option>
+                        <option value="3rd">3rd Floor</option>
+                        <option value="4th+">4th Floor & above</option>
+                      </select>
+                    </div>
+                  </div>
                   <div class="form-2col">
                     <div class="fg"><label id="add-beds-lbl">Bedrooms *</label><input type="number" id="h-beds" placeholder="3" min="0"></div>
                     <div class="fg"><label id="add-baths-lbl">Bathrooms *</label><input type="number" id="h-baths" placeholder="2" min="0"></div>
@@ -13843,6 +13855,21 @@
       _clearStoredBan();
       if (_banCountdownTimer) clearInterval(_banCountdownTimer);
       if (window._rnBanLiftPollTimer) { clearInterval(window._rnBanLiftPollTimer); window._rnBanLiftPollTimer = null; }
+      // CRITICAL: these keys were never scoped to a user id and were never
+      // cleared on logout, so a second person logging into the same browser
+      // (or a brand-new signup right after someone else's session) saw the
+      // PREVIOUS user's cached credits/role/unlocked-houses/leaderboard data
+      // until (and unless) a fresh fetch happened to overwrite every one of
+      // them. Wipe them all here so every fresh login starts from a clean
+      // slate and only ever shows data fetched for the newly logged-in user.
+      try {
+        localStorage.removeItem('nestly-credits');
+        localStorage.removeItem('nestly-role');
+        localStorage.removeItem('nestly-unlocked');
+        localStorage.removeItem('paidUser');
+        localStorage.removeItem('rn-lb-last-fetch');
+        localStorage.removeItem('rn-lb-data');
+      } catch (e) {}
       await sb.auth.signOut();
       finishLoggedOutState();
       toast(t('t_signed_out','Signed out successfully'));
@@ -13882,6 +13909,26 @@
       }
       user = session.user;
       window.user = user;
+      // SAFETY NET for the cross-account cache bug: nestly-credits/-role/etc
+      // are plain localStorage keys with no user id in them. doLogout() now
+      // clears them, but if a browser tab was just closed/killed instead of
+      // logged out (very common on mobile), the next login in that same
+      // browser — even a brand-new signup — would still see the PREVIOUS
+      // account's cached credits/role until a fresh DB fetch overwrote them.
+      // Tag the cache with the id of whoever last owned it; if the logged-in
+      // user doesn't match, wipe the stale values before anything reads them.
+      try {
+        var _cacheOwner = localStorage.getItem('nestly-cache-owner');
+        if (_cacheOwner !== user.id) {
+          localStorage.removeItem('nestly-credits');
+          localStorage.removeItem('nestly-role');
+          localStorage.removeItem('nestly-unlocked');
+          localStorage.removeItem('paidUser');
+          localStorage.removeItem('rn-lb-last-fetch');
+          localStorage.removeItem('rn-lb-data');
+          localStorage.setItem('nestly-cache-owner', user.id);
+        }
+      } catch (e) {}
       console.log('[Nestly] initDash user:', user.email);
       if (typeof window.rnStreakSetUser === 'function') window.rnStreakSetUser(user.id);
       if (typeof window._checkCrown === 'function') setTimeout(window._checkCrown, 1500);
@@ -14562,6 +14609,7 @@
       document.getElementById('h-title').value = h.title || '';
       document.getElementById('h-desc').value = h.description || '';
       document.getElementById('h-price').value = h.price || '';
+      if (document.getElementById('h-which-floor')) document.getElementById('h-which-floor').value = h.which_floor || '';
       ['h-price-office','h-price-pg','h-price-shop'].forEach(id => { const el = document.getElementById(id); if (el) el.value = h.price || ''; });
       document.getElementById('h-phone').value = h.phone || '';
       document.getElementById('h-address').value = h.address || '';
@@ -14574,6 +14622,37 @@
       document.getElementById('h-living').value = h.living_room || '';
       document.getElementById('h-balcony').value = h.balcony || '';
       document.getElementById('h-parking').value = h.parking || '';
+      // ── Referral code: lock if this listing already has one saved ─────────
+      // Once a code was accepted on a listing, it's permanent — re-opening
+      // the listing to edit anything else must not let them swap referrers.
+      // If no code was ever added, leave it fully editable as normal.
+      (function() {
+        const inp = document.getElementById('h-referral-code');
+        const resultEl = document.getElementById('referral-result');
+        const nameEl = document.getElementById('referral-result-name');
+        const emailEl = document.getElementById('referral-result-email');
+        if (!inp) return;
+        if (h.referral_code) {
+          inp.value = h.referral_code;
+          if (resultEl && nameEl && emailEl) {
+            _rnReferralApi('validate', { code: h.referral_code }).then(function(res){
+              const d = res.ok ? res.data : null;
+              if (d) {
+                nameEl.textContent = d.name || (d.email ? d.email.split('@')[0] : 'Rent Nivas user');
+                emailEl.textContent = d.email || '—';
+                resultEl.style.display = 'block';
+              }
+            }).catch(function(){});
+          }
+          lockReferralCodeField();
+        } else {
+          inp.value = '';
+          if (resultEl) resultEl.style.display = 'none';
+          const errorEl = document.getElementById('referral-error');
+          if (errorEl) errorEl.style.display = 'none';
+          unlockReferralCodeField();
+        }
+      })();
       selectedConditions = new Set();
       customConditions = [];
       const condArr = Array.isArray(h.conditions) ? h.conditions : (h.conditions ? h.conditions.split(',').map(s => s.trim()) : []);
@@ -14668,6 +14747,11 @@
       currentEditId = null;
 
       document.getElementById('add-page-t').textContent = 'Add New Listing';
+
+      // Brand-new listing → referral code always starts blank and editable
+      unlockReferralCodeField();
+      { const _re = document.getElementById('referral-result'); if (_re) _re.style.display = 'none'; }
+      { const _ee = document.getElementById('referral-error'); if (_ee) _ee.style.display = 'none'; }
 
       // Clear all text inputs
       ['h-title', 'h-desc', 'h-price', 'h-phone', 'h-address', 'h-area', 'h-city', 'h-state',
@@ -15555,6 +15639,7 @@
           living_room: parseInt(v('h-living')) || 0,
           balcony: parseInt(v('h-balcony')) || 0,
           parking: parseInt(v('h-parking')) || 0,
+          which_floor: document.getElementById('h-which-floor')?.value || null,
           custom_rooms: customRooms.length > 0 ? customRooms : null,
           floors_data: (typeof _rnGetFloorsData === 'function' && _rnGetFloorsData().length > 0) ? _rnGetFloorsData() : null,
           conditions: condArr.length > 0 ? condArr : null,
@@ -16794,6 +16879,7 @@
       const resMetaTags = [
         h.furnish_status ? `🛋️ ${h.furnish_status}` : '',
         h.tenant_type ? `👤 ${h.tenant_type} Preferred` : '',
+        h.which_floor ? `🏢 ${h.which_floor} Floor` : '',
       ].filter(Boolean);
       return {
         sectionTitle: (propType && icons[propType]) ? `${icons[propType]} Room Details` : '🏠 Room Details',
@@ -18674,12 +18760,43 @@
             if (errorEl) { errorEl.textContent = '❌ Invalid referral code. Please check and try again.'; errorEl.style.display = 'block'; }
             return;
           }
+          // ── Block self-referral ──────────────────────────────────────────
+          // check-referral.js returns the referrer's email; compare against
+          // the logged-in user's own email so nobody can credit themselves.
+          const ownEmail = (window.user && window.user.email || '').trim().toLowerCase();
+          const refEmail = (data.email || '').trim().toLowerCase();
+          if (ownEmail && refEmail && ownEmail === refEmail) {
+            if (errorEl) { errorEl.textContent = "❌ You can't use your own referral code."; errorEl.style.display = 'block'; }
+            const inp = document.getElementById('h-referral-code');
+            if (inp) inp.value = '';
+            return;
+          }
           if (nameEl) nameEl.textContent = data.name || (data.email ? data.email.split('@')[0] : 'Rent Nivas user');
           if (emailEl) emailEl.textContent = data.email || '—';
           if (resultEl) resultEl.style.display = 'block';
+          // ── Lock the field the moment a code verifies successfully ───────
+          // Once a valid code is accepted it can never be swapped for a
+          // different one, even before the listing is first saved.
+          lockReferralCodeField();
         } catch(e) {
           if (errorEl) { errorEl.textContent = '❌ Invalid referral code. Please check and try again.'; errorEl.style.display = 'block'; }
         }
+      }
+      // Disables the referral input + Verify button so a code, once accepted,
+      // can never be edited or replaced — whether that happened just now
+      // (fresh verify) or on a listing that already has referral_code saved
+      // from a previous session (see populateEditForm below).
+      function lockReferralCodeField() {
+        const inp = document.getElementById('h-referral-code');
+        const btn = document.querySelector('button[onclick="verifyReferralCode()"]');
+        if (inp) inp.disabled = true;
+        if (btn) { btn.disabled = true; btn.style.opacity = '.5'; btn.style.cursor = 'not-allowed'; }
+      }
+      function unlockReferralCodeField() {
+        const inp = document.getElementById('h-referral-code');
+        const btn = document.querySelector('button[onclick="verifyReferralCode()"]');
+        if (inp) inp.disabled = false;
+        if (btn) { btn.disabled = false; btn.style.opacity = ''; btn.style.cursor = ''; }
       }
       function onReferralCodeInput(val) {
         const code = (val || '').trim();
