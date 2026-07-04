@@ -2153,6 +2153,7 @@
 
     .l-foot {
       display: flex;
+      flex-wrap: wrap;
       align-items: center;
       justify-content: space-between;
       gap: 10px;
@@ -2173,7 +2174,14 @@
 
     .l-foot-btns {
       display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
       gap: 8px;
+      min-width: 0;
+    }
+
+    .l-foot-btns .btn {
+      white-space: nowrap;
     }
 
     /* ADD LISTING */
@@ -10792,6 +10800,7 @@
               <button class="btn btn-sm" id="adm-backfill-btn" style="background:var(--blue-bg);color:var(--blue);" onclick="adminBackfillProfiles()" title="One-time fix for accounts created before the credits bug was fixed — safe to run repeatedly, never overwrites real data">🔧 Fix Existing Accounts (credits/referral)</button>
               <button class="btn btn-sm" id="adm-find-dupes-btn" style="background:var(--red-bg);color:var(--red);" onclick="adminFindDuplicateAccounts()" title="Read-only scan — finds accounts sharing the same email. Does not delete or change anything automatically.">🔍 Find Duplicate Accounts</button>
               <button class="btn btn-sm" id="adm-purge-ghosts-btn" style="background:#7c3aed;color:#fff;" onclick="adminPurgeGhostRows()" title="Deletes ghost DynamoDB rows where userId looks like an email address — caused by old signup bug">🧹 Purge Ghost Rows</button>
+              <button class="btn btn-sm" id="adm-backfill-rewards-btn" style="background:#059669;color:#fff;" onclick="adminBackfillMissedRewards()" title="Pays out owner-unlock credits and listing-referral rewards that were silently lost to two now-fixed bugs, plus tops up partners who only got XP instead of XP+credits. Safe to run repeatedly.">💸 Backfill Missed Referral/Unlock Rewards</button>
             </div>
             <div id="adm-dupes-banner" style="display:none;background:var(--red-bg);color:var(--red);padding:14px 16px;border-radius:var(--r);margin-bottom:14px;font-size:13px;border:1.5px solid #fecaca;line-height:1.6;"></div>
             <div id="adm-ghost-banner"
@@ -15779,7 +15788,7 @@
         let pRows = [];
         if (houseIds.length) {
           const { data: purchases, error } = await withTimeout(
-            sb.from('purchases').select('id, user_id, listing_id, created_at').in('listing_id', houseIds).order('created_at', { ascending: false }),
+            sb.from('purchases').select('id, user_id, listing_id, created_at, buyer_name, buyer_email').in('listing_id', houseIds).order('created_at', { ascending: false }),
             40000,
             'Clients request timed out. Check your connection and try again.'
           );
@@ -16308,18 +16317,33 @@
 
     async function loadPurchasedIntoRent(container) {
       try {
-        if (!user) { container.innerHTML = '<div style="text-align:center;padding:48px;color:var(--muted);">' + (window.t ? t('t_loading','Loading...') : 'Loading...') + '</div>'; return; return; }
+        if (!user) { container.innerHTML = '<div style="text-align:center;padding:48px;color:var(--muted);">' + (window.t ? t('t_loading','Loading...') : 'Loading...') + '</div>'; return; }
         purgeExpiredUnlocks();
         await loadUserPurchases();
         const unlocks = getUnlocks();
         const ids = unlocks.map(u => u.id);
         if (!ids.length) { container.innerHTML = '<div class="rn-empty-state"><div class="rn-empty-icon">🔓</div><h3 class="rn-empty-title">No unlocked homes yet</h3><p class="rn-empty-desc">Browse listings and use credits to unlock contact details</p><button class="btn btn-terra rn-empty-btn" onclick="rentShowSection(\'browse\')">Browse Listings →</button></div>'; return; }
-        const { data, error } = await withTimeout(
-          sb.from('houses').select('*').in('id', ids),
-          6000,
-          'Unlocked homes timed out. Please try again.'
-        );
-        if (error || !data?.length) { container.innerHTML = '<div style="text-align:center;padding:48px;color:var(--muted);">Could not load unlocked homes.</div>'; return; }
+        // Reuse whatever's already loaded from Browse first (fast, reliable),
+        // and only hit the network for ids we don't already have — same
+        // strategy as the working loadPurchasedPage(), instead of always
+        // doing a fresh live .in() scan (which was the flaky part here).
+        let data = (rentAllHouses || []).filter(h => ids.includes(h.id));
+        const missing = ids.filter(id => !data.find(h => h.id === id));
+        if (missing.length) {
+          try {
+            const { data: fetched, error } = await withTimeout(
+              sb.from('houses').select('*').in('id', missing),
+              10000,
+              'Unlocked homes timed out. Please try again.'
+            );
+            if (error) { container.innerHTML = '<div style="text-align:center;padding:48px;color:var(--muted);">Could not load unlocked homes: ' + esc(error.message || 'unknown error') + '<br><button type="button" class="btn btn-terra btn-sm" style="margin-top:10px;" onclick="loadPurchasedIntoRent(document.getElementById(\'rent-purchased-inner\'))">Retry</button></div>'; return; }
+            if (fetched && fetched.length) data = [...data, ...fetched];
+          } catch (fetchErr) {
+            // Non-fatal: fall through with whatever we already have from cache.
+            console.warn('[RentNivas] fetch of missing unlocked homes failed:', fetchErr.message || fetchErr);
+          }
+        }
+        if (!data.length) { container.innerHTML = '<div class="rn-empty-state"><div class="rn-empty-icon">🔓</div><h3 class="rn-empty-title">No unlocked homes yet</h3><p class="rn-empty-desc">The listings you unlocked may have since been removed by their owner.</p><button class="btn btn-terra rn-empty-btn" onclick="rentShowSection(\'browse\')">Browse Listings →</button></div>'; return; }
         container.innerHTML = '<div class="rent-grid">' + data.map(h => {
           const unlock = unlocks.find(u => u.id === h.id);
           const expMs = unlock ? Math.max(0, (unlock.unlockedAt + 7 * 24 * 60 * 60 * 1000) - Date.now()) : 0;
@@ -17199,6 +17223,29 @@
         toast('Backfill failed: ' + (e.message || 'Unknown error'), 'error');
       } finally {
         if (btn) { btn.disabled = false; btn.textContent = '🔧 Fix Existing Accounts (credits/referral)'; }
+      }
+    }
+
+    async function adminBackfillMissedRewards() {
+      const btn = document.getElementById('adm-backfill-rewards-btn');
+      if (btn) { btn.disabled = true; btn.textContent = '⏳ Paying out missed rewards... (may take a minute)'; }
+      try {
+        const { data, error } = await sb.rpc('admin_backfill_missed_rewards', {});
+        if (error) throw error;
+        toast(
+          `✅ Owner rewards: ${data.ownerRewardsPaid} paid, ${data.ownerRewardsSkipped} already fine` +
+          (data.ownerRewardsFailed ? `, ${data.ownerRewardsFailed} failed` : '') +
+          ` · Listing referrals: ${data.listingReferralsPaid} paid, ${data.listingReferralsSkipped} already fine` +
+          (data.listingReferralsFailed ? `, ${data.listingReferralsFailed} failed` : '') +
+          ` · Partner top-ups: ${data.partnerTopUpsPaid} paid, ${data.partnerTopUpsSkipped} already fine` +
+          (data.partnerTopUpsFailed ? `, ${data.partnerTopUpsFailed} failed` : ''),
+          'success'
+        );
+        setTimeout(loadAdminUsers, 500);
+      } catch (e) {
+        toast('Backfill failed: ' + (e.message || 'Unknown error'), 'error');
+      } finally {
+        if (btn) { btn.disabled = false; btn.textContent = '💸 Backfill Missed Referral/Unlock Rewards'; }
       }
     }
 
@@ -18459,7 +18506,7 @@
             ensure:               'get_or_create_referral_code',
             stats:                'get_referral_data',
             process_registration: 'process_registration_referral',
-            award_listing:        'award_referral_reward',
+            award_listing:        'award_listing_referral',
           };
 
           // validate → /api/check-referral (public, no auth)
@@ -19593,8 +19640,8 @@
       <div class="rnref-hero">
         <div class="rnref-hero-top">
           <div>
-            <div class="rnref-hero-lbl">Get</div>
-            <div class="rnref-hero-amt">0.50 <span>credits</span></div>
+            <div class="rnref-hero-lbl" id="rnref-hero-lbl">Get</div>
+            <div class="rnref-hero-amt" id="rnref-hero-amt">0.50 <span>credits</span></div>
           </div>
           <img src="/person-refer.svg" class="rnref-hero-img" alt="">
         </div>
@@ -19734,6 +19781,20 @@
 
         var rewardLabel = isPartner ? '+5 XP · +0.50 Credit' : '+0.50 Credit';
 
+        var heroLbl = document.getElementById('rnref-hero-lbl');
+        var heroAmt = document.getElementById('rnref-hero-amt');
+        if (heroLbl && heroAmt) {
+          heroLbl.textContent = 'Get';
+          heroAmt.innerHTML = isPartner ? '0.50 <span>credits</span> + 5 XP' : '0.50 <span>credits</span>';
+        }
+        if (isPartner) {
+          RNREF_FAQ[0].a = 'Share your referral code with friends. When they register or list a house using your code, you get rewarded — 0.50 credits every time, plus +5 XP as a Partner.';
+          RNREF_FAQ[1].a = 'Registration referrals are credited as soon as your friend signs up. House referrals are credited once the listing goes live.';
+          RNREF_FAQ[2].a = 'No — there\'s no cap. Refer as many friends as you like and earn 0.50 credits (plus 5 XP as a Partner) for every successful referral.';
+          var faqListEl = document.getElementById('rnref-faq-list');
+          if (faqListEl && typeof rnrefRenderFaq === 'function') rnrefRenderFaq();
+        }
+
         _rnrefData.register = regRows.map(function(ev){
           return { name: ev.name || 'Unknown user', email: ev.email || '', avatar: '', date: ev.createdAt, reward: rewardLabel };
         });
@@ -19756,10 +19817,10 @@
           var _popupShownKey = 'rn-ref-popup-shown-' + user.id;
           var _popupAlreadyShown = localStorage.getItem(_popupShownKey);
           if (totalRefs > 0 && !_popupAlreadyShown) {
-            rnrefShowSuccessPopup();
+            rnrefShowSuccessPopup(isPartner);
             localStorage.setItem(_popupShownKey, '1');
           } else if (lastKnown !== -1 && totalRefs > lastKnown) {
-            rnrefShowSuccessPopup();
+            rnrefShowSuccessPopup(isPartner);
           }
           localStorage.setItem(storageKey, totalRefs);
         } catch(e){}
@@ -19827,10 +19888,16 @@
     }
 
     // ── Success popup — reuses #rn-ref-success-popup, coin-bag.svg swapped in as a looping inline animation, shown once ──
-    function rnrefShowSuccessPopup() {
+    function rnrefShowSuccessPopup(isPartner) {
       var popup = document.getElementById('rn-ref-success-popup');
       var wrap = document.getElementById('rnref-successbag-wrap');
       if (!popup || !wrap) return;
+      var textEl = popup.querySelector('div[style*="line-height:1.55"]');
+      if (textEl) {
+        textEl.innerHTML = isPartner
+          ? 'You earned <strong style="color:#059669;">0.50 credits + 5 XP</strong> because your friend used your referral code.'
+          : 'You earned <strong style="color:#059669;">0.50 credits</strong> because your friend used your referral code.';
+      }
       if (!wrap.dataset.loaded) {
         fetch('/coin-bag.svg').then(function(r){ return r.text(); }).then(function(txt){
           wrap.innerHTML = txt; // coin-bag.svg already has repeatCount="indefinite" → loops
@@ -20189,8 +20256,8 @@
       <div style="display:flex;align-items:flex-start;gap:14px;padding:18px 18px 18px;">
         <div style="width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,#f59e0b,#d97706);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">💰</div>
         <div>
-          <div style="font-size:14px;font-weight:700;color:#1a1410;margin-bottom:3px;">You get 0.50 Credits instantly</div>
-          <div style="font-size:12px;color:#6b7280;line-height:1.5;">Credits land in your account automatically — no waiting, no limits.</div>
+          <div style="font-size:14px;font-weight:700;color:#1a1410;margin-bottom:3px;">You get 0.50 Credits + 5 XP instantly</div>
+          <div style="font-size:12px;color:#6b7280;line-height:1.5;">Credits and XP land in your account automatically — no waiting, no limits.</div>
         </div>
       </div>
     </div>
@@ -20214,7 +20281,7 @@
       <div class="pd-faq-title">Frequently asked questions</div>
       <div class="pd-faq-item" onclick="this.classList.toggle('open')">
         <div class="pd-faq-q">What is the Refer and Earn program? <span class="pd-faq-arrow">▾</span></div>
-        <div class="pd-faq-a">Refer &amp; Earn lets you share your unique referral code with others. When someone signs up or adds a listing using your code, you earn 0.50 credits automatically.</div>
+        <div class="pd-faq-a">Refer &amp; Earn lets you share your unique referral code with others. When someone signs up or adds a listing using your code, you earn 0.50 credits automatically — plus +5 XP since you're a Partner.</div>
       </div>
       <div class="pd-faq-item" onclick="this.classList.toggle('open')">
         <div class="pd-faq-q">When do I get my reward? <span class="pd-faq-arrow">▾</span></div>
