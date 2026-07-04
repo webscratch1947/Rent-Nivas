@@ -196,10 +196,11 @@ module.exports = async function handler(req, res) {
     const top = realUsers.slice(0, 300);
 
     const result = top.map((row, idx) => {
-      const rawName = (row.name || '').trim();
-      const effectiveName = (rawName && rawName.toLowerCase() !== 'user')
+      const cogName = cognitoUsers.has(row.id) ? (cognitoUsers.get(row.id).name || '').trim() : '';
+      const rawName = (row.name || '').trim() || cogName;
+      const effectiveName = (rawName && rawName.toLowerCase() !== 'user' && rawName.toLowerCase() !== 'anonymous')
         ? rawName
-        : (row.email ? row.email.split('@')[0] : '');
+        : (cogName || (row.email ? row.email.split('@')[0] : ''));
       return {
         rank:       idx + 1,
         id:         row.id || '',
