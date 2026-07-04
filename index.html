@@ -18666,12 +18666,23 @@
       // server also checks for a pending code stored during signup verification.
       async function processPendingSignupReferral() {
         if (!user) return;
-        // Server reads pending_referral_code from the Users DynamoDB row
-        // (written by signup-verify.js at email confirmation time).
-        // We pass no code — the RPC finds it itself.
+        // Belt-and-suspenders: pass the code explicitly if we still have it
+        // client-side (the browser already validated it at signup time —
+        // see the green "Valid code" check on the signup form). This means
+        // registration referral no longer depends ONLY on the multi-hop
+        // server-side chain (VerificationCodes → profile.pending_referral_code)
+        // which had a real bug where resending the verification email wiped
+        // the stashed code before the account was ever confirmed. The server
+        // still falls back to its own lookup if no code is passed here, so
+        // this is purely additive safety, not a replacement.
+        let localCode = '';
+        try { localCode = localStorage.getItem('rn-pending-ref-code') || ''; } catch (e) {}
         try {
-          const res = await _rnReferralApi('process_registration', {});
+          const res = await _rnReferralApi('process_registration', localCode ? { code: localCode } : {});
           console.log('[RN] Registration referral result:', res && res.data);
+          if (res && res.ok && res.data && res.data.processed) {
+            try { localStorage.removeItem('rn-pending-ref-code'); } catch (e) {}
+          }
         } catch (e) {
           console.warn('[RN] process_registration error:', e.message || e);
         }
