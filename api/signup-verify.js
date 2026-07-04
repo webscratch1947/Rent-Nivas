@@ -19,6 +19,7 @@ const crypto = require('crypto');
 const {
   CognitoIdentityProviderClient,
   AdminCreateUserCommand,
+  AdminGetUserCommand,
   AdminSetUserPasswordCommand,
   AdminUpdateUserAttributesCommand,
   ListUsersCommand
@@ -286,19 +287,75 @@ module.exports = async function handler(req, res) {
       //     by storePendingReferralCode above) is read by
       //     POST /api/referrals action='process_registration' on first
       //     login, via getPendingReferralCode as a fallback.
-      //
-      // FIX (referral rewards never firing): this used to call deleteCode()
-      // here, which DeleteItems the entire VerificationCodes row for this
-      // email — but that is the SAME row that pendingReferralCode lives on.
-      // That meant the referral code was wiped the instant the user verified
-      // their email, before process_registration_referral (which runs later,
-      // on first login) ever got a chance to read it — so referrers never
-      // got credit. markCodeUsed() already sets used=true, which getCode()
-      // treats as invalid for replay, so deleting the row here was never
-      // needed for security. process_registration_referral itself deletes
-      // this row once it has consumed pendingReferralCode (see api/data.js),
-      // so we just leave that cleanup to it.
+
       await markCodeUsed('signup_verify', email);
+      await deleteCode('signup_verify', email);
+
+      // ── Read pending referral code from the verify record ───────────────────
+      let pendingReferralCode = null;
+      try {
+        const vcRaw = await ddb.send(new GetItemCommand({ TableName: TABLE_CODES, Key: marshall({ pk: 'signup_verify#' + email }) }));
+        if (vcRaw.Item) {
+          const vcItem = unmarshall(vcRaw.Item);
+          pendingReferralCode = vcItem.pendingReferralCode || null;
+        }
+      } catch (_) {}
+
+      // ── Create DynamoDB user row with 10 credits ─────────────────────────
+      // Do this here so the row always exists with credits=10 when the user
+      // first logs in. The frontend upsert is a fallback but can silently fail.
+      try {
+        const cogUser = await cognito.send(new AdminGetUserCommand({
+          UserPoolId: USER_POOL_ID,
+          Username: email,
+        }));
+        const subAttr = (cogUser.UserAttributes || []).find(a => a.Name === 'sub');
+        const nameAttr = (cogUser.UserAttributes || []).find(a => a.Name === 'name');
+        const userId = subAttr && subAttr.Value;
+        if (userId) {
+          // Only create if row doesn't already exist
+          const existing = await ddb.send(new GetItemCommand({
+            TableName: TABLE_USERS,
+            Key: marshall({ userId }),
+          }));
+          if (!existing.Item) {
+            await ddb.send(new PutItemCommand({
+              TableName: TABLE_USERS,
+              Item: marshall({
+                userId,
+                name: (nameAttr && nameAttr.Value) || email.split('@')[0] || 'User',
+                email: email.toLowerCase(),
+                credits: 10,
+                xp: 0,
+                partner_xp: 0,
+                daily_streak_day: 0,
+                daily_streak_claimed_at: null,
+                referral_code: null,
+                referred_by_code: null,
+                pending_referral_code: pendingReferralCode || null,
+                created_at: new Date().toISOString(),
+                verified: false,
+              }, { removeUndefinedValues: true }),
+              ConditionExpression: 'attribute_not_exists(userId)',
+            })).catch(() => {}); // ignore if row was created concurrently
+            console.log('[SignupVerify] ✅ DynamoDB user row created with 10 credits for', email);
+          } else {
+            console.log('[SignupVerify] DynamoDB row already exists for', email, '— skipping creation');
+            // If row exists but pending_referral_code not set, patch it in
+            if (referralCode) {
+              await ddb.send(new UpdateItemCommand({
+                TableName: TABLE_USERS,
+                Key: marshall({ userId }),
+                UpdateExpression: 'SET pending_referral_code = if_not_exists(pending_referral_code, :rc)',
+                ExpressionAttributeValues: marshall({ ':rc': pendingReferralCode }),
+              })).catch(() => {});
+            }
+          }
+        }
+      } catch (dbErr) {
+        console.warn('[SignupVerify] Could not create DynamoDB row (non-fatal):', dbErr.message || dbErr);
+      }
+
       return send(res, 200, { data: {} });
     } catch (err) {
       console.error(`[SignupVerify] ❌ confirm FAILED for ${email}:`, err);
@@ -308,5 +365,3 @@ module.exports = async function handler(req, res) {
 
   return send(res, 400, { error: { message: 'Unsupported action' } });
 };
-
-
