@@ -2157,14 +2157,20 @@ async function handleRpc(spec, claims) {
         referredListings:      await (async () => {
           const listings = Array.isArray(refItem.referredListings) ? refItem.referredListings : [];
           if (!listings.length) return [];
-          // Filter out deleted houses by checking DynamoDB
+          // Filter out deleted houses by checking DynamoDB.
+          // BUG (fixed): this used to query with Key: { id: listingId }, but
+          // the Properties table's real partition key is 'propertyId', not
+          // 'id'. Every single GetItem therefore threw a ValidationException
+          // (key schema mismatch) — which the catch-block below swallowed and
+          // treated as "keep it", meaning this filter was a permanent no-op
+          // and every deleted house stayed in referral history forever.
           const TABLE_HOUSES = tableName('houses');
           const results = await Promise.all(listings.map(async (l) => {
             if (!l || !l.listingId) return null;
             try {
-              const r = await ddb.send(new GetItemCommand({ TableName: TABLE_HOUSES, Key: marshall({ id: l.listingId }) }));
+              const r = await ddb.send(new GetItemCommand({ TableName: TABLE_HOUSES, Key: marshall({ propertyId: l.listingId }) }));
               return r.Item ? l : null;
-            } catch (_) { return l; } // keep on error
+            } catch (_) { return l; } // keep on unexpected error (e.g. transient throttling)
           }));
           return results.filter(Boolean);
         })(),
