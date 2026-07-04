@@ -130,7 +130,22 @@ module.exports = async function handler(req, res) {
 
     for (const row of Object.values(byId)) {
       const uid = String(row.id || '');
-      if (!uid || uid.includes('@')) continue; // skip ghost/email-key rows
+      if (!uid) continue;
+      
+      // Email-keyed rows: try to find the matching Cognito user by email
+      if (uid.includes('@')) {
+        const matchedCog = [...cognitoUsers.values()].find(c => c.email && c.email.toLowerCase() === uid.toLowerCase());
+        if (matchedCog) {
+          // Merge email row into the cognito-matched user
+          const mergedId = matchedCog.sub;
+          if (!byId[mergedId]) {
+            row.id = mergedId;
+            realUsers.push(row);
+          }
+        }
+        // Skip raw email-keyed row either way
+        continue;
+      }
 
       if (!cognitoUsers.has(uid)) {
         // No matching Cognito account → user was deleted → auto-remove
