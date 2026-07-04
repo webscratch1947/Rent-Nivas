@@ -2154,7 +2154,20 @@ async function handleRpc(spec, claims) {
         registrationReferrals: parseInt(refItem.registrationReferrals || 0, 10),
         listingReferrals:      parseInt(refItem.listingReferrals      || 0, 10),
         referredUsers:         Array.isArray(refItem.referredUsers)    ? refItem.referredUsers    : [],
-        referredListings:      Array.isArray(refItem.referredListings) ? refItem.referredListings : [],
+        referredListings:      await (async () => {
+          const listings = Array.isArray(refItem.referredListings) ? refItem.referredListings : [];
+          if (!listings.length) return [];
+          // Filter out deleted houses by checking DynamoDB
+          const TABLE_HOUSES = tableName('houses');
+          const results = await Promise.all(listings.map(async (l) => {
+            if (!l || !l.listingId) return null;
+            try {
+              const r = await ddb.send(new GetItemCommand({ TableName: TABLE_HOUSES, Key: marshall({ id: l.listingId }) }));
+              return r.Item ? l : null;
+            } catch (_) { return l; } // keep on error
+          }));
+          return results.filter(Boolean);
+        })(),
       };
     } catch (err) {
       console.warn('[RPC get_referral_data] Referrals lookup failed (returning empty):', err.message);
