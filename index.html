@@ -19902,6 +19902,20 @@
         var isPartner = await _pdIsPartner(user.id);
         var statsRes = await _rnReferralApi('stats');
         var s = statsRes.ok ? (statsRes.data || {}) : {};
+        // BUG FIX: this function refreshed the referral history and even
+        // showed the "Referral Successful!" popup, but it never actually
+        // re-fetched the user's real credits balance — so someone could see
+        // "You earned 0.50 credits" and the new referral in their history,
+        // while the credits badge up top kept showing the old cached number
+        // until some unrelated page happened to refresh it. Pull the real
+        // balance from the profile row and sync it into the badge here too.
+        try {
+          var _profRow = await fetchProfileRow();
+          if (_profRow && !isNaN(parseFloat(_profRow.credits))) {
+            localStorage.setItem('nestly-credits', Math.max(0, parseFloat(_profRow.credits)));
+            if (typeof updateCreditsBadges === 'function') updateCreditsBadges();
+          }
+        } catch (e) {}
         // NOTE: get_referral_data returns { referralCode, referredUsers, referredListings },
         // NOT { referralId, history } — reading the old field names silently returned
         // undefined for everything, which is why the code box and both history tabs
