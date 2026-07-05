@@ -369,6 +369,35 @@ module.exports = async function handler(req, res) {
         console.warn('[SignupVerify] Could not create DynamoDB row (non-fatal):', dbErr.message || dbErr);
       }
 
+      // ── Process registration referral DIRECTLY, right here ──────────────
+      // ARCHITECTURE CHANGE: this used to be entirely the client's job — the
+      // frontend had to remember to call process_registration_referral after
+      // the user's first login, and if that call never happened (JS error,
+      // closed tab, navigated away, or any of the several other bugs found
+      // in this system), the referral was silently lost forever with no
+      // server-side trace. Doing it here means it runs as a GUARANTEED,
+      // unconditional part of the same request that verifies the user's
+      // email — no client involvement needed, no way to "forget" to call it.
+      // Errors are logged loudly (not swallowed) but never block the
+      // person's actual signup from completing, since email verification
+      // itself already succeeded above this point.
+      try {
+        const { processRegistrationReferralCore } = require('./data.js');
+        const cogUser2 = await cognito.send(new AdminGetUserCommand({ UserPoolId: USER_POOL_ID, Username: email }));
+        const subAttr2 = (cogUser2.UserAttributes || []).find(a => a.Name === 'sub');
+        const userId2 = subAttr2 && subAttr2.Value;
+        if (userId2) {
+          const refResult = await processRegistrationReferralCore({
+            userId: userId2,
+            userEmail: email,
+            code: pendingReferralCode || '',
+          });
+          console.log(`[SignupVerify] Registration referral result for ${email}:`, refResult);
+        }
+      } catch (refErr) {
+        console.error(`[SignupVerify] Registration referral processing FAILED for ${email} (non-fatal, signup still succeeds):`, refErr);
+      }
+
       return send(res, 200, { data: {} });
     } catch (err) {
       console.error(`[SignupVerify] ❌ confirm FAILED for ${email}:`, err);
