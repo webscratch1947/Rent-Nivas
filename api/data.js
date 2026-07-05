@@ -1183,6 +1183,7 @@ async function handleRpc(spec, claims) {
       ownerRewardsPaid: 0, ownerRewardsSkipped: 0, ownerRewardsFailed: 0,
       listingReferralsPaid: 0, listingReferralsSkipped: 0, listingReferralsFailed: 0,
       partnerTopUpsPaid: 0, partnerTopUpsSkipped: 0, partnerTopUpsFailed: 0,
+      registrationReferralsPaid: 0, registrationReferralsSkipped: 0, registrationReferralsFailed: 0,
     };
 
     // Fake "admin" claims to reuse the existing RPC handlers' internal logic
@@ -1284,55 +1285,106 @@ async function handleRpc(spec, claims) {
       console.error('[Backfill] Referrals scan failed:', e.message);
     }
 
-    // ── 4. Missed registration referral credits ────────────────────────────
-    // Find all users who have referred_by_code set, then check if the
-    // referrer actually got credited. If not, award them now.
+    // ── 4. Missed registration referral credits ─────────────────────────────
+    // BUG in the previous version of this section: it wrote its counts into
+    // result.partnerTopUpsPaid/Failed (section 3's counters), so there was
+    // never a distinct number to look at — it looked like nothing happened
+    // even when it did something. Also it called awardReferralReward()
+    // directly, which ONLY touches profiles.credits/xp — it never appends
+    // to Referrals.referredUsers, so the referrer's Register tab stayed
+    // empty forever even after being paid. Rewritten with two real cases:
+    //
+    //   Case A — user has no referred_by_code yet, but a pending_referral_code
+    //            survived on their profile (never got processed at signup,
+    //            e.g. they signed up right before this backfill or the
+    //            live-flow call silently failed). Runs the exact same
+    //            process_registration_referral RPC the live signup flow
+    //            uses, impersonating that user — so it both pays the
+    //            referrer AND appends them to referredUsers correctly.
+    //
+    //   Case B — user already has referred_by_code stamped (meaning the live
+    //            flow DID run for them) but is missing from the referrer's
+    //            referredUsers array — a display-only gap from the
+    //            list_append call failing that one time. Repairs the display
+    //            AND re-attempts the credit award, since there's no reliable
+    //            way to tell from stored data whether the original award
+    //            succeeded or silently failed at signup time (see the FIX
+    //            comment on the live process_registration_referral handler).
+    //            This can very rarely double-pay 0.50 credits for a row that
+    //            was actually fine; that's an acceptable, easily-correctable
+    //            tradeoff against permanently lost referral credit.
     try {
       const usersTbl = tableName('profiles');
       const scanned4 = await runDdb('read', 'profiles', () => ddb.send(new ScanCommand({ TableName: usersTbl })));
       const allUsers = (scanned4.Items || []).map(item => fromDbItem('profiles', unmarshall(item)));
-      
+
       for (const u of allUsers) {
-        if (!u.referred_by_code || u.reg_reward_backfilled) continue;
-        
-        // Find referrer via Referrals table
-        try {
-          const refRow = await ddb.send(new GetItemCommand({
-            TableName: TABLE_REFERRALS,
-            Key: marshall({ referralId: u.referred_by_code }),
-          }));
-          if (!refRow.Item) continue;
-          const ref = unmarshall(refRow.Item);
-          if (!ref.userId) continue;
-          
-          // Check if this user is in referredUsers already
-          const referredUsers = Array.isArray(ref.referredUsers) ? ref.referredUsers : [];
-          const alreadyCounted = referredUsers.some(ru => ru.userId === u.id || ru.email === u.email);
-          
-          if (!alreadyCounted) {
-            // Award the referrer
-            try {
-              await awardReferralReward(ref.userId, 'registration');
-              result.partnerTopUpsPaid++;
-              console.log(`[Backfill] Registration credit awarded: referrer=${ref.userId} new_user=${u.id}`);
-            } catch(e) {
-              console.error('[Backfill] reg award failed:', e.message);
-              result.partnerTopUpsFailed++;
+        if (!u.id) continue;
+
+        // ── Case A ──────────────────────────────────────────────────────────
+        if (!u.referred_by_code && u.pending_referral_code) {
+          try {
+            const res = await handleRpc(
+              { name: 'process_registration_referral', params: { p_referral_code: u.pending_referral_code } },
+              { sub: u.id, email: u.email || '', 'cognito:groups': [] }
+            );
+            if (res && res.processed) {
+              result.registrationReferralsPaid++;
+              console.log(`[Backfill] Case A: processed registration referral for user ${u.id} via code ${u.pending_referral_code}`);
+            } else {
+              result.registrationReferralsSkipped++;
             }
+          } catch (e) {
+            console.error('[Backfill] Case A failed for user', u.id, e.message);
+            result.registrationReferralsFailed++;
           }
-          
-          // Mark this user so we don't re-process
-          await updateRows({
-            table: 'profiles', op: 'update',
-            values: { reg_reward_backfilled: true },
-            filters: [{ op: 'eq', column: 'id', value: u.id }],
-          }).catch(() => {});
-          
-        } catch(e) {
-          console.error('[Backfill] reg referral check failed for user', u.id, e.message);
+          continue;
+        }
+
+        // ── Case B ──────────────────────────────────────────────────────────
+        if (u.referred_by_code) {
+          try {
+            const refRow = await ddb.send(new GetItemCommand({
+              TableName: TABLE_REFERRALS,
+              Key: marshall({ referralId: u.referred_by_code }),
+            }));
+            if (!refRow.Item) { result.registrationReferralsSkipped++; continue; }
+            const ref = unmarshall(refRow.Item);
+            if (!ref.userId) { result.registrationReferralsSkipped++; continue; }
+            const referredUsers = Array.isArray(ref.referredUsers) ? ref.referredUsers : [];
+            const alreadyCounted = referredUsers.some(ru => ru && ru.userId === u.id);
+            if (alreadyCounted) { result.registrationReferralsSkipped++; continue; }
+
+            await ddb.send(new UpdateItemCommand({
+              TableName: TABLE_REFERRALS,
+              Key: marshall({ referralId: u.referred_by_code }),
+              UpdateExpression:
+                'SET referredUsers = list_append(if_not_exists(referredUsers, :empty), :newUser),' +
+                '    totalReferrals        = if_not_exists(totalReferrals, :zero)        + :one,' +
+                '    registrationReferrals = if_not_exists(registrationReferrals, :zero) + :one',
+              ExpressionAttributeValues: marshall({
+                ':newUser': [{
+                  userId: u.id,
+                  name: u.name || (u.email ? u.email.split('@')[0] : ''),
+                  email: u.email || '',
+                  avatar: u.avatar_url || '',
+                  joinedAt: u.created_at || new Date().toISOString(),
+                }],
+                ':empty': [], ':zero': 0, ':one': 1,
+              }),
+            }));
+            await awardReferralReward(ref.userId, 'registration').catch(e => {
+              console.error('[Backfill] Case B award failed for referrer', ref.userId, e.message);
+            });
+            result.registrationReferralsPaid++;
+            console.log(`[Backfill] Case B: repaired missing referredUsers entry + re-awarded referrer=${ref.userId} for user=${u.id}`);
+          } catch (e) {
+            console.error('[Backfill] Case B failed for user', u.id, e.message);
+            result.registrationReferralsFailed++;
+          }
         }
       }
-    } catch(e) {
+    } catch (e) {
       console.error('[Backfill] reg referral scan failed:', e.message);
     }
 
