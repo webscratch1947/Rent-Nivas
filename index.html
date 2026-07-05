@@ -18895,8 +18895,9 @@
             updateCreditsBadges();
             toast('🔓 Unlocked! Full contact details are now visible.', 'success');
             renderDetailPage(house);
-            // Show screening questions if the host set any
-            setTimeout(() => maybePromptListingQuestions(house), 600);
+            // Show screening questions if the host set any — was previously
+            // delayed 600ms for no real reason; now fires immediately.
+            maybePromptListingQuestions(house);
 
             // Reward the property owner asynchronously — don't block the UI
             if (purchase?.id && house.owner_id && house.owner_id !== user.id) {
