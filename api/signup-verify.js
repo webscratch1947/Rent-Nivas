@@ -300,18 +300,20 @@ module.exports = async function handler(req, res) {
       //     POST /api/referrals action='process_registration' on first
       //     login, via getPendingReferralCode as a fallback.
 
+      // ── Read pending referral code from the verify record ───────────────────
+      // BUG FIX (the actual root cause of every "no_code" result seen so far):
+      // this used to delete the VerificationCodes row (deleteCode() above)
+      // and THEN try to GetItem that exact same row to pull pendingReferralCode
+      // out of it. The row was already gone by then — vcRaw.Item was always
+      // undefined, unconditionally, for every single user, regardless of
+      // whether storePendingReferralCode() ever ran successfully. `record`
+      // was already fetched at the top of this handler, BEFORE the delete —
+      // it already has this field if it was ever stored. No second fetch
+      // needed at all.
+      let pendingReferralCode = record.pendingReferralCode || null;
+
       await markCodeUsed('signup_verify', email);
       await deleteCode('signup_verify', email);
-
-      // ── Read pending referral code from the verify record ───────────────────
-      let pendingReferralCode = null;
-      try {
-        const vcRaw = await ddb.send(new GetItemCommand({ TableName: TABLE_CODES, Key: marshall({ pk: 'signup_verify#' + email }) }));
-        if (vcRaw.Item) {
-          const vcItem = unmarshall(vcRaw.Item);
-          pendingReferralCode = vcItem.pendingReferralCode || null;
-        }
-      } catch (_) {}
 
       // ── Create DynamoDB user row with 10 credits ─────────────────────────
       // Do this here so the row always exists with credits=10 when the user
