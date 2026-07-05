@@ -17331,7 +17331,9 @@
           ` · Listing referrals: ${data.listingReferralsPaid} paid, ${data.listingReferralsSkipped} already fine` +
           (data.listingReferralsFailed ? `, ${data.listingReferralsFailed} failed` : '') +
           ` · Partner top-ups: ${data.partnerTopUpsPaid} paid, ${data.partnerTopUpsSkipped} already fine` +
-          (data.partnerTopUpsFailed ? `, ${data.partnerTopUpsFailed} failed` : ''),
+          (data.partnerTopUpsFailed ? `, ${data.partnerTopUpsFailed} failed` : '') +
+          ` · Registration referrals: ${data.registrationReferralsPaid} paid/repaired, ${data.registrationReferralsSkipped} already fine` +
+          (data.registrationReferralsFailed ? `, ${data.registrationReferralsFailed} failed` : ''),
           'success'
         );
         setTimeout(loadAdminUsers, 500);
