@@ -11738,6 +11738,15 @@
         return;
       }
       if (btn) { btn.disabled = true; btn.textContent = 'Creating account…'; }
+      // Unmistakable proof of exactly what's being submitted — no more
+      // needing to dig through Vercel logs to find out if the code made it.
+      // This shows up immediately, on-screen, the instant Create Account is
+      // clicked, straight from the actual value being sent.
+      if (refCode) {
+        toast('Creating account with referral code: ' + refCode, 'success');
+      } else {
+        toast('Creating account — no referral code entered', 'info');
+      }
       try {
         const { data, error } = await sb.auth.signUp({
           email, password,
@@ -12202,7 +12211,16 @@
           var uid = (user && (user.id || user.sub || user.email)) || null;
           if (!uid) return;
           fetchProfileRow().then(function(prof) {
-            if (prof && !prof.chest_claimed && typeof window._rnShowCreditsPrompt === 'function') {
+            // BUG FIX: this exact chest-prompt trigger also exists at another
+            // call site (~800ms after a different load path) which reads the
+            // SAME stale profile snapshot before either one has written
+            // chest_claimed=true back to the DB. Both would then call
+            // _rnShowCreditsPrompt() a few hundred ms apart — the second call
+            // restarting the overlay mid-animation, which looked exactly like
+            // the animation looping forever. window._rnChestPromptShown is a
+            // single shared, synchronous guard checked by both call sites.
+            if (prof && !prof.chest_claimed && !window._rnChestPromptShown && typeof window._rnShowCreditsPrompt === 'function') {
+              window._rnChestPromptShown = true;
               sb.from('profiles').update({ chest_claimed: true }).eq('id', user.id).then(function(res){
                 if (res && res.error) console.warn('[Chest] failed to mark claimed:', res.error.message);
               });
@@ -14122,7 +14140,8 @@
           // Process referral NOW that we know the profile row exists in DynamoDB
           processPendingSignupReferral().catch(() => {});
           const chestKey = 'rn-chest-claimed-' + user.id;
-          if (prof && !prof.chest_claimed && !localStorage.getItem(chestKey) && typeof window._rnShowCreditsPrompt === 'function') {
+          if (prof && !prof.chest_claimed && !localStorage.getItem(chestKey) && !window._rnChestPromptShown && typeof window._rnShowCreditsPrompt === 'function') {
+            window._rnChestPromptShown = true;
             localStorage.setItem(chestKey, '1');
             sb.from('profiles').update({ chest_claimed: true }).eq('id', user.id).then(function(res){
               if (res && res.error) console.warn('[Chest] failed to mark claimed:', res.error.message);
@@ -18679,6 +18698,18 @@
         // this is purely additive safety, not a replacement.
         let localCode = '';
         try { localCode = localStorage.getItem('rn-pending-ref-code') || ''; } catch (e) {}
+        // FURTHER hardening: sessionStorage['rn-pending-signup'] gets written
+        // client-side the INSTANT doSignup() is submitted (see cognito-auth.js
+        // signUp()), independent of whether the server-side storage chain
+        // (VerificationCodes → profile.pending_referral_code) succeeds. If
+        // that chain ever silently drops the code for any reason, this is a
+        // second, fully independent source of truth to fall back to.
+        if (!localCode) {
+          try {
+            const pending = JSON.parse(sessionStorage.getItem('rn-pending-signup') || '{}');
+            if (pending && pending.referral_code) localCode = pending.referral_code;
+          } catch (e) {}
+        }
         try {
           const res = await _rnReferralApi('process_registration', localCode ? { code: localCode } : {});
           console.log('[RN] Registration referral result:', res && res.data);
@@ -22243,7 +22274,18 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
           svgText = svgText.replace(/id="/g, 'id="' + uid + '-')
                            .replace(/url\(#/g, 'url(#' + uid + '-')
                            .replace(/href="#/g, 'href="#' + uid + '-')
-                           .replace(/xlink:href="#/g, 'xlink:href="#' + uid + '-');
+                           .replace(/xlink:href="#/g, 'xlink:href="#' + uid + '-')
+                           // BUG FIX: this popup was the one place in the whole
+                           // codebase that injected this SVG with NO
+                           // sanitization at all. Its inner coin bounce/rotate
+                           // animations use repeatCount="indefinite" — calling
+                           // unpauseAnimations() on tap resumed ALL of them,
+                           // including those, and nothing ever told them to
+                           // stop. That's the actual "looping forever" bug.
+                           // Force every one-shot animation to play exactly
+                           // once and hold its final state.
+                           .replace(/repeatCount="indefinite"/g, 'repeatCount="1"')
+                           .replace(/(<(?:animate|animateTransform|animateMotion|set)(?![^>]*\sfill=)[^>]*?)(\/?>)/g, '$1 fill="freeze"$2');
           wrap.innerHTML = svgText;
           var svgEl = wrap.querySelector('svg');
           _applyFirstFrame(svgEl);
@@ -22299,6 +22341,10 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
       // Show credits text after animation completes (~2.5s)
       setTimeout(function() {
         _rnCreditsClaiming = false;
+        // Belt-and-suspenders: explicitly pause again once the one-shot open
+        // animation has had time to finish, in case anything inside the SVG
+        // wasn't caught by the repeatCount/freeze sanitization above.
+        try { svgEl.pauseAnimations(); } catch(e) {}
         if (claimText) {
           claimText.style.display = 'block';
           requestAnimationFrame(function() { claimText.style.opacity = '1'; });
