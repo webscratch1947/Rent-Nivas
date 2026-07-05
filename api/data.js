@@ -939,12 +939,20 @@ async function handleRpc(spec, claims) {
       }
       if (profileKey) {
         const pkField = Object.keys(profileKey)[0];
+        // FIX: ConditionExpression used to be attribute_not_exists(referred_by_code)
+        // only. But DynamoDB treats an attribute explicitly set to NULL as
+        // *existing* — attribute_not_exists() returns false for it, not true.
+        // Anyone who ever had this field manually set to Null (or set to Null
+        // by some future bug) would be permanently stuck failing this check
+        // forever, with the error caught below and misreported as
+        // "already_processed". Now accepts either "doesn't exist" OR "exists
+        // but is an explicit Null" as valid starting states.
         await ddb.send(new UpdateItemCommand({
           TableName: TBL_USERS,
           Key: marshall(profileKey),
           UpdateExpression: 'SET referred_by_code = :code, referred_by_user_id = :rid',
-          ConditionExpression: 'attribute_not_exists(referred_by_code)',
-          ExpressionAttributeValues: marshall({ ':code': code, ':rid': referrerId }),
+          ConditionExpression: 'attribute_not_exists(referred_by_code) OR referred_by_code = :nullv',
+          ExpressionAttributeValues: marshall({ ':code': code, ':rid': referrerId, ':nullv': null }),
         }));
       } else {
         // Fallback if key not found — use updateRows (not atomic but better than nothing)
