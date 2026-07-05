@@ -788,231 +788,193 @@ async function ensureReferralsRecord(code, userId, userName, userEmail) {
 // ─────────────────────────────────────────────────────────────────────────────
 // RPC HANDLER
 // ─────────────────────────────────────────────────────────────────────────────
+  // ── processRegistrationReferralCore ─────────────────────────────────────────
+// ARCHITECTURE CHANGE: this used to run ONLY as an RPC that a logged-in
+// client had to remember to call after their first login. That was the
+// single point of failure behind every "referral didn't work" report:
+//   - if the client-side call never fired (page navigated away, JS error,
+//     tab closed before it ran) — nothing ever processed it, silently.
+//   - it depended on a fragile multi-hop chain to even find the code
+//     (VerificationCodes → profile.pending_referral_code) that could be
+//     wiped by unrelated writes (e.g. the resend-code bug fixed earlier).
+//
+// Now this is a standalone, exported function that signup-verify.js calls
+// DIRECTLY, server-side, as an unconditional part of the SAME request that
+// confirms a user's email (see the 'confirm' action there). It is no longer
+// optional or dependent on any client ever calling it — it happens exactly
+// once, as a guaranteed side effect of email verification succeeding. The
+// RPC (process_registration_referral) still exists as a thin wrapper for the
+// admin backfill sweep and as a harmless no-op safety net if a client does
+// still call it (idempotency guard makes a second call always report
+// 'already_processed' rather than double-processing).
+async function processRegistrationReferralCore({ userId, userEmail, code }) {
+  userEmail = String(userEmail || '').trim().toLowerCase();
+  code = String(code || '').trim().toUpperCase();
+
+  if (!code) {
+    // Fallback 1: pending_referral_code written to the Users profile
+    try {
+      const selfProfile = await readItems({
+        table: 'profiles', op: 'select', select: 'id,email,pending_referral_code',
+        filters: [{ op: 'eq', column: 'id', value: userId }], maybeSingle: true,
+      });
+      if (selfProfile && selfProfile.pending_referral_code) {
+        code = String(selfProfile.pending_referral_code).trim().toUpperCase();
+      }
+      if (!userEmail && selfProfile && selfProfile.email) userEmail = String(selfProfile.email).trim().toLowerCase();
+    } catch (e) {
+      console.warn('[Referral] Could not read pending_referral_code:', e.message);
+    }
+  }
+
+  if (!code && userEmail) {
+    // Fallback 2: legacy VerificationCodes side-channel (kept for old in-flight signups)
+    try {
+      const TABLE_CODES = process.env.TABLE_VERIFICATION_CODES || 'VerificationCodes';
+      const pk = `signup_verify#${userEmail}`;
+      const vcRes = await ddb.send(new GetItemCommand({ TableName: TABLE_CODES, Key: marshall({ pk }) }));
+      if (vcRes.Item) {
+        const vcItem = unmarshall(vcRes.Item);
+        if (vcItem.pendingReferralCode) code = String(vcItem.pendingReferralCode).trim().toUpperCase();
+      }
+    } catch (e) {
+      console.warn('[Referral] Could not read pendingReferralCode from VerificationCodes:', e.message);
+    }
+  }
+
+  if (!code) return { processed: false, reason: 'no_code' };
+
+  const newUserProfile = await readItems({
+    table: 'profiles', op: 'select', select: 'id,name,email,avatar_url,referred_by_code',
+    filters: [{ op: 'eq', column: 'id', value: userId }], maybeSingle: true,
+  });
+  if (newUserProfile && newUserProfile.referred_by_code) {
+    console.log(`[Referral] Registration referral already processed for user ${userId} — skipping`);
+    return { processed: false, reason: 'already_processed' };
+  }
+
+  let refItem = null;
+  try {
+    const refRes = await ddb.send(new GetItemCommand({ TableName: TABLE_REFERRALS, Key: marshall({ referralId: code }) }));
+    if (refRes.Item) refItem = unmarshall(refRes.Item);
+  } catch (e) {
+    console.warn('[Referral] Referrals table lookup failed, trying Users fallback:', e.message);
+  }
+
+  let referrerId = refItem && refItem.userId;
+  if (!referrerId) {
+    const legacyReferrer = await readItems({
+      table: 'profiles', op: 'select', select: 'id,name,email,referral_code',
+      filters: [{ op: 'eq', column: 'referral_code', value: code }], maybeSingle: true,
+    });
+    if (legacyReferrer && legacyReferrer.id) referrerId = legacyReferrer.id;
+  }
+
+  if (!referrerId || referrerId === userId) return { processed: false, reason: 'referrer_not_found' };
+  if (refItem && refItem.active === false) return { processed: false, reason: 'inactive_code' };
+
+  const newUserEntry = {
+    userId,
+    name:   (newUserProfile && newUserProfile.name)       || (userEmail ? userEmail.split('@')[0] : ''),
+    email:  (newUserProfile && newUserProfile.email)      || userEmail || '',
+    avatar: (newUserProfile && newUserProfile.avatar_url) || '',
+    joinedAt: new Date().toISOString(),
+  };
+
+  try {
+    const existingUsers = (refItem && refItem.referredUsers) || [];
+    const alreadyAdded  = existingUsers.some(u => u && u.userId === userId);
+    if (!alreadyAdded) {
+      await ddb.send(new UpdateItemCommand({
+        TableName: TABLE_REFERRALS,
+        Key: marshall({ referralId: code }),
+        UpdateExpression:
+          'SET referredUsers = list_append(if_not_exists(referredUsers, :empty), :newUser),' +
+          '    totalReferrals        = if_not_exists(totalReferrals, :zero)        + :one,' +
+          '    registrationReferrals = if_not_exists(registrationReferrals, :zero) + :one',
+        ExpressionAttributeValues: marshall({
+          ':newUser': [newUserEntry], ':empty': [], ':zero': 0, ':one': 1,
+        }, { removeUndefinedValues: true }),
+      }));
+    }
+  } catch (e) {
+    console.warn('[Referral] Could not update Referrals table entry:', e.message);
+  }
+
+  try {
+    const TBL_USERS = tableName('profiles');
+    let profileKey = null;
+    for (const k of [{ userId }, { id: userId }]) {
+      try {
+        const chk = await ddb.send(new GetItemCommand({ TableName: TBL_USERS, Key: marshall(k) }));
+        if (chk.Item) { profileKey = k; break; }
+      } catch (_) {}
+    }
+    if (profileKey) {
+      await ddb.send(new UpdateItemCommand({
+        TableName: TBL_USERS,
+        Key: marshall(profileKey),
+        UpdateExpression: 'SET referred_by_code = :code, referred_by_user_id = :rid',
+        ConditionExpression: 'attribute_not_exists(referred_by_code) OR referred_by_code = :nullv',
+        ExpressionAttributeValues: marshall({ ':code': code, ':rid': referrerId, ':nullv': null }),
+      }));
+    } else {
+      await updateRows({
+        table: 'profiles', op: 'update',
+        values: { referred_by_code: code, referred_by_user_id: referrerId },
+        filters: [{ op: 'eq', column: 'id', value: userId }],
+      });
+    }
+  } catch (stampErr) {
+    if (/ConditionalCheckFailed/i.test(stampErr && stampErr.name || '')) {
+      console.log(`[Referral] Concurrent registration referral race for user ${userId} — this call lost; aborting`);
+      return { processed: false, reason: 'already_processed' };
+    }
+    throw stampErr;
+  }
+
+  let reward = null;
+  try {
+    reward = await awardReferralReward(referrerId, 'registration');
+  } catch (rewardErr) {
+    console.error(`[Referral] AWARD FAILED for referrer=${referrerId} new_user=${userId} code=${code}:`, rewardErr);
+    reward = { referrer_id: referrerId, error: rewardErr.message || 'Award failed' };
+  }
+
+  await updateRows({
+    table: 'profiles', op: 'update', values: { pending_referral_code: null },
+    filters: [{ op: 'eq', column: 'id', value: userId }],
+  }).catch(e => console.warn('[Referral] Could not clear pending_referral_code:', e.message));
+
+  if (userEmail) {
+    try {
+      const TABLE_CODES = process.env.TABLE_VERIFICATION_CODES || 'VerificationCodes';
+      await ddb.send(new DeleteItemCommand({ TableName: TABLE_CODES, Key: marshall({ pk: 'signup_verify#' + userEmail }) }));
+    } catch (e) { console.warn('[Referral] Could not delete VerificationCodes row:', e.message); }
+  }
+
+  console.log(`[Referral] Registration referral processed: new_user=${userId} referrer=${referrerId} code=${code}`);
+  return { processed: true, referrer_id: referrerId, reward };
+}
+
 async function handleRpc(spec, claims) {
 
   // ── process_registration_referral ─────────────────────────────────────────
-  // Called once per new user on their first login.
-  // Idempotent: stamps Users.referred_by_code on the new user so a second
-  // call (same session refresh) is a no-op.
-  // ALL tracking data is stored in the Referrals table (v2).
+  // Thin RPC wrapper — the actual logic now lives in the standalone,
+  // exported processRegistrationReferralCore() below, so it can also be
+  // called DIRECTLY, server-side, from signup-verify.js's 'confirm' step.
+  // See that function's comment block for why this matters.
   if (spec.name === 'process_registration_referral') {
-    let code = String((spec.params && spec.params.p_referral_code) || '').trim().toUpperCase();
-
-    // Collect caller's email for VerificationCodes fallback lookups
-    let userEmail = String(claims.email || '').trim().toLowerCase();
-
-    // Fallback 1: pending_referral_code written to Users profile by signup-verify.js
-    if (!code) {
-      try {
-        const selfProfile = await readItems({
-          table: 'profiles',
-          op: 'select',
-          select: 'id,email,pending_referral_code',
-          filters: [{ op: 'eq', column: 'id', value: claims.sub }],
-          maybeSingle: true,
-        });
-        if (selfProfile && selfProfile.pending_referral_code) {
-          code = String(selfProfile.pending_referral_code).trim().toUpperCase();
-          console.log('[Referral] Using pending_referral_code from profile for user ' + claims.sub + ': ' + code);
-        }
-        if (!userEmail && selfProfile && selfProfile.email) {
-          userEmail = String(selfProfile.email).trim().toLowerCase();
-        }
-      } catch (e) {
-        console.warn('[Referral] Could not read pending_referral_code:', e.message);
-      }
-    }
-
-    // Fallback 2: pendingReferralCode stored in VerificationCodes by signup-verify.js
-    if (!code && userEmail) {
-      try {
-        const TABLE_CODES = process.env.TABLE_VERIFICATION_CODES || 'VerificationCodes';
-        const pk = `signup_verify#${userEmail}`;
-        const vcRes = await ddb.send(new GetItemCommand({ TableName: TABLE_CODES, Key: marshall({ pk }) }));
-        if (vcRes.Item) {
-          const vcItem = unmarshall(vcRes.Item);
-          if (vcItem.pendingReferralCode) {
-            code = String(vcItem.pendingReferralCode).trim().toUpperCase();
-            console.log('[Referral] Using pendingReferralCode from VerificationCodes for user ' + claims.sub + ' (' + userEmail + '): ' + code);
-          }
-        }
-      } catch (e) {
-        console.warn('[Referral] Could not read pendingReferralCode from VerificationCodes:', e.message);
-      }
-    }
-
-    if (!code) return { processed: false, reason: 'no_code' };
-
-    // ── Idempotency guard: check if this user was already referred ──────────
-    const newUserProfile = await readItems({
-      table: 'profiles',
-      op: 'select',
-      select: 'id,name,email,avatar_url,referred_by_code',
-      filters: [{ op: 'eq', column: 'id', value: claims.sub }],
-      maybeSingle: true,
+    const code = String((spec.params && spec.params.p_referral_code) || '').trim().toUpperCase();
+    return await processRegistrationReferralCore({
+      userId: claims.sub,
+      userEmail: String(claims.email || '').trim().toLowerCase(),
+      code,
     });
-    if (newUserProfile && newUserProfile.referred_by_code) {
-      console.log(`[Referral] Registration referral already processed for user ${claims.sub} — skipping`);
-      return { processed: false, reason: 'already_processed' };
-    }
-
-    // ── Look up referrer in the Referrals table (fast GetItem by code) ──────
-    let refItem = null;
-    try {
-      const refRes = await ddb.send(new GetItemCommand({
-        TableName: TABLE_REFERRALS,
-        Key: marshall({ referralId: code }),
-      }));
-      if (refRes.Item) refItem = unmarshall(refRes.Item);
-    } catch (e) {
-      console.warn('[Referral] Referrals table lookup failed, trying Users fallback:', e.message);
-    }
-
-    // Fallback: code may still only exist in the Users table (pre-migration user)
-    let referrerId = refItem && refItem.userId;
-    if (!referrerId) {
-      const legacyReferrer = await readItems({
-        table: 'profiles',
-        op: 'select',
-        select: 'id,name,email,referral_code',
-        filters: [{ op: 'eq', column: 'referral_code', value: code }],
-        maybeSingle: true,
-      });
-      if (legacyReferrer && legacyReferrer.id) referrerId = legacyReferrer.id;
-    }
-
-    if (!referrerId || referrerId === claims.sub) {
-      return { processed: false, reason: 'referrer_not_found' };
-    }
-
-    if (refItem && refItem.active === false) {
-      return { processed: false, reason: 'inactive_code' };
-    }
-
-    // ── Update Referrals table: append new user entry, increment counts ──────
-    const newUserEntry = {
-      userId:   claims.sub,
-      name:     (newUserProfile && newUserProfile.name)       || (userEmail ? userEmail.split('@')[0] : ''),
-      email:    (newUserProfile && newUserProfile.email)      || userEmail || '',
-      avatar:   (newUserProfile && newUserProfile.avatar_url) || '',
-      joinedAt: new Date().toISOString(),
-    };
-
-    try {
-      // Guard: check if this user is already in referredUsers (extra idempotency)
-      const existingUsers = (refItem && refItem.referredUsers) || [];
-      const alreadyAdded  = existingUsers.some(u => u && u.userId === claims.sub);
-      if (!alreadyAdded) {
-        await ddb.send(new UpdateItemCommand({
-          TableName: TABLE_REFERRALS,
-          Key: marshall({ referralId: code }),
-          UpdateExpression:
-            'SET referredUsers = list_append(if_not_exists(referredUsers, :empty), :newUser),' +
-            '    totalReferrals        = if_not_exists(totalReferrals, :zero)        + :one,' +
-            '    registrationReferrals = if_not_exists(registrationReferrals, :zero) + :one',
-          ExpressionAttributeValues: marshall({
-            ':newUser': [newUserEntry],
-            ':empty':   [],
-            ':zero':    0,
-            ':one':     1,
-          }, { removeUndefinedValues: true }),
-        }));
-      }
-    } catch (e) {
-      // Non-fatal — reward still gets applied; counts will be off but won't block the user
-      console.warn('[Referral] Could not update Referrals table entry:', e.message);
-    }
-
-    // ── Stamp new user with referred_by_code (ATOMIC — conditional write) ──────
-    // Uses a ConditionExpression so that if two concurrent calls both passed the
-    // earlier guard, only ONE of them actually writes (and therefore awards).
-    // The other hits ConditionalCheckFailedException and returns 'already_processed'.
-    try {
-      const TBL_USERS = tableName('profiles');
-      // Try userId key, then legacy id key
-      let profileKey = null;
-      for (const k of [{ userId: claims.sub }, { id: claims.sub }]) {
-        try {
-          const chk = await ddb.send(new GetItemCommand({ TableName: TBL_USERS, Key: marshall(k) }));
-          if (chk.Item) { profileKey = k; break; }
-        } catch (_) {}
-      }
-      if (profileKey) {
-        const pkField = Object.keys(profileKey)[0];
-        // FIX: ConditionExpression used to be attribute_not_exists(referred_by_code)
-        // only. But DynamoDB treats an attribute explicitly set to NULL as
-        // *existing* — attribute_not_exists() returns false for it, not true.
-        // Anyone who ever had this field manually set to Null (or set to Null
-        // by some future bug) would be permanently stuck failing this check
-        // forever, with the error caught below and misreported as
-        // "already_processed". Now accepts either "doesn't exist" OR "exists
-        // but is an explicit Null" as valid starting states.
-        await ddb.send(new UpdateItemCommand({
-          TableName: TBL_USERS,
-          Key: marshall(profileKey),
-          UpdateExpression: 'SET referred_by_code = :code, referred_by_user_id = :rid',
-          ConditionExpression: 'attribute_not_exists(referred_by_code) OR referred_by_code = :nullv',
-          ExpressionAttributeValues: marshall({ ':code': code, ':rid': referrerId, ':nullv': null }),
-        }));
-      } else {
-        // Fallback if key not found — use updateRows (not atomic but better than nothing)
-        await updateRows({
-          table: 'profiles', op: 'update',
-          values: { referred_by_code: code, referred_by_user_id: referrerId },
-          filters: [{ op: 'eq', column: 'id', value: claims.sub }],
-        });
-      }
-    } catch (stampErr) {
-      const stampCode = stampErr && (stampErr.name || '');
-      if (/ConditionalCheckFailed/i.test(stampCode)) {
-        // Another concurrent call already stamped referred_by_code — this call loses the race
-        console.log(`[Referral] Concurrent registration referral race for user ${claims.sub} — this call lost; aborting`);
-        return { processed: false, reason: 'already_processed' };
-      }
-      throw stampErr; // unexpected DDB error — let the outer handler surface it
-    }
-
-    // ── Award referrer (credits / XP on their Users row) ─────────────────────
-    // Reached only by the one call that won the conditional stamp above.
-    // FIX: this used to be a bare `await` with no try/catch. Since the new
-    // user is stamped with referred_by_code BEFORE this line (irreversibly,
-    // via the conditional write above), any error thrown here — e.g. a
-    // transient DynamoDB hiccup, or the referrer's profile row not existing
-    // under the expected key — used to bubble up as an unhandled 500 AND
-    // permanently lose the reward, because a retry would see referred_by_code
-    // already set and short-circuit with 'already_processed' without ever
-    // re-attempting the award. Catch it, log loudly so it's traceable, and
-    // still report success for the registration itself — but surface the
-    // reward failure explicitly instead of losing it silently.
-    let reward = null;
-    try {
-      reward = await awardReferralReward(referrerId, 'registration');
-    } catch (rewardErr) {
-      console.error(`[Referral] AWARD FAILED for referrer=${referrerId} new_user=${claims.sub} code=${code}:`, rewardErr);
-      reward = { referrer_id: referrerId, error: rewardErr.message || 'Award failed' };
-    }
-
-    // ── Clear pending_referral_code so future calls are idempotent ────────────
-    await updateRows({
-      table: 'profiles',
-      op: 'update',
-      values: { pending_referral_code: null },
-      filters: [{ op: 'eq', column: 'id', value: claims.sub }],
-    }).catch(e => console.warn('[Referral] Could not clear pending_referral_code:', e.message));
-
-    // ── Clean up VerificationCodes row ────────────────────────────────────────
-    if (userEmail) {
-      try {
-        const TABLE_CODES = process.env.TABLE_VERIFICATION_CODES || 'VerificationCodes';
-        await ddb.send(new DeleteItemCommand({ TableName: TABLE_CODES, Key: marshall({ pk: 'signup_verify#' + userEmail }) }));
-      } catch (e) { console.warn('[Referral] Could not delete VerificationCodes row:', e.message); }
-    }
-
-    console.log(`[Referral] Registration referral processed: new_user=${claims.sub} referrer=${referrerId} code=${code}`);
-    return { processed: true, referrer_id: referrerId, reward };
   }
 
-  // ── award_listing_referral ───────────────────────────────────────────────
+
+// ── award_listing_referral ───────────────────────────────────────────────
   // Called when a referred user publishes their first property listing.
   // p_house_id is passed; we look up the referral_code on the property,
   // then find the referrer via the Referrals table, and award them.
@@ -2382,3 +2344,9 @@ module.exports = async function handler(req, res) {
     });
   }
 };
+
+// Attached as a property on the exported handler (not a separate export
+// shape) so Vercel still treats this file's default export as the /api/data
+// request handler, while signup-verify.js can still do:
+//   const { processRegistrationReferralCore } = require('./data.js');
+module.exports.processRegistrationReferralCore = processRegistrationReferralCore;
