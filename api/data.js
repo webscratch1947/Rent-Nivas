@@ -1284,6 +1284,58 @@ async function handleRpc(spec, claims) {
       console.error('[Backfill] Referrals scan failed:', e.message);
     }
 
+    // ── 4. Missed registration referral credits ────────────────────────────
+    // Find all users who have referred_by_code set, then check if the
+    // referrer actually got credited. If not, award them now.
+    try {
+      const usersTbl = tableName('profiles');
+      const scanned4 = await runDdb('read', 'profiles', () => ddb.send(new ScanCommand({ TableName: usersTbl })));
+      const allUsers = (scanned4.Items || []).map(item => fromDbItem('profiles', unmarshall(item)));
+      
+      for (const u of allUsers) {
+        if (!u.referred_by_code || u.reg_reward_backfilled) continue;
+        
+        // Find referrer via Referrals table
+        try {
+          const refRow = await ddb.send(new GetItemCommand({
+            TableName: TABLE_REFERRALS,
+            Key: marshall({ referralId: u.referred_by_code }),
+          }));
+          if (!refRow.Item) continue;
+          const ref = unmarshall(refRow.Item);
+          if (!ref.userId) continue;
+          
+          // Check if this user is in referredUsers already
+          const referredUsers = Array.isArray(ref.referredUsers) ? ref.referredUsers : [];
+          const alreadyCounted = referredUsers.some(ru => ru.userId === u.id || ru.email === u.email);
+          
+          if (!alreadyCounted) {
+            // Award the referrer
+            try {
+              await awardReferralReward(ref.userId, 'registration');
+              result.partnerTopUpsPaid++;
+              console.log(`[Backfill] Registration credit awarded: referrer=${ref.userId} new_user=${u.id}`);
+            } catch(e) {
+              console.error('[Backfill] reg award failed:', e.message);
+              result.partnerTopUpsFailed++;
+            }
+          }
+          
+          // Mark this user so we don't re-process
+          await updateRows({
+            table: 'profiles', op: 'update',
+            values: { reg_reward_backfilled: true },
+            filters: [{ op: 'eq', column: 'id', value: u.id }],
+          }).catch(() => {});
+          
+        } catch(e) {
+          console.error('[Backfill] reg referral check failed for user', u.id, e.message);
+        }
+      }
+    } catch(e) {
+      console.error('[Backfill] reg referral scan failed:', e.message);
+    }
+
     console.log('[Backfill] admin_backfill_missed_rewards result:', result);
     return result;
   }
