@@ -5129,33 +5129,41 @@
       display: none;
     }
 
-    /* ── Partner Dashboard bottom-nav restyle (scoped, only while Partner Panel is open) ── */
+    /* ── Partner Dashboard bottom-nav restyle (scoped, only while Partner Panel is open) ──
+       Colors/radius/spacing copied verbatim from the reference design's Tailwind tokens:
+       primary #c2714f, primary-container #f8ede8, on-primary-container #4a2414,
+       secondary #5d615d, surface #fbf8ff, outline-variant #c9c4d7, radius-xl 12px. */
     .mob-bottom-nav.pdn-navstyle {
-      background: var(--white);
-      border-top: 1px solid var(--border);
-      box-shadow: 0 -6px 24px rgba(24,21,15,.08);
-      padding: 8px 10px;
-      gap: 4px;
+      background: #fbf8ff;
+      border-top: 1px solid #c9c4d7;
+      box-shadow: 0 2px 12px rgba(0,0,0,.06);
+      padding: 12px 8px;
+      justify-content: space-around;
       align-items: center;
     }
 
     .mob-bottom-nav.pdn-navstyle .mob-bottom-btn {
-      flex-direction: row;
-      gap: 6px;
-      border-radius: 999px;
-      padding: 8px 10px;
+      flex: 0 0 auto;
+      flex-direction: column;
+      gap: 2px;
+      border-radius: 12px;
+      padding: 6px 16px;
       min-height: auto;
-      color: var(--muted);
-      transition: background .18s, color .18s;
+      color: #5d615d;
+      transition: background .2s, color .2s, transform .2s;
+    }
+
+    .mob-bottom-nav.pdn-navstyle .mob-bottom-btn:active {
+      transform: scale(.95);
     }
 
     .mob-bottom-nav.pdn-navstyle .mob-bottom-btn.active {
-      background: var(--terra-lt);
-      color: var(--terra2);
+      background: #f8ede8;
+      color: #4a2414;
     }
 
     .mob-bottom-nav.pdn-navstyle .mbn-icon {
-      font-size: 17px;
+      font-size: 20px;
     }
 
     .mob-bottom-nav.pdn-navstyle .mob-bottom-btn.active .mbn-icon {
@@ -5163,22 +5171,9 @@
     }
 
     .mob-bottom-nav.pdn-navstyle .mbn-label {
-      font-size: 10.5px;
-      font-weight: 700;
-      max-width: 60px;
-    }
-
-    .mob-bottom-nav.pdn-navstyle .mob-bottom-btn:not(.active) .mbn-label {
-      display: none;
-    }
-
-    @media (max-width: 380px) {
-      .mob-bottom-nav.pdn-navstyle {
-        gap: 2px;
-      }
-      .mob-bottom-nav.pdn-navstyle .mob-bottom-btn {
-        padding: 8px;
-      }
+      font-size: 11px;
+      font-weight: 600;
+      max-width: 72px;
     }
 
     /* ══════════════════════════════════════════════
