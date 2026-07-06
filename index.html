@@ -12783,15 +12783,23 @@
         if (fillEl) fillEl.style.width = pct + '%';
         if (curEl) curEl.textContent = into + ' / ' + span;
         if (nextEl) nextEl.textContent = (next.min - xp) + ' XP to ' + next.name.replace(' Partner', '');
-        if (ringXpEl) ringXpEl.style.setProperty('--p', Math.round(pct));
+        pdnSetRing(ringXpEl, pct);
         if (ringXpValEl) ringXpValEl.textContent = Math.round(pct) + '%';
       } else {
         if (fillEl) fillEl.style.width = '100%';
         if (curEl) curEl.textContent = xp + ' XP';
         if (nextEl) nextEl.textContent = 'Max tier reached!';
-        if (ringXpEl) ringXpEl.style.setProperty('--p', 100);
+        pdnSetRing(ringXpEl, 100);
         if (ringXpValEl) ringXpValEl.textContent = '100%';
       }
+    }
+
+    // Sets an SVG progress-ring circle's fill percentage (0-100). r=40 → circumference 251.2.
+    function pdnSetRing(el, pct) {
+      if (!el) return;
+      var circumference = 251.2;
+      var clamped = Math.max(0, Math.min(100, pct));
+      el.style.strokeDashoffset = (circumference - (clamped / 100) * circumference).toFixed(1);
     }
 
     async function loadPartnerDashboard() {
@@ -12953,9 +12961,9 @@
         const ringSignupValEl = document.getElementById('pd-ring-signup-val');
         const ringListingEl = document.getElementById('pd-ring-listing');
         const ringListingValEl = document.getElementById('pd-ring-listing-val');
-        if (ringSignupEl) ringSignupEl.style.setProperty('--p', signupPct);
+        pdnSetRing(ringSignupEl, signupPct);
         if (ringSignupValEl) ringSignupValEl.textContent = signupPct + '%';
-        if (ringListingEl) ringListingEl.style.setProperty('--p', listingPct);
+        pdnSetRing(ringListingEl, listingPct);
         if (ringListingValEl) ringListingValEl.textContent = listingPct + '%';
         setEl('pd-stat-credits', credits % 1 === 0 ? credits + ' Credits' : credits.toFixed(2) + ' Credits');
 
@@ -13169,7 +13177,7 @@
         }
         const ringTasksEl = document.getElementById('pd-ring-tasks');
         const ringTasksValEl = document.getElementById('pd-ring-tasks-val');
-        if (ringTasksEl) ringTasksEl.style.setProperty('--p', Math.min(100, activeTasks.length * 20));
+        pdnSetRing(ringTasksEl, Math.min(100, activeTasks.length * 20));
         if (ringTasksValEl) ringTasksValEl.textContent = activeTasks.length;
         const activeHtml = activeTasks.map(t => renderPartnerTask(t)).join('');
         const missedSection = expiredHtml.length
@@ -20340,29 +20348,30 @@
 
       .pdn-hero {
         display:flex; align-items:center; justify-content:space-between; gap:20px; flex-wrap:wrap;
-        margin-bottom:22px;
+        margin-bottom:18px;
       }
-      .pdn-hero-title { font-size:26px; font-weight:900; color:var(--ink); letter-spacing:-.5px; font-family:var(--font-display); }
+      .pdn-hero-title { font-size:24px; font-weight:800; color:var(--ink); letter-spacing:-.3px; }
       .pdn-hero-title span { color:var(--terra); }
       .pdn-hero-sub { font-size:13.5px; color:var(--muted); margin-top:4px; }
 
       .pdn-kpi-row {
-        display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:16px;
+        display:flex; overflow-x:auto; gap:12px; margin:0 -20px 18px; padding:2px 20px 10px;
+        scrollbar-width:none;
       }
+      .pdn-kpi-row::-webkit-scrollbar { display:none; }
       .pdn-kpi-card {
-        background:var(--white); border:1.5px solid var(--border); border-radius:var(--rl);
-        padding:18px 18px 16px; box-shadow:var(--sh0); position:relative; overflow:hidden;
+        flex:0 0 148px; border:1.5px solid var(--border); border-radius:16px;
+        padding:14px; box-shadow:var(--sh0); position:relative; overflow:hidden;
       }
-      .pdn-kpi-top { display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:14px; }
       .pdn-kpi-icon {
-        width:38px; height:38px; border-radius:11px; display:flex; align-items:center; justify-content:center;
-        font-size:18px; flex-shrink:0;
+        width:34px; height:34px; border-radius:10px; display:flex; align-items:center; justify-content:center;
+        font-size:17px; flex-shrink:0; margin-bottom:14px;
       }
-      .pdn-kpi-label { font-size:11px; color:var(--muted); font-weight:700; text-transform:uppercase; letter-spacing:.5px; margin-bottom:4px; }
-      .pdn-kpi-val { font-size:24px; font-weight:900; color:var(--ink); letter-spacing:-.5px; line-height:1; }
+      .pdn-kpi-label { font-size:11px; font-weight:600; opacity:.75; margin-bottom:2px; }
+      .pdn-kpi-val { font-size:22px; font-weight:800; letter-spacing:-.3px; line-height:1; }
 
       .pdn-main-grid { display:grid; grid-template-columns:1.3fr 1fr; gap:16px; margin-bottom:16px; align-items:start; }
-      @media (max-width: 880px) { .pdn-main-grid { grid-template-columns:1fr; } .pdn-kpi-row { grid-template-columns:repeat(2,1fr); } }
+      @media (max-width: 880px) { .pdn-main-grid { grid-template-columns:1fr; } }
 
       .pdn-card {
         background:var(--white); border:1.5px solid var(--border); border-radius:var(--rl);
@@ -20393,25 +20402,27 @@
 
       .pdn-perf-row { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; }
       @media (max-width: 720px) { .pdn-perf-row { grid-template-columns:repeat(2,1fr); } }
-      .pdn-perf-box { display:flex; flex-direction:column; align-items:center; gap:10px; }
-      .pdn-ring {
-        --p:0; --ring-color:var(--terra);
-        width:112px; height:112px; border-radius:50%;
-        background:conic-gradient(var(--ring-color) calc(var(--p)*1%), var(--bg2) 0);
-        display:flex; align-items:center; justify-content:center;
-        transition:background 1s cubic-bezier(.22,1,.36,1);
+      .pdn-perf-box {
+        display:flex; flex-direction:column; align-items:center; gap:10px;
+        background:var(--white); border:1.5px solid var(--border); border-radius:16px; padding:16px 10px;
       }
-      .pdn-ring.pdn-ring-blue  { --ring-color:var(--blue); }
-      .pdn-ring.pdn-ring-amber { --ring-color:var(--amber); }
-      .pdn-ring.pdn-ring-green { --ring-color:var(--green); }
-      .pdn-ring-inner {
-        width:82px; height:82px; border-radius:50%; background:var(--white);
-        display:flex; flex-direction:column; align-items:center; justify-content:center;
-        box-shadow:inset 0 0 0 1.5px var(--border);
+      .pdn-ring-svg-wrap { position:relative; width:88px; height:88px; }
+      .pdn-ring-svg-wrap svg { width:100%; height:100%; }
+      .pdn-ring-track { stroke:var(--bg2); fill:transparent; }
+      .pdn-ring-progress {
+        fill:transparent; stroke-linecap:round; stroke:var(--terra);
+        stroke-dasharray:251.2; stroke-dashoffset:251.2;
+        transform:rotate(-90deg); transform-origin:50% 50%;
+        transition:stroke-dashoffset .8s ease-in-out;
       }
-      .pdn-ring-inner b { font-size:17px; font-weight:900; color:var(--ink); line-height:1.1; }
-      .pdn-ring-inner span { font-size:9.5px; color:var(--muted); font-weight:700; text-transform:uppercase; letter-spacing:.3px; margin-top:2px; }
-      .pdn-perf-label { font-size:11.5px; color:var(--muted); font-weight:600; text-align:center; }
+      .pdn-ring-progress.pdn-ring-blue  { stroke:var(--blue); }
+      .pdn-ring-progress.pdn-ring-amber { stroke:var(--amber); }
+      .pdn-ring-progress.pdn-ring-green { stroke:var(--green); }
+      .pdn-ring-svg-val {
+        position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+        font-size:15px; font-weight:800; color:var(--ink);
+      }
+      .pdn-perf-label { font-size:11px; color:var(--muted); font-weight:700; text-align:center; text-transform:uppercase; letter-spacing:.3px; }
       #pd-tasks-list { max-height:420px; overflow-y:auto; }
 
       .pdn-refresh-btn {
@@ -20460,31 +20471,23 @@
 
       <!-- KPI ROW -->
       <div class="pdn-kpi-row">
-        <div class="pdn-kpi-card">
-          <div class="pdn-kpi-top">
-            <div class="pdn-kpi-icon" style="background:var(--terra-lt);color:var(--terra);">🪙</div>
-          </div>
+        <div class="pdn-kpi-card" style="background:var(--terra-lt);color:var(--ink);">
+          <div class="pdn-kpi-icon" style="background:rgba(255,255,255,.55);color:var(--terra);">🪙</div>
           <div class="pdn-kpi-label">Credits Earned</div>
           <div class="pdn-kpi-val" id="pd-stat-credits">—</div>
         </div>
-        <div class="pdn-kpi-card">
-          <div class="pdn-kpi-top">
-            <div class="pdn-kpi-icon" style="background:var(--green-bg);color:var(--green);">👥</div>
-          </div>
+        <div class="pdn-kpi-card" style="background:var(--green-bg);color:var(--ink);">
+          <div class="pdn-kpi-icon" style="background:rgba(255,255,255,.55);color:var(--green);">👥</div>
           <div class="pdn-kpi-label">Total Referrals</div>
           <div class="pdn-kpi-val" id="pd-stat-total">—</div>
         </div>
-        <div class="pdn-kpi-card">
-          <div class="pdn-kpi-top">
-            <div class="pdn-kpi-icon" style="background:var(--blue-bg);color:var(--blue);">✅</div>
-          </div>
+        <div class="pdn-kpi-card" style="background:var(--blue-bg);color:var(--ink);">
+          <div class="pdn-kpi-icon" style="background:rgba(255,255,255,.55);color:var(--blue);">✅</div>
           <div class="pdn-kpi-label">Signups</div>
           <div class="pdn-kpi-val" id="pd-stat-reg">—</div>
         </div>
-        <div class="pdn-kpi-card">
-          <div class="pdn-kpi-top">
-            <div class="pdn-kpi-icon" style="background:var(--amber-bg);color:var(--amber);">🏠</div>
-          </div>
+        <div class="pdn-kpi-card" style="background:var(--amber-bg);color:var(--ink);">
+          <div class="pdn-kpi-icon" style="background:rgba(255,255,255,.55);color:var(--amber);">🏠</div>
           <div class="pdn-kpi-label">Listings</div>
           <div class="pdn-kpi-val" id="pd-stat-list">—</div>
         </div>
@@ -20544,40 +20547,44 @@
         <div class="pdn-card-body">
           <div class="pdn-perf-row">
             <div class="pdn-perf-box">
-              <div class="pdn-ring" id="pd-ring-xp" style="--p:0;">
-                <div class="pdn-ring-inner">
-                  <b id="pd-ring-xp-val">0%</b>
-                  <span>Level XP</span>
-                </div>
+              <div class="pdn-ring-svg-wrap">
+                <svg viewBox="0 0 100 100">
+                  <circle class="pdn-ring-track" cx="50" cy="50" r="40" stroke-width="8"></circle>
+                  <circle class="pdn-ring-progress" id="pd-ring-xp" cx="50" cy="50" r="40" stroke-width="8"></circle>
+                </svg>
+                <div class="pdn-ring-svg-val" id="pd-ring-xp-val">0%</div>
               </div>
-              <div class="pdn-perf-label">Progress to next tier</div>
+              <div class="pdn-perf-label">Level XP</div>
             </div>
             <div class="pdn-perf-box">
-              <div class="pdn-ring pdn-ring-blue" id="pd-ring-signup" style="--p:0;">
-                <div class="pdn-ring-inner">
-                  <b id="pd-ring-signup-val">0%</b>
-                  <span>Signups</span>
-                </div>
+              <div class="pdn-ring-svg-wrap">
+                <svg viewBox="0 0 100 100">
+                  <circle class="pdn-ring-track" cx="50" cy="50" r="40" stroke-width="8"></circle>
+                  <circle class="pdn-ring-progress pdn-ring-blue" id="pd-ring-signup" cx="50" cy="50" r="40" stroke-width="8"></circle>
+                </svg>
+                <div class="pdn-ring-svg-val" id="pd-ring-signup-val">0%</div>
               </div>
-              <div class="pdn-perf-label">Share of total referrals</div>
+              <div class="pdn-perf-label">Signups</div>
             </div>
             <div class="pdn-perf-box">
-              <div class="pdn-ring pdn-ring-amber" id="pd-ring-listing" style="--p:0;">
-                <div class="pdn-ring-inner">
-                  <b id="pd-ring-listing-val">0%</b>
-                  <span>Listings</span>
-                </div>
+              <div class="pdn-ring-svg-wrap">
+                <svg viewBox="0 0 100 100">
+                  <circle class="pdn-ring-track" cx="50" cy="50" r="40" stroke-width="8"></circle>
+                  <circle class="pdn-ring-progress pdn-ring-amber" id="pd-ring-listing" cx="50" cy="50" r="40" stroke-width="8"></circle>
+                </svg>
+                <div class="pdn-ring-svg-val" id="pd-ring-listing-val">0%</div>
               </div>
-              <div class="pdn-perf-label">Share of total referrals</div>
+              <div class="pdn-perf-label">Listings</div>
             </div>
             <div class="pdn-perf-box">
-              <div class="pdn-ring pdn-ring-green" id="pd-ring-tasks" style="--p:0;">
-                <div class="pdn-ring-inner">
-                  <b id="pd-ring-tasks-val">0</b>
-                  <span>Open Tasks</span>
-                </div>
+              <div class="pdn-ring-svg-wrap">
+                <svg viewBox="0 0 100 100">
+                  <circle class="pdn-ring-track" cx="50" cy="50" r="40" stroke-width="8"></circle>
+                  <circle class="pdn-ring-progress pdn-ring-green" id="pd-ring-tasks" cx="50" cy="50" r="40" stroke-width="8"></circle>
+                </svg>
+                <div class="pdn-ring-svg-val" id="pd-ring-tasks-val">0</div>
               </div>
-              <div class="pdn-perf-label">Ready to complete</div>
+              <div class="pdn-perf-label">Open Tasks</div>
             </div>
           </div>
         </div>
