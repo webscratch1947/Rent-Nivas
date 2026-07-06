@@ -8934,6 +8934,38 @@
 
 
 </style>
+<style>
+  /* ══ FINAL, AUTHORITATIVE FIX — mobile sidebar Logout reachability ══
+     There are several earlier mobile media-query patches in this file that
+     each touched .ds-sidebar's overflow behavior for different reasons
+     (double-scrollbar fix, viewport-overflow fix, etc). Between them it was
+     ambiguous which one actually won on a given device, and in practice the
+     Logout button in .ds-sidebar-footer was ending up pushed below the
+     visible viewport with no way to scroll down to it. This block is placed
+     last on purpose so it always wins, and is the single source of truth:
+     the sidebar is a fixed-height flex column: header+nav+footer, only the
+     middle nav section scrolls, and the footer (Logout) is always pinned
+     visible at the bottom. */
+  @media (max-width: 900px) {
+    .ds-sidebar.mob-open {
+      display: flex !important;
+      flex-direction: column !important;
+      height: 100vh !important;
+      max-height: 100vh !important;
+      overflow: hidden !important;
+    }
+    .ds-sidebar.mob-open .ds-nav {
+      flex: 1 1 auto !important;
+      min-height: 0 !important;
+      overflow-y: auto !important;
+      -webkit-overflow-scrolling: touch;
+    }
+    .ds-sidebar.mob-open .ds-sidebar-footer {
+      flex-shrink: 0 !important;
+      margin-top: 0 !important;
+    }
+  }
+</style>
 </head>
 
 <body>
@@ -9653,7 +9685,7 @@
           <button class="nav-btn" onclick="_rnStartUserTutorial()"><span class="icon">🎓</span><span class="label">Watch Tutorial</span></button>
           <button class="nav-btn" onclick="window.open('/language.html','_blank')"><span class="icon">🌐</span><span class="label" data-i18n="rent_nav_language">Language</span></button>
           <button class="nav-btn" onclick="window.open('https://wa.me/919303322445','_blank')"><span class="icon">💬</span><span class="label" data-i18n="rent_nav_whatsapp">WhatsApp Support</span></button>
-          <button class="nav-btn" onclick="showPage('landing-page');setTimeout(function(){var el=document.getElementById('support');if(el){window.scrollTo({top:el.offsetTop-20,behavior:'smooth'});}},400)"><span class="icon">🛟</span><span class="label" data-i18n="rent_nav_support">Support</span></button>
+          <button class="nav-btn" onclick="goToSupportSection()"><span class="icon">🛟</span><span class="label" data-i18n="rent_nav_support">Support</span></button>
         </div>
         <div class="ds-sidebar-footer">
           <button class="nav-btn" onclick="doLogout()" style="color:rgba(220,38,38,.7);">
@@ -9943,7 +9975,7 @@
               class="label" data-i18n="dash_nav_language">Language<span id="ds-lang-badge"
                 style="margin-left:6px;font-size:10px;background:rgba(201,106,59,0.18);color:#e88a5a;border-radius:5px;padding:1px 6px;font-weight:600;"></span></span></button>
           <button class="nav-btn" onclick="window.open('https://wa.me/919303322445','_blank')"><span class="icon">💬</span><span class="label" data-i18n="dash_nav_whatsapp">WhatsApp Support</span></button>
-          <button class="nav-btn" onclick="showPage('landing-page');setTimeout(function(){var el=document.getElementById('support');if(el){window.scrollTo({top:el.offsetTop-20,behavior:'smooth'});}},400)"><span class="icon">🛟</span><span class="label" data-i18n="dash_nav_support">Support</span></button>
+          <button class="nav-btn" onclick="goToSupportSection()"><span class="icon">🛟</span><span class="label" data-i18n="dash_nav_support">Support</span></button>
         </div>
         <div id="admin-nav-item" style="display:none;padding:0 16px 8px;">
           <div class="ds-nav-label" style="color:rgba(220,38,38,.5);">Admin</div>
@@ -13776,6 +13808,23 @@
       document.getElementById('perm-ban-page').style.display = 'none';
       showPage('landing-page');
       syncMobNavAuth();
+    }
+
+    // Support button (sidebar) → landing page's #support section. While
+    // there, show the "Dashboard →" button in the nav instead of Tutorial/
+    // Get Started (since this visitor is already logged in — those are for
+    // brand-new visitors), and hide the mobile bottom nav bar, since we're
+    // not actually inside the dashboard right now. goToDashboard() already
+    // calls syncMobNavAuth() on the way back in, which re-shows it.
+    function goToSupportSection() {
+      showPage('landing-page');
+      syncMobNavAuth(); // reflects logged-in state → shows Dashboard button
+      const bottomNav = document.getElementById('mob-bottom-nav');
+      if (bottomNav) bottomNav.classList.remove('mob-nav-visible');
+      setTimeout(function () {
+        const el = document.getElementById('support');
+        if (el) window.scrollTo({ top: el.offsetTop - 20, behavior: 'smooth' });
+      }, 400);
     }
 
     async function goToDashboard() {
@@ -19561,6 +19610,49 @@
       document.getElementById('policy-modal-bg').style.display = 'none';
       _unlockScroll();
     }
+
+    // Lets support.html deep-link straight into a policy modal, e.g.
+    // /?policy=terms opened in a new tab from the Support page.
+    (function () {
+      try {
+        const p = new URLSearchParams(location.search).get('policy');
+        if (p === 'terms' || p === 'privacy') {
+          window.addEventListener('DOMContentLoaded', function () {
+            setTimeout(function () { showPolicyModal(p); }, 300);
+          });
+        }
+      } catch (e) {}
+    })();
+
+    // Lets support.html's bottom nav bar route straight back into the app,
+    // e.g. /?goto=referral opened from the Support page's Referral button.
+    // Mirrors the same destinations as .mob-bottom-nav's own onclick logic.
+    (function () {
+      try {
+        const g = new URLSearchParams(location.search).get('goto');
+        if (!g) return;
+        window.addEventListener('DOMContentLoaded', function () {
+          setTimeout(function () {
+            if (g === 'home') {
+              if (typeof switchToHost === 'function') switchToHost(); else showPage('host-dashboard');
+              if (typeof mobBottomActive === 'function') mobBottomActive('mbn-home');
+            } else if (g === 'rent') {
+              showPage('rent-page');
+              if (typeof loadRentPage === 'function') loadRentPage();
+              if (typeof mobBottomActive === 'function') mobBottomActive('mbn-rent');
+            } else if (g === 'referral') {
+              if (typeof openReferralPanel === 'function') openReferralPanel();
+              if (typeof mobBottomActive === 'function') mobBottomActive('mbn-referral');
+            } else if (g === 'profile') {
+              const role = localStorage.getItem('nestly-role');
+              if (role === 'rent') { if (typeof rentShowSection === 'function') rentShowSection('profile'); }
+              else if (typeof switchToHost === 'function') { Promise.resolve(switchToHost()).then(function () { showSection('profile'); }); }
+              if (typeof mobBottomActive === 'function') mobBottomActive('mbn-profile');
+            }
+          }, 400);
+        });
+      } catch (e) {}
+    })();
 
     document.getElementById('policy-modal-bg').addEventListener('click', function (e) {
       if (e.target === this) closePolicyModal();
