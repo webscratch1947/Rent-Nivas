@@ -13816,9 +13816,21 @@
     // brand-new visitors), and hide the mobile bottom nav bar, since we're
     // not actually inside the dashboard right now. goToDashboard() already
     // calls syncMobNavAuth() on the way back in, which re-shows it.
-    function goToSupportSection() {
+    async function goToSupportSection() {
       showPage('landing-page');
-      syncMobNavAuth(); // reflects logged-in state → shows Dashboard button
+      // FIX: syncMobNavAuth() reads the global `user` variable, which may
+      // not have hydrated yet at the moment this is clicked (e.g. right
+      // after a page load, before the session check finishes) — that made
+      // it look logged-out even for a logged-in visitor. Check the actual
+      // session directly instead, the same reliable way goToDashboard() does.
+      try {
+        const { data: { session } } = await sb.auth.getSession();
+        if (session?.user) {
+          user = session.user;
+          window.user = user;
+        }
+      } catch (e) {}
+      syncMobNavAuth(); // now reflects the REAL logged-in state → shows Dashboard button
       const bottomNav = document.getElementById('mob-bottom-nav');
       if (bottomNav) bottomNav.classList.remove('mob-nav-visible');
       setTimeout(function () {
