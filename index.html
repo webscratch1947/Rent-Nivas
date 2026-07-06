@@ -16,6 +16,8 @@
   <link
     href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800;1,9..40,400&family=Playfair+Display:ital,wght@0,700;0,800;1,700&family=Sora:wght@400;500;600;700;800&display=swap"
     rel="stylesheet">
+  <!-- Used only by the Partner Dashboard's redesigned bottom nav (.pdn-navstyle) -->
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
   <script src="/env-inject.js"></script>
   <script src="/translations.js"></script> <!-- ← ADD THIS -->
   <script src="/cognito-auth.js"></script>
@@ -5129,51 +5131,65 @@
       display: none;
     }
 
-    /* ── Partner Dashboard bottom-nav restyle (scoped, only while Partner Panel is open) ──
+    /* ── Dedicated Partner Dashboard bottom nav (separate element from the site-wide
+       .mob-bottom-nav; only shown while the Partner Dashboard page is open).
        Colors/radius/spacing copied verbatim from the reference design's Tailwind tokens:
        primary #c2714f, primary-container #f8ede8, on-primary-container #4a2414,
        secondary #5d615d, surface #fbf8ff, outline-variant #c9c4d7, radius-xl 12px. */
-    .mob-bottom-nav.pdn-navstyle {
+    .pdn-bottom-nav {
+      display: none;
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      z-index: 7000;
       background: #fbf8ff;
       border-top: 1px solid #c9c4d7;
-      box-shadow: 0 2px 12px rgba(0,0,0,.06);
+      box-shadow: 0 -2px 12px rgba(0,0,0,.06);
       padding: 12px 8px;
       justify-content: space-around;
       align-items: center;
     }
 
-    .mob-bottom-nav.pdn-navstyle .mob-bottom-btn {
+    @media (max-width: 768px) {
+      .pdn-bottom-nav.pdn-nav-visible {
+        display: flex;
+      }
+    }
+
+    .pdn-nav-btn {
       flex: 0 0 auto;
+      display: flex;
       flex-direction: column;
+      align-items: center;
+      justify-content: center;
       gap: 2px;
       border-radius: 12px;
       padding: 6px 16px;
-      min-height: auto;
       color: #5d615d;
+      text-decoration: none;
+      font-family: var(--font);
+      -webkit-tap-highlight-color: transparent;
       transition: background .2s, color .2s, transform .2s;
     }
 
-    .mob-bottom-nav.pdn-navstyle .mob-bottom-btn:active {
+    .pdn-nav-btn:active {
       transform: scale(.95);
     }
 
-    .mob-bottom-nav.pdn-navstyle .mob-bottom-btn.active {
+    .pdn-nav-btn.active {
       background: #f8ede8;
       color: #4a2414;
     }
 
-    .mob-bottom-nav.pdn-navstyle .mbn-icon {
-      font-size: 20px;
+    .pdn-nav-btn .material-symbols-outlined {
+      font-size: 22px;
     }
 
-    .mob-bottom-nav.pdn-navstyle .mob-bottom-btn.active .mbn-icon {
-      transform: none;
-    }
-
-    .mob-bottom-nav.pdn-navstyle .mbn-label {
+    .pdn-nav-btn span:last-child {
       font-size: 11px;
-      font-weight: 600;
-      max-width: 72px;
+      font-weight: 500;
+      letter-spacing: .02em;
     }
 
     /* ══════════════════════════════════════════════
@@ -19827,6 +19843,13 @@
       if (el) el.classList.add('active');
     }
 
+    // Dedicated Partner Dashboard bottom nav (Overview/Tasks/Referrals/Profile)
+    function pdnNavActive(id) {
+      document.querySelectorAll('.pdn-nav-btn').forEach(b => b.classList.remove('active'));
+      const el = document.getElementById(id);
+      if (el) el.classList.add('active');
+    }
+
     // Sync bottom nav active tab with page changes
     const _mbnPageMap = {
       'landing-page': 'mbn-home',
@@ -19848,6 +19871,17 @@
       const mbnId = _mbnPageMap[id];
       if (mbnId) mobBottomActive(mbnId);
       else document.querySelectorAll('.mob-bottom-btn').forEach(b => b.classList.remove('active'));
+      // Swap to the dedicated Partner Dashboard bottom nav while it's open
+      const _pdnNav = document.getElementById('pdn-bottom-nav');
+      const _siteNav = document.getElementById('mob-bottom-nav');
+      if (id === 'partner-dashboard') {
+        if (_pdnNav) _pdnNav.classList.add('pdn-nav-visible');
+        if (_siteNav) _siteNav.classList.remove('mob-nav-visible');
+        pdnNavActive('pdn-nav-overview');
+      } else {
+        if (_pdnNav) _pdnNav.classList.remove('pdn-nav-visible');
+        if (_siteNav && user) _siteNav.classList.add('mob-nav-visible');
+      }
     };
 
     // Sync nav auth state on load (bottom nav + sidebar hidden until login)
@@ -20719,6 +20753,30 @@
       </span>
       <span class="mbn-label">Profile</span>
     </button>
+  </nav>
+
+  <!-- ══ PARTNER DASHBOARD BOTTOM NAV (dedicated, matches reference design) ══ -->
+  <nav class="pdn-bottom-nav" id="pdn-bottom-nav">
+    <a class="pdn-nav-btn active" id="pdn-nav-overview" href="javascript:void(0)"
+      onclick="document.getElementById('partner-dashboard').scrollTo({top:0,behavior:'smooth'});pdnNavActive('pdn-nav-overview')">
+      <span class="material-symbols-outlined" style="font-variation-settings:'FILL' 1;">dashboard</span>
+      <span>Overview</span>
+    </a>
+    <a class="pdn-nav-btn" id="pdn-nav-tasks" href="javascript:void(0)"
+      onclick="var _t=document.getElementById('pd-tasks-list');if(_t)_t.scrollIntoView({behavior:'smooth',block:'start'});pdnNavActive('pdn-nav-tasks')">
+      <span class="material-symbols-outlined">assignment_turned_in</span>
+      <span>Tasks</span>
+    </a>
+    <a class="pdn-nav-btn" id="pdn-nav-referrals" href="javascript:void(0)"
+      onclick="var _r=document.getElementById('pd-ref-code-display');if(_r)_r.scrollIntoView({behavior:'smooth',block:'start'});pdnNavActive('pdn-nav-referrals')">
+      <span class="material-symbols-outlined">group_add</span>
+      <span>Referrals</span>
+    </a>
+    <a class="pdn-nav-btn" id="pdn-nav-profile" href="javascript:void(0)"
+      onclick="closeModal();var _r=localStorage.getItem('nestly-role');if(_r==='rent'){rentShowSection('profile');}else{var _hd=document.getElementById('host-dashboard');if(_hd&&_hd.classList.contains('active')){showSection('profile');}else if(typeof switchToHost==='function'){Promise.resolve(switchToHost()).then(function(){showSection('profile');});}else{showPage('host-dashboard');showSection('profile');}}">
+      <span class="material-symbols-outlined">person</span>
+      <span>Profile</span>
+    </a>
   </nav>
 
   <!-- ══ ADMIN ACTION MODAL (custom popup replacing browser prompt/confirm) ══ -->
