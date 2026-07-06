@@ -20291,318 +20291,270 @@
   <!-- ══ PARTNER DASHBOARD ══ -->
   <div class="page" id="partner-dashboard">
     <style>
-      #partner-dashboard { background:#f5f5f5; }
-      .pd-hero {
-        background: linear-gradient(145deg, #3730a3 0%, #4f46e5 45%, #7c3aed 100%);
-        padding: 0 0 32px;
-        position: relative;
-        overflow: hidden;
+      #partner-dashboard { background:var(--bg2); }
+      .pdn-shell { max-width:1180px; margin:0 auto; padding:0 20px 48px; }
+      .pdn-topbar {
+        display:flex; align-items:center; justify-content:space-between; gap:16px;
+        padding:18px 20px; flex-wrap:wrap;
       }
-      .pd-hero::before {
-        content:'';position:absolute;top:-60px;right:-60px;width:220px;height:220px;
-        border-radius:50%;background:rgba(255,255,255,.07);pointer-events:none;
+      .pdn-back {
+        display:flex; align-items:center; gap:8px; background:var(--white);
+        border:1.5px solid var(--border); border-radius:20px; padding:8px 16px;
+        color:var(--ink); font-size:13px; font-weight:700; cursor:pointer;
       }
-      .pd-hero::after {
-        content:'';position:absolute;bottom:-80px;left:-40px;width:180px;height:180px;
-        border-radius:50%;background:rgba(255,255,255,.05);pointer-events:none;
+      .pdn-back:hover { border-color:var(--terra); color:var(--terra); }
+      .pdn-code-pill {
+        display:flex; align-items:center; gap:10px; background:var(--white); border:1.5px solid var(--border);
+        border-radius:16px; padding:8px 8px 8px 16px;
       }
-      .pd-hero-topbar {
-        display:flex;align-items:center;justify-content:space-between;
-        padding:14px 20px 0;position:relative;z-index:2;
+      .pdn-code-pill-label { font-size:11px; color:var(--muted); font-weight:700; text-transform:uppercase; letter-spacing:.5px; }
+      .pdn-code-pill-val { font-size:15px; font-weight:900; color:var(--ink); font-family:monospace; letter-spacing:2px; }
+      .pdn-code-copy {
+        display:flex; align-items:center; gap:6px; background:var(--ink); color:#fff; border:none;
+        border-radius:12px; padding:9px 16px; font-size:12.5px; font-weight:800; cursor:pointer; white-space:nowrap;
       }
-      .pd-hero-back {
-        display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.15);
-        border:none;border-radius:20px;padding:7px 14px;color:#fff;font-size:13px;
-        font-weight:700;cursor:pointer;backdrop-filter:blur(4px);
+      .pdn-code-copy:hover { background:var(--terra); }
+
+      .pdn-hero {
+        display:flex; align-items:center; justify-content:space-between; gap:20px; flex-wrap:wrap;
+        margin-bottom:22px;
       }
-      .pd-hero-body {
-        padding:28px 20px 0;position:relative;z-index:2;display:flex;
-        align-items:flex-end;justify-content:flex-start;
+      .pdn-hero-title { font-size:26px; font-weight:900; color:var(--ink); letter-spacing:-.5px; font-family:var(--font-display); }
+      .pdn-hero-title span { color:var(--terra); }
+      .pdn-hero-sub { font-size:13.5px; color:var(--muted); margin-top:4px; }
+
+      .pdn-kpi-row {
+        display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:16px;
       }
-      .pd-hero-text .pd-hero-label {
-        font-size:13px;color:rgba(255,255,255,.7);font-weight:600;letter-spacing:.5px;
-        margin-bottom:8px;display:flex;align-items:center;gap:6px;
+      .pdn-kpi-card {
+        background:var(--white); border:1.5px solid var(--border); border-radius:var(--rl);
+        padding:18px 18px 16px; box-shadow:var(--sh0); position:relative; overflow:hidden;
       }
-      .pd-hero-text .pd-hero-title {
-        font-size:28px;font-weight:900;color:#fff;line-height:1.15;letter-spacing:-.4px;
+      .pdn-kpi-top { display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:14px; }
+      .pdn-kpi-icon {
+        width:38px; height:38px; border-radius:11px; display:flex; align-items:center; justify-content:center;
+        font-size:18px; flex-shrink:0;
       }
-      .pd-hero-text .pd-hero-title span { color:#fbbf24; }
-      .pd-hero-anim {
-        width:120px;height:120px;flex-shrink:0;margin-bottom:-8px;
+      .pdn-kpi-label { font-size:11px; color:var(--muted); font-weight:700; text-transform:uppercase; letter-spacing:.5px; margin-bottom:4px; }
+      .pdn-kpi-val { font-size:24px; font-weight:900; color:var(--ink); letter-spacing:-.5px; line-height:1; }
+
+      .pdn-main-grid { display:grid; grid-template-columns:1.3fr 1fr; gap:16px; margin-bottom:16px; align-items:start; }
+      @media (max-width: 880px) { .pdn-main-grid { grid-template-columns:1fr; } .pdn-kpi-row { grid-template-columns:repeat(2,1fr); } }
+
+      .pdn-card {
+        background:var(--white); border:1.5px solid var(--border); border-radius:var(--rl);
+        box-shadow:var(--sh0); overflow:hidden;
       }
-      /* Stars */
-      .pd-star {
-        position:absolute;background:#fff;border-radius:50%;pointer-events:none;z-index:1;
-        animation:pdStarTwinkle 2.5s ease-in-out infinite;
+      .pdn-card-head {
+        display:flex; align-items:center; justify-content:space-between; padding:18px 20px;
+        border-bottom:1.5px solid var(--border);
       }
-      @keyframes pdStarTwinkle {
-        0%,100%{opacity:.3;transform:scale(1);}
-        50%{opacity:1;transform:scale(1.4);}
+      .pdn-card-title { font-size:14.5px; font-weight:800; color:var(--ink); display:flex; align-items:center; gap:8px; }
+      .pdn-card-body { padding:20px; }
+
+      .pdn-level-top { display:flex; align-items:center; gap:14px; margin-bottom:18px; }
+      .pdn-level-badge { width:52px; height:52px; border-radius:14px; background:var(--bg2); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+      .pdn-level-badge img { width:80%; height:80%; object-fit:contain; }
+      .pdn-level-name { font-size:16px; font-weight:900; color:var(--ink); }
+      .pdn-level-sub2 { font-size:12px; color:var(--muted); margin-top:2px; font-weight:600; }
+      .pdn-level-bar-track { width:100%; height:12px; background:var(--bg2); border-radius:999px; overflow:hidden; margin-bottom:8px; }
+      .pdn-level-bar-fill { height:100%; border-radius:999px; background:linear-gradient(90deg,var(--terra),#f0a480); transition:width 1s cubic-bezier(.22,1,.36,1); }
+      .pdn-level-bar-labels { display:flex; justify-content:space-between; font-size:11.5px; color:var(--muted); font-weight:600; margin-bottom:20px; }
+
+      .pdn-mini-stats { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+      .pdn-mini-stat { background:var(--bg2); border-radius:12px; padding:12px; text-align:center; }
+      .pdn-mini-stat b { display:block; font-size:16px; font-weight:900; color:var(--ink); }
+      .pdn-mini-stat span { font-size:10px; color:var(--muted); font-weight:700; text-transform:uppercase; letter-spacing:.4px; }
+
+      .pdn-tasks-badge { background:var(--red); color:#fff; border-radius:20px; font-size:11px; font-weight:800; padding:2px 9px; display:none; }
+      #pd-tasks-list, #pd-referral-history { max-height:420px; overflow-y:auto; }
+
+      .pdn-refresh-btn {
+        background:none; border:1.5px solid var(--border); border-radius:10px; padding:6px 12px;
+        font-size:12px; font-weight:700; color:var(--muted); cursor:pointer;
       }
-      /* Reward card */
-      .pd-reward-card {
-        background:#fff;border-radius:20px;padding:18px 18px;
-        display:flex;align-items:center;justify-content:space-between;
-        box-shadow:0 4px 24px rgba(79,70,229,.13);margin:0 16px;
-        position:relative;z-index:3;margin-top:-18px;cursor:pointer;
-        border:1.5px solid #e0e7ff;transition:box-shadow .2s;
-      }
-      .pd-reward-card:hover { box-shadow:0 8px 32px rgba(79,70,229,.2); }
-      .pd-reward-icon {
-        width:48px;height:48px;border-radius:50%;
-        background:linear-gradient(135deg,#fbbf24,#f59e0b);
-        display:flex;align-items:center;justify-content:center;font-size:22px;
-        box-shadow:0 4px 12px rgba(245,158,11,.35);flex-shrink:0;
-      }
-      .pd-reward-mid { flex:1;padding:0 14px; }
-      .pd-reward-mid .pd-rw-label { font-size:11px;color:#6b7280;font-weight:700;text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px; }
-      .pd-reward-mid .pd-rw-amount { font-size:26px;font-weight:900;color:#1a1410;letter-spacing:-.5px; }
-      .pd-reward-arrow {
-        width:32px;height:32px;border-radius:50%;background:#f0f0ff;
-        display:flex;align-items:center;justify-content:center;
-        font-size:16px;color:#4f46e5;
-      }
-      /* Code card */
-      .pd-code-card {
-        background:linear-gradient(135deg,#4c1d95,#6d28d9 60%,#7c3aed);
-        border-radius:20px;padding:20px;margin:16px 16px 0;
-        position:relative;overflow:hidden;
-      }
-      .pd-code-label { font-size:11px;font-weight:700;color:rgba(255,255,255,.65);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px; }
-      .pd-code-row { display:flex;align-items:center;gap:12px;flex-wrap:wrap; }
-      .pd-code-val { font-size:28px;font-weight:900;color:#fff;letter-spacing:4px;font-family:monospace; }
-      .pd-code-copy-btn {
-        display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.18);
-        border:1.5px solid rgba(255,255,255,.3);color:#fff;padding:8px 16px;
-        border-radius:12px;font-size:13px;font-weight:700;cursor:pointer;
-        backdrop-filter:blur(4px);transition:background .15s;
-      }
-      .pd-code-copy-btn:hover { background:rgba(255,255,255,.28); }
-      .pd-code-hint { font-size:12px;color:rgba(255,255,255,.55);margin-top:8px; }
-      .pd-code-person { position:absolute;bottom:0;right:0;width:100px;height:100px;pointer-events:none;opacity:.92; }
-      /* Stats */
-      .pd-stats-row {
-        display:grid;grid-template-columns:repeat(3,1fr);gap:10px;
-        margin:14px 16px 0;
-      }
-      .pd-stat-box {
-        background:#fff;border-radius:16px;padding:14px 10px;text-align:center;
-        box-shadow:0 2px 10px rgba(0,0,0,.05);border:1.5px solid #f0f0f0;
-      }
-      .pd-stat-box .ps-val { font-size:24px;font-weight:900;line-height:1;margin-bottom:4px; }
-      .pd-stat-box .ps-lbl { font-size:10px;color:#9ca3af;font-weight:700;text-transform:uppercase;letter-spacing:.4px; }
-      /* Steps */
-      .pd-steps { margin:20px 16px 0; }
-      .pd-steps-title { font-size:15px;font-weight:800;color:#1a1410;margin-bottom:12px; }
-      .pd-step {
-        background:#fff;border-radius:16px;padding:16px;margin-bottom:10px;
-        display:flex;align-items:center;gap:14px;
-        box-shadow:0 2px 10px rgba(0,0,0,.05);border:1.5px solid #f0f0f0;
-      }
-      .pd-step-icon {
-        width:44px;height:44px;border-radius:14px;display:flex;align-items:center;
-        justify-content:center;font-size:20px;flex-shrink:0;
-      }
-      .pd-step-text .pd-st-title { font-size:14px;font-weight:800;color:#1a1410;margin-bottom:3px; }
-      .pd-step-text .pd-st-sub { font-size:12px;color:#6b7280;line-height:1.5; }
-      /* History */
-      .pd-history { margin:20px 16px 0; }
-      .pd-history-head {
-        display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;
-      }
-      .pd-history-title { font-size:15px;font-weight:800;color:#1a1410; }
-      .pd-refresh-btn {
-        background:none;border:1.5px solid #e5e7eb;border-radius:10px;
-        padding:5px 10px;font-size:12px;font-weight:600;color:#6b7280;cursor:pointer;
-      }
-      .pd-refresh-btn:hover { border-color:#4f46e5;color:#4f46e5; }
-      /* FAQ */
-      .pd-faq { margin:20px 16px 32px; }
-      .pd-faq-title { font-size:15px;font-weight:800;color:#1a1410;margin-bottom:12px; }
-      .pd-faq-item {
-        background:#fff;border-radius:14px;padding:16px;margin-bottom:8px;
-        border:1.5px solid #f0f0f0;cursor:pointer;
-      }
-      .pd-faq-q { font-size:13px;font-weight:700;color:#1a1410;display:flex;align-items:center;justify-content:space-between;gap:8px; }
-      .pd-faq-a { font-size:12.5px;color:#6b7280;line-height:1.6;margin-top:10px;display:none; }
-      .pd-faq-item.open .pd-faq-a { display:block; }
-      .pd-faq-item.open .pd-faq-arrow { transform:rotate(180deg); }
-      .pd-faq-arrow { transition:transform .2s;font-size:14px;color:#6b7280;flex-shrink:0; }
+      .pdn-refresh-btn:hover { border-color:var(--terra); color:var(--terra); }
+
+      .pdn-steps-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; }
+      @media (max-width: 880px) { .pdn-steps-grid { grid-template-columns:1fr; } }
+      .pdn-step-card { background:var(--bg2); border-radius:16px; padding:18px; }
+      .pdn-step-icon { width:40px; height:40px; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:18px; margin-bottom:12px; }
+      .pdn-step-title { font-size:13.5px; font-weight:800; color:var(--ink); margin-bottom:5px; }
+      .pdn-step-text { font-size:12px; color:var(--muted); line-height:1.55; }
+
+      .pdn-faq-item { background:var(--bg2); border-radius:14px; padding:16px; margin-bottom:8px; cursor:pointer; }
+      .pdn-faq-q { font-size:13px; font-weight:700; color:var(--ink); display:flex; align-items:center; justify-content:space-between; gap:8px; }
+      .pdn-faq-a { font-size:12.5px; color:var(--muted); line-height:1.6; margin-top:10px; display:none; }
+      .pdn-faq-item.open .pdn-faq-a { display:block; }
+      .pdn-faq-item.open .pdn-faq-arrow { transform:rotate(180deg); }
+      .pdn-faq-arrow { transition:transform .2s; font-size:14px; color:var(--muted); flex-shrink:0; }
     </style>
 
-    <!-- ══ HERO HEADER ══ -->
-    <div class="pd-hero">
-      <!-- Stars decoration -->
-      <div class="pd-star" style="width:5px;height:5px;top:22px;left:22px;animation-delay:0s;"></div>
-      <div class="pd-star" style="width:4px;height:4px;top:38px;left:55%;animation-delay:.7s;"></div>
-      <div class="pd-star" style="width:6px;height:6px;top:18px;right:110px;animation-delay:1.3s;"></div>
-      <div class="pd-star" style="width:3px;height:3px;top:50px;left:38%;animation-delay:.4s;"></div>
-      <div class="pd-star" style="width:4px;height:4px;top:70px;right:55%;animation-delay:1.8s;"></div>
+    <!-- TOPBAR -->
+    <div class="pdn-topbar">
+      <button class="pdn-back" onclick="closeModal();if(typeof switchToHost==='function'){switchToHost();}else{showPage('host-dashboard');}">
+        ← Back
+      </button>
+      <div class="pdn-code-pill">
+        <div>
+          <div class="pdn-code-pill-label">Referral code</div>
+          <div class="pdn-code-pill-val" id="pd-ref-code-display">——————</div>
+        </div>
+        <button class="pdn-code-copy" onclick="pdCopyRefCode()" id="pd-copy-ref-btn">📋 Copy</button>
+      </div>
+    </div>
 
-      <!-- Topbar -->
-      <div class="pd-hero-topbar">
-        <div style="font-size:16px;font-weight:900;color:#fff;letter-spacing:-.3px;">Partner Dashboard</div>
-        <button class="pd-hero-back" onclick="closeModal();if(typeof switchToHost==='function'){switchToHost();}else{showPage('host-dashboard');}">
-          ← Back
-        </button>
+    <div class="pdn-shell">
+      <!-- HERO -->
+      <div class="pdn-hero">
+        <div>
+          <div class="pdn-hero-title" id="pd-greeting">Welcome, <span>Partner</span> 🤝</div>
+          <div class="pdn-hero-sub">Grow your reach with India's fastest-growing rental platform</div>
+        </div>
       </div>
 
-      <!-- Hero body: Dribbble layout — text left, coin top-right -->
-      <div style="position:absolute;top:10px;right:10px;width:130px;height:130px;z-index:3;pointer-events:none;">
-        <img src="/person-refer.svg" style="width:100%;height:100%;object-fit:contain;" alt="" onerror="this.style.display='none'">
-      </div>
-      <div class="pd-hero-body" style="padding-top:16px;padding-bottom:28px;">
-        <div class="pd-hero-text">
-          <div class="pd-hero-label">
-            <span style="font-size:15px;">🤝</span> Verified Partner
+      <!-- KPI ROW -->
+      <div class="pdn-kpi-row">
+        <div class="pdn-kpi-card">
+          <div class="pdn-kpi-top">
+            <div class="pdn-kpi-icon" style="background:var(--terra-lt);color:var(--terra);">🪙</div>
           </div>
-          <div class="pd-hero-title" id="pd-greeting">
-            Welcome, <span>Partner</span> 🎉
+          <div class="pdn-kpi-label">Credits Earned</div>
+          <div class="pdn-kpi-val" id="pd-stat-credits">—</div>
+        </div>
+        <div class="pdn-kpi-card">
+          <div class="pdn-kpi-top">
+            <div class="pdn-kpi-icon" style="background:var(--green-bg);color:var(--green);">👥</div>
+          </div>
+          <div class="pdn-kpi-label">Total Referrals</div>
+          <div class="pdn-kpi-val" id="pd-stat-total">—</div>
+        </div>
+        <div class="pdn-kpi-card">
+          <div class="pdn-kpi-top">
+            <div class="pdn-kpi-icon" style="background:var(--blue-bg);color:var(--blue);">✅</div>
+          </div>
+          <div class="pdn-kpi-label">Signups</div>
+          <div class="pdn-kpi-val" id="pd-stat-reg">—</div>
+        </div>
+        <div class="pdn-kpi-card">
+          <div class="pdn-kpi-top">
+            <div class="pdn-kpi-icon" style="background:var(--amber-bg);color:var(--amber);">🏠</div>
+          </div>
+          <div class="pdn-kpi-label">Listings</div>
+          <div class="pdn-kpi-val" id="pd-stat-list">—</div>
+        </div>
+      </div>
+
+      <!-- MAIN GRID -->
+      <div class="pdn-main-grid">
+        <!-- LEFT: Partner Level -->
+        <div class="pdn-card">
+          <div class="pdn-card-head">
+            <div class="pdn-card-title">🏆 Partner Level</div>
+          </div>
+          <div class="pdn-card-body">
+            <div class="pdn-level-top">
+              <div class="pdn-level-badge"><img id="pd-level-badge-img" src="badge-bronze.png" alt=""></div>
+              <div>
+                <div class="pdn-level-name" id="pd-level-tier-name">Unranked Partner</div>
+                <div class="pdn-level-sub2" id="pd-level-sub">Not ranked yet</div>
+              </div>
+            </div>
+            <div class="pdn-level-bar-track">
+              <div class="pdn-level-bar-fill" id="pd-level-progress-fill" style="width:0%;"></div>
+            </div>
+            <div class="pdn-level-bar-labels">
+              <span><span id="pd-level-xp-current">0 / 25</span> XP</span>
+              <span id="pd-level-xp-next">25 XP to Bronze</span>
+            </div>
+            <div class="pdn-mini-stats">
+              <div class="pdn-mini-stat"><b id="pd-stat-xp">—</b><span>Total XP</span></div>
+              <div class="pdn-mini-stat"><b>0.50</b><span>Credit / Referral</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- RIGHT: My Tasks -->
+        <div class="pdn-card">
+          <div class="pdn-card-head">
+            <div class="pdn-card-title">📋 My Tasks <span class="pdn-tasks-badge" id="pd-tasks-count"></span></div>
+          </div>
+          <div class="pdn-card-body" style="padding-top:14px;">
+            <div id="pd-tasks-list">
+              <div style="text-align:center;padding:40px 20px;color:var(--muted);">
+                <div style="font-size:36px;margin-bottom:10px;">⏳</div>
+                <div style="font-size:14px;font-weight:600;">Loading tasks...</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- REFERRAL HISTORY -->
+      <div class="pdn-card" style="margin-bottom:16px;">
+        <div class="pdn-card-head">
+          <div class="pdn-card-title">📜 Referral History</div>
+          <button class="pdn-refresh-btn" onclick="loadPartnerReferralStats(true)">↻ Refresh</button>
+        </div>
+        <div class="pdn-card-body">
+          <div id="pd-referral-history">
+            <div style="text-align:center;padding:40px 20px;color:var(--muted);">
+              <div style="font-size:36px;margin-bottom:10px;">📭</div>
+              <div style="font-size:14px;font-weight:600;">Loading referral history...</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- HOW IT WORKS -->
+      <div class="pdn-card" style="margin-bottom:16px;">
+        <div class="pdn-card-head"><div class="pdn-card-title">How it works</div></div>
+        <div class="pdn-card-body">
+          <div class="pdn-steps-grid">
+            <div class="pdn-step-card">
+              <div class="pdn-step-icon" style="background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;">🔗</div>
+              <div class="pdn-step-title">Invite your friend</div>
+              <div class="pdn-step-text">Copy your unique code and share it with friends or on social media.</div>
+            </div>
+            <div class="pdn-step-card">
+              <div class="pdn-step-icon" style="background:linear-gradient(135deg,#10b981,#059669);color:#fff;">📝</div>
+              <div class="pdn-step-title">They sign up or list</div>
+              <div class="pdn-step-text">Your friend creates an account or adds a listing using your code.</div>
+            </div>
+            <div class="pdn-step-card">
+              <div class="pdn-step-icon" style="background:linear-gradient(135deg,var(--terra),var(--terra2));color:#fff;">💰</div>
+              <div class="pdn-step-title">You earn instantly</div>
+              <div class="pdn-step-text">0.50 Credits + 5 XP land in your account automatically — no waiting, no limits.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- FAQ -->
+      <div class="pdn-card">
+        <div class="pdn-card-head"><div class="pdn-card-title">Frequently asked questions</div></div>
+        <div class="pdn-card-body">
+          <div class="pdn-faq-item" onclick="this.classList.toggle('open')">
+            <div class="pdn-faq-q">What is the Refer and Earn program? <span class="pdn-faq-arrow">▾</span></div>
+            <div class="pdn-faq-a">Refer &amp; Earn lets you share your unique referral code with others. When someone signs up or adds a listing using your code, you earn 0.50 credits automatically — plus +5 XP since you're a Partner.</div>
+          </div>
+          <div class="pdn-faq-item" onclick="this.classList.toggle('open')">
+            <div class="pdn-faq-q">When do I get my reward? <span class="pdn-faq-arrow">▾</span></div>
+            <div class="pdn-faq-a">Your credits are added as soon as the referred person completes a valid signup or listing. Check the history section above to track all your rewards.</div>
+          </div>
+          <div class="pdn-faq-item" onclick="this.classList.toggle('open')">
+            <div class="pdn-faq-q">Is there a limit on referrals? <span class="pdn-faq-arrow">▾</span></div>
+            <div class="pdn-faq-a">No limit — you can refer as many people as you want and earn credits for each one!</div>
+          </div>
+          <div class="pdn-faq-item" onclick="this.classList.toggle('open')">
+            <div class="pdn-faq-q">Does my friend get anything? <span class="pdn-faq-arrow">▾</span></div>
+            <div class="pdn-faq-a">The referral reward goes to you (the referrer). Your friend gets access to the platform but no extra credits for using your code.</div>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- ══ TOTAL REWARD CARD ══ -->
-    <div class="pd-reward-card" onclick="">
-      <div class="pd-reward-icon">🪙</div>
-      <div class="pd-reward-mid">
-        <div class="pd-rw-label">Total Credits Earned</div>
-        <div class="pd-rw-amount" id="pd-stat-credits">—</div>
-      </div>
-      <div class="pd-reward-arrow">›</div>
-    </div>
-
-    <!-- ══ REFERRAL CODE CARD ══ -->
-    <div class="pd-code-card">
-      <div class="pd-code-label">Your Referral Code</div>
-      <div class="pd-code-row">
-        <div class="pd-code-val" id="pd-ref-code-display">——————</div>
-        <button class="pd-code-copy-btn" onclick="pdCopyRefCode()" id="pd-copy-ref-btn">
-          📋 Copy Code
-        </button>
-      </div>
-      <div class="pd-code-hint">Share your code — earn credits for every signup &amp; listing.</div>
-      <img src="/person-refer.svg" class="pd-code-person" alt="">
-    </div>
-
-    <!-- ══ STATS ROW ══ -->
-    <div class="pd-stats-row" style="grid-template-columns:repeat(4,1fr);">
-      <div class="pd-stat-box">
-        <div class="ps-val" style="color:#4f46e5;" id="pd-stat-total">—</div>
-        <div class="ps-lbl">Total</div>
-      </div>
-      <div class="pd-stat-box">
-        <div class="ps-val" style="color:#10b981;" id="pd-stat-reg">—</div>
-        <div class="ps-lbl">Signups</div>
-      </div>
-      <div class="pd-stat-box">
-        <div class="ps-val" style="color:#f59e0b;" id="pd-stat-list">—</div>
-        <div class="ps-lbl">Listings</div>
-      </div>
-      <div class="pd-stat-box">
-        <div class="ps-val" style="color:#8b5cf6;" id="pd-stat-xp">—</div>
-        <div class="ps-lbl">XP</div>
-      </div>
-    </div>
-
-    <!-- ══ MY TASKS ══ -->
-    <div style="margin:20px 16px 0;">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
-        <div style="font-size:15px;font-weight:800;color:#1a1410;">📋 My Tasks</div>
-        <span id="pd-tasks-count" style="background:#ef4444;color:#fff;border-radius:20px;font-size:11px;font-weight:800;padding:2px 9px;display:none;"></span>
-      </div>
-      <div id="pd-tasks-list">
-        <div style="text-align:center;padding:40px 20px;color:#9ca3af;">
-          <div style="font-size:36px;margin-bottom:10px;">⏳</div>
-          <div style="font-size:14px;font-weight:600;">Loading tasks...</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ══ HOW IT WORKS ══ -->
-    <div style="margin:20px 16px 0;background:#fff;border-radius:20px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.06);border:1.5px solid #f0f0f0;">
-      <div style="padding:18px 18px 10px;font-size:15px;font-weight:800;color:#1a1410;border-bottom:1.5px solid #f3f4f6;">How it works</div>
-      <div style="display:flex;align-items:flex-start;gap:14px;padding:18px 18px 14px;border-bottom:1.5px solid #f3f4f6;">
-        <div style="width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,#6366f1,#4f46e5);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">🔗</div>
-        <div>
-          <div style="font-size:14px;font-weight:700;color:#1a1410;margin-bottom:3px;">Invite your friend to join Rent Nivas</div>
-          <div style="font-size:12px;color:#6b7280;line-height:1.5;">Copy your unique code and share it with friends or on social media.</div>
-        </div>
-      </div>
-      <div style="display:flex;align-items:flex-start;gap:14px;padding:18px 18px 14px;border-bottom:1.5px solid #f3f4f6;">
-        <div style="width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,#10b981,#059669);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">📝</div>
-        <div>
-          <div style="font-size:14px;font-weight:700;color:#1a1410;margin-bottom:3px;">Your friend signs up or lists a property</div>
-          <div style="font-size:12px;color:#6b7280;line-height:1.5;">They create an account or add a listing using your referral code.</div>
-        </div>
-      </div>
-      <div style="display:flex;align-items:flex-start;gap:14px;padding:18px 18px 18px;">
-        <div style="width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,#f59e0b,#d97706);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">💰</div>
-        <div>
-          <div style="font-size:14px;font-weight:700;color:#1a1410;margin-bottom:3px;">You get 0.50 Credits + 5 XP instantly</div>
-          <div style="font-size:12px;color:#6b7280;line-height:1.5;">Credits and XP land in your account automatically — no waiting, no limits.</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ══ REFERRAL HISTORY ══ -->
-    <div class="pd-history">
-      <div class="pd-history-head">
-        <div class="pd-history-title">📜 Referral History</div>
-        <button class="pd-refresh-btn" onclick="loadPartnerReferralStats(true)">↻ Refresh</button>
-      </div>
-      <div id="pd-referral-history">
-        <div style="text-align:center;padding:40px 20px;color:#9ca3af;">
-          <div style="font-size:36px;margin-bottom:10px;">📭</div>
-          <div style="font-size:14px;font-weight:600;">Loading referral history...</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ══ FAQ ══ -->
-    <div class="pd-faq">
-      <div class="pd-faq-title">Frequently asked questions</div>
-      <div class="pd-faq-item" onclick="this.classList.toggle('open')">
-        <div class="pd-faq-q">What is the Refer and Earn program? <span class="pd-faq-arrow">▾</span></div>
-        <div class="pd-faq-a">Refer &amp; Earn lets you share your unique referral code with others. When someone signs up or adds a listing using your code, you earn 0.50 credits automatically — plus +5 XP since you're a Partner.</div>
-      </div>
-      <div class="pd-faq-item" onclick="this.classList.toggle('open')">
-        <div class="pd-faq-q">When do I get my reward? <span class="pd-faq-arrow">▾</span></div>
-        <div class="pd-faq-a">Your credits are added as soon as the referred person completes a valid signup or listing. Check the history section above to track all your rewards.</div>
-      </div>
-      <div class="pd-faq-item" onclick="this.classList.toggle('open')">
-        <div class="pd-faq-q">Is there a limit on referrals? <span class="pd-faq-arrow">▾</span></div>
-        <div class="pd-faq-a">No limit — you can refer as many people as you want and earn credits for each one!</div>
-      </div>
-      <div class="pd-faq-item" onclick="this.classList.toggle('open')">
-        <div class="pd-faq-q">Does my friend get anything? <span class="pd-faq-arrow">▾</span></div>
-        <div class="pd-faq-a">The referral reward goes to you (the referrer). Your friend gets access to the platform but no extra credits for using your code.</div>
-      </div>
-    </div>
-
-    <!-- Hidden stubs kept for JS compatibility (referenced by updatePartnerLevelCard etc.) -->
-    <!-- ══ PARTNER TIER / BADGE CARD — visible, was previously written into
-         permanently display:none stub elements below and never shown ══ -->
-    <div style="background:linear-gradient(135deg,#1e1b4b,#312e81);border-radius:20px;padding:20px;margin:0 16px 16px;color:#fff;position:relative;overflow:hidden;">
-      <div style="position:absolute;top:-30px;right:-30px;width:120px;height:120px;border-radius:50%;background:rgba(255,255,255,.06);"></div>
-      <div style="display:flex;align-items:center;gap:14px;position:relative;z-index:1;">
-        <img id="pd-level-badge-img" src="badge-bronze.png" alt="" style="width:56px;height:56px;object-fit:contain;flex-shrink:0;">
-        <div style="flex:1;min-width:0;">
-          <div id="pd-level-tier-name" style="font-size:16px;font-weight:800;">Unranked Partner</div>
-          <div id="pd-level-sub" style="font-size:12px;color:rgba(255,255,255,.65);margin-top:2px;">Not ranked yet</div>
-        </div>
-      </div>
-      <div style="margin-top:14px;">
-        <div style="width:100%;height:10px;background:rgba(255,255,255,.12);border-radius:999px;overflow:hidden;">
-          <div id="pd-level-progress-fill" style="height:100%;width:0%;border-radius:999px;background:linear-gradient(90deg,#f59e0b,#ec4899);transition:width 1s cubic-bezier(.22,1,.36,1);"></div>
-        </div>
-        <div style="display:flex;justify-content:space-between;margin-top:6px;font-size:11px;color:rgba(255,255,255,.6);">
-          <span><span id="pd-level-xp-current">0 / 25</span> XP</span>
-          <span id="pd-level-xp-next">25 XP to Bronze</span>
-        </div>
-      </div>
-    </div>
+    <!-- Hidden stubs kept for JS compatibility -->
     <div style="display:none;" id="pd-ref-stats-grid"></div>
     <div style="display:none;" id="pd-btn-ring"></div>
     <div style="display:none;" id="pd-profile-btn"></div>
