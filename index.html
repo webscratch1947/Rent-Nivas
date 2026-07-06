@@ -12773,6 +12773,9 @@
         subEl.innerHTML = tier.locked ? 'Not ranked yet' : ('Level <span id="pd-level-num">' + level + '</span>');
       }
 
+      var ringXpEl = document.getElementById('pd-ring-xp');
+      var ringXpValEl = document.getElementById('pd-ring-xp-val');
+
       if (next) {
         var span = next.min - tier.min;
         var into = xp - tier.min;
@@ -12780,10 +12783,14 @@
         if (fillEl) fillEl.style.width = pct + '%';
         if (curEl) curEl.textContent = into + ' / ' + span;
         if (nextEl) nextEl.textContent = (next.min - xp) + ' XP to ' + next.name.replace(' Partner', '');
+        if (ringXpEl) ringXpEl.style.setProperty('--p', Math.round(pct));
+        if (ringXpValEl) ringXpValEl.textContent = Math.round(pct) + '%';
       } else {
         if (fillEl) fillEl.style.width = '100%';
         if (curEl) curEl.textContent = xp + ' XP';
         if (nextEl) nextEl.textContent = 'Max tier reached!';
+        if (ringXpEl) ringXpEl.style.setProperty('--p', 100);
+        if (ringXpValEl) ringXpValEl.textContent = '100%';
       }
     }
 
@@ -12938,6 +12945,18 @@
         setEl('pd-stat-reg',     regRefs);
         setEl('pd-stat-list',    listRefs);
         setEl('pd-stat-xp',      totalXP + ' XP');
+
+        // Performance rings — signup/listing share of total referrals
+        const signupPct = totalRefs > 0 ? Math.round((regRefs / totalRefs) * 100) : 0;
+        const listingPct = totalRefs > 0 ? Math.round((listRefs / totalRefs) * 100) : 0;
+        const ringSignupEl = document.getElementById('pd-ring-signup');
+        const ringSignupValEl = document.getElementById('pd-ring-signup-val');
+        const ringListingEl = document.getElementById('pd-ring-listing');
+        const ringListingValEl = document.getElementById('pd-ring-listing-val');
+        if (ringSignupEl) ringSignupEl.style.setProperty('--p', signupPct);
+        if (ringSignupValEl) ringSignupValEl.textContent = signupPct + '%';
+        if (ringListingEl) ringListingEl.style.setProperty('--p', listingPct);
+        if (ringListingValEl) ringListingValEl.textContent = listingPct + '%';
         setEl('pd-stat-credits', credits % 1 === 0 ? credits + ' Credits' : credits.toFixed(2) + ' Credits');
 
         // ── 2. Render referral history from the stats payload ──────────────
@@ -13148,6 +13167,10 @@
           countEl.style.display = activeTasks.length ? 'inline-block' : 'none';
           countEl.textContent = activeTasks.length;
         }
+        const ringTasksEl = document.getElementById('pd-ring-tasks');
+        const ringTasksValEl = document.getElementById('pd-ring-tasks-val');
+        if (ringTasksEl) ringTasksEl.style.setProperty('--p', Math.min(100, activeTasks.length * 20));
+        if (ringTasksValEl) ringTasksValEl.textContent = activeTasks.length;
         const activeHtml = activeTasks.map(t => renderPartnerTask(t)).join('');
         const missedSection = expiredHtml.length
           ? `<div style="margin-bottom:8px;font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;">Missed Tasks</div>${expiredHtml.join('')}<div style="height:1px;background:var(--border);margin:16px 0;"></div>` : '';
@@ -20367,7 +20390,29 @@
       .pdn-mini-stat span { font-size:10px; color:var(--muted); font-weight:700; text-transform:uppercase; letter-spacing:.4px; }
 
       .pdn-tasks-badge { background:var(--red); color:#fff; border-radius:20px; font-size:11px; font-weight:800; padding:2px 9px; display:none; }
-      #pd-tasks-list, #pd-referral-history { max-height:420px; overflow-y:auto; }
+
+      .pdn-perf-row { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; }
+      @media (max-width: 720px) { .pdn-perf-row { grid-template-columns:repeat(2,1fr); } }
+      .pdn-perf-box { display:flex; flex-direction:column; align-items:center; gap:10px; }
+      .pdn-ring {
+        --p:0; --ring-color:var(--terra);
+        width:112px; height:112px; border-radius:50%;
+        background:conic-gradient(var(--ring-color) calc(var(--p)*1%), var(--bg2) 0);
+        display:flex; align-items:center; justify-content:center;
+        transition:background 1s cubic-bezier(.22,1,.36,1);
+      }
+      .pdn-ring.pdn-ring-blue  { --ring-color:var(--blue); }
+      .pdn-ring.pdn-ring-amber { --ring-color:var(--amber); }
+      .pdn-ring.pdn-ring-green { --ring-color:var(--green); }
+      .pdn-ring-inner {
+        width:82px; height:82px; border-radius:50%; background:var(--white);
+        display:flex; flex-direction:column; align-items:center; justify-content:center;
+        box-shadow:inset 0 0 0 1.5px var(--border);
+      }
+      .pdn-ring-inner b { font-size:17px; font-weight:900; color:var(--ink); line-height:1.1; }
+      .pdn-ring-inner span { font-size:9.5px; color:var(--muted); font-weight:700; text-transform:uppercase; letter-spacing:.3px; margin-top:2px; }
+      .pdn-perf-label { font-size:11.5px; color:var(--muted); font-weight:600; text-align:center; }
+      #pd-tasks-list { max-height:420px; overflow-y:auto; }
 
       .pdn-refresh-btn {
         background:none; border:1.5px solid var(--border); border-radius:10px; padding:6px 12px;
@@ -20490,17 +20535,49 @@
         </div>
       </div>
 
-      <!-- REFERRAL HISTORY -->
+      <!-- PERFORMANCE -->
       <div class="pdn-card" style="margin-bottom:16px;">
         <div class="pdn-card-head">
-          <div class="pdn-card-title">📜 Referral History</div>
+          <div class="pdn-card-title">📈 Performance</div>
           <button class="pdn-refresh-btn" onclick="loadPartnerReferralStats(true)">↻ Refresh</button>
         </div>
         <div class="pdn-card-body">
-          <div id="pd-referral-history">
-            <div style="text-align:center;padding:40px 20px;color:var(--muted);">
-              <div style="font-size:36px;margin-bottom:10px;">📭</div>
-              <div style="font-size:14px;font-weight:600;">Loading referral history...</div>
+          <div class="pdn-perf-row">
+            <div class="pdn-perf-box">
+              <div class="pdn-ring" id="pd-ring-xp" style="--p:0;">
+                <div class="pdn-ring-inner">
+                  <b id="pd-ring-xp-val">0%</b>
+                  <span>Level XP</span>
+                </div>
+              </div>
+              <div class="pdn-perf-label">Progress to next tier</div>
+            </div>
+            <div class="pdn-perf-box">
+              <div class="pdn-ring pdn-ring-blue" id="pd-ring-signup" style="--p:0;">
+                <div class="pdn-ring-inner">
+                  <b id="pd-ring-signup-val">0%</b>
+                  <span>Signups</span>
+                </div>
+              </div>
+              <div class="pdn-perf-label">Share of total referrals</div>
+            </div>
+            <div class="pdn-perf-box">
+              <div class="pdn-ring pdn-ring-amber" id="pd-ring-listing" style="--p:0;">
+                <div class="pdn-ring-inner">
+                  <b id="pd-ring-listing-val">0%</b>
+                  <span>Listings</span>
+                </div>
+              </div>
+              <div class="pdn-perf-label">Share of total referrals</div>
+            </div>
+            <div class="pdn-perf-box">
+              <div class="pdn-ring pdn-ring-green" id="pd-ring-tasks" style="--p:0;">
+                <div class="pdn-ring-inner">
+                  <b id="pd-ring-tasks-val">0</b>
+                  <span>Open Tasks</span>
+                </div>
+              </div>
+              <div class="pdn-perf-label">Ready to complete</div>
             </div>
           </div>
         </div>
