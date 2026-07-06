@@ -5129,6 +5129,58 @@
       display: none;
     }
 
+    /* ── Partner Dashboard bottom-nav restyle (scoped, only while Partner Panel is open) ── */
+    .mob-bottom-nav.pdn-navstyle {
+      background: var(--white);
+      border-top: 1px solid var(--border);
+      box-shadow: 0 -6px 24px rgba(24,21,15,.08);
+      padding: 8px 10px;
+      gap: 4px;
+      align-items: center;
+    }
+
+    .mob-bottom-nav.pdn-navstyle .mob-bottom-btn {
+      flex-direction: row;
+      gap: 6px;
+      border-radius: 999px;
+      padding: 8px 10px;
+      min-height: auto;
+      color: var(--muted);
+      transition: background .18s, color .18s;
+    }
+
+    .mob-bottom-nav.pdn-navstyle .mob-bottom-btn.active {
+      background: var(--terra-lt);
+      color: var(--terra2);
+    }
+
+    .mob-bottom-nav.pdn-navstyle .mbn-icon {
+      font-size: 17px;
+    }
+
+    .mob-bottom-nav.pdn-navstyle .mob-bottom-btn.active .mbn-icon {
+      transform: none;
+    }
+
+    .mob-bottom-nav.pdn-navstyle .mbn-label {
+      font-size: 10.5px;
+      font-weight: 700;
+      max-width: 60px;
+    }
+
+    .mob-bottom-nav.pdn-navstyle .mob-bottom-btn:not(.active) .mbn-label {
+      display: none;
+    }
+
+    @media (max-width: 380px) {
+      .mob-bottom-nav.pdn-navstyle {
+        gap: 2px;
+      }
+      .mob-bottom-nav.pdn-navstyle .mob-bottom-btn {
+        padding: 8px;
+      }
+    }
+
     /* ══════════════════════════════════════════════
        MOBILE STYLES — max-width: 768px ONLY
        Desktop layout is UNTOUCHED above this block
@@ -12183,6 +12235,9 @@
       document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
       const el = document.getElementById(id);
       if (el) el.classList.add('active');
+      // Scope the redesigned bottom-nav look to the Partner Dashboard only.
+      var _mbn = document.getElementById('mob-bottom-nav');
+      if (_mbn) _mbn.classList.toggle('pdn-navstyle', id === 'partner-dashboard');
       // Always unlock scroll when navigating pages (prevents stuck scroll from sidebar)
       document.body.style.position = '';
       document.body.style.top = '';
