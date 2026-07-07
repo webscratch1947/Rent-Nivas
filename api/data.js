@@ -2313,41 +2313,25 @@ async function completePartnerTaskCore(userId, taskId) {
     throw err;
   }
 
-  // Atomic increment — ADD, not a read-then-write, so nothing can be lost.
-  // LEGACY KEY FALLBACK: some profiles were created before the partition key
-  // was renamed from "id" → "userId". Without this check, the ADD silently
-  // creates a brand-new ghost row under the userId key while the user's real
-  // profile (keyed by "id") never receives the XP — causing perpetual 0 XP.
-  // We guard with ConditionExpression so DynamoDB tells us if the userId row
-  // doesn't exist, then retry on the legacy id-keyed row.
-  const profileTableName = tableName('profiles');
-  const xpValues = marshall({ ':r': reward, ':now': new Date().toISOString() });
-  let xpResult;
-  try {
-    xpResult = await ddb.send(new UpdateItemCommand({
-      TableName: profileTableName,
-      Key: marshall({ userId }),
-      UpdateExpression: 'ADD partner_xp :r SET updated_at = :now',
-      ExpressionAttributeValues: xpValues,
-      ConditionExpression: 'attribute_exists(userId)',
-      ReturnValues: 'ALL_NEW',
-    }));
-  } catch (xpErr) {
-    if (/ConditionalCheckFailed/i.test(xpErr && xpErr.name || '')) {
-      // Profile lives under the legacy "id" key — update that row instead.
-      console.log('[RentNivas] completePartnerTaskCore: userId-keyed profile not found, falling back to legacy id key for', userId);
-      xpResult = await ddb.send(new UpdateItemCommand({
-        TableName: profileTableName,
-        Key: marshall({ id: userId }),
-        UpdateExpression: 'ADD partner_xp :r SET updated_at = :now',
-        ExpressionAttributeValues: xpValues,
-        ReturnValues: 'ALL_NEW',
-      }));
-    } else {
-      throw xpErr;
-    }
-  }
-  const newTotal = xpResult.Attributes ? parseInt(unmarshall(xpResult.Attributes).partner_xp || 0, 10) : null;
+  // Use the same readItems → updateRows pattern as awardReferralReward so that
+  // legacy id-keyed profiles AND existing ghost userId rows are both handled
+  // correctly. readItems has its own legacy-key fallback and will always return
+  // the REAL profile row. updateRows will then write back to whichever key that
+  // row actually lives under. Double-spending is already prevented by the
+  // partner_task_progress ConditionExpression guard above, so a read-then-write
+  // is safe here.
+  const profileForXp = await readItems({
+    table: 'profiles', op: 'select', select: 'id,partner_xp',
+    filters: [{ op: 'eq', column: 'id', value: userId }], maybeSingle: true,
+  });
+  const currentXp = parseInt(profileForXp && profileForXp.partner_xp || 0, 10) || 0;
+  const newTotal = currentXp + reward;
+  await updateRows({
+    table: 'profiles',
+    op: 'update',
+    values: { partner_xp: newTotal },
+    filters: [{ op: 'eq', column: 'id', value: userId }],
+  });
   return { awarded: true, reward, newTotal };
 }
 
@@ -2395,35 +2379,15 @@ async function expirePartnerTaskCore(userId, taskId) {
   const delta = -Math.min(penalty, current);
   if (!delta) return { penalized: true, penalty: 0, newTotal: current };
 
-  // LEGACY KEY FALLBACK: same fix as in completePartnerTaskCore — profiles
-  // created before the partition key rename use "id" not "userId".
-  const penaltyTableName = tableName('profiles');
-  const penaltyValues = marshall({ ':d': delta, ':now': new Date().toISOString() });
-  let penaltyResult;
-  try {
-    penaltyResult = await ddb.send(new UpdateItemCommand({
-      TableName: penaltyTableName,
-      Key: marshall({ userId }),
-      UpdateExpression: 'ADD partner_xp :d SET updated_at = :now',
-      ExpressionAttributeValues: penaltyValues,
-      ConditionExpression: 'attribute_exists(userId)',
-      ReturnValues: 'ALL_NEW',
-    }));
-  } catch (penaltyErr) {
-    if (/ConditionalCheckFailed/i.test(penaltyErr && penaltyErr.name || '')) {
-      console.log('[RentNivas] expirePartnerTaskCore: userId-keyed profile not found, falling back to legacy id key for', userId);
-      penaltyResult = await ddb.send(new UpdateItemCommand({
-        TableName: penaltyTableName,
-        Key: marshall({ id: userId }),
-        UpdateExpression: 'ADD partner_xp :d SET updated_at = :now',
-        ExpressionAttributeValues: penaltyValues,
-        ReturnValues: 'ALL_NEW',
-      }));
-    } else {
-      throw penaltyErr;
-    }
-  }
-  const newTotal = penaltyResult.Attributes ? parseInt(unmarshall(penaltyResult.Attributes).partner_xp || 0, 10) : null;
+  // Same readItems → updateRows pattern as completePartnerTaskCore and
+  // awardReferralReward so legacy id-keyed rows are found and written correctly.
+  const newTotal = current + delta; // delta is already negative and floored at -current
+  await updateRows({
+    table: 'profiles',
+    op: 'update',
+    values: { partner_xp: newTotal },
+    filters: [{ op: 'eq', column: 'id', value: userId }],
+  });
   return { penalized: true, penalty: -delta, newTotal };
 }
 
