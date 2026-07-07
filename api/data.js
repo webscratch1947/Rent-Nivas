@@ -2259,7 +2259,125 @@ async function handleRpc(spec, claims) {
     }
   }
 
+  // ── complete_partner_task / expire_partner_task ─────────────────────────
+  // Auth note: partner_task_progress/profiles are keyed by claims.sub (the
+  // caller's own Cognito id), never by a client-supplied user id — a user
+  // can only ever award/penalize their own row.
+  if (spec.name === 'complete_partner_task') {
+    const taskId = String((spec.params && spec.params.p_task_id) || '').trim();
+    return await completePartnerTaskCore(claims.sub, taskId);
+  }
+  if (spec.name === 'expire_partner_task') {
+    const taskId = String((spec.params && spec.params.p_task_id) || '').trim();
+    return await expirePartnerTaskCore(claims.sub, taskId);
+  }
+
   throw new Error(`Unsupported RPC "${spec.name}"`);
+}
+// Server-side, atomic task completion. Replaces the old client-side
+// read-partner_xp → add → write-back flow, which could silently lose the
+// award if the client's write got rejected/raced, and which had no
+// guard against the same task being completed twice.
+//
+// Guard: partner_task_progress's status is flipped to 'completed' with a
+// ConditionExpression that only succeeds if it ISN'T already 'completed'.
+// If that fails, we know this task already paid out — return awarded:false
+// instead of paying twice. Only after that guard succeeds do we ADD the
+// task's own xp_reward onto profiles.partner_xp (atomic increment, not a
+// read-then-write, so no race can drop the award).
+async function completePartnerTaskCore(userId, taskId) {
+  if (!userId || !taskId) throw new Error('userId and taskId are required');
+
+  const task = await readItems({
+    table: 'partner_tasks', op: 'select', select: '*',
+    filters: [{ op: 'eq', column: 'id', value: taskId }], maybeSingle: true,
+  });
+  if (!task || !task.id) return { awarded: false, reason: 'task_not_found' };
+
+  const reward = Number.isFinite(parseInt(task.xp_reward, 10)) ? parseInt(task.xp_reward, 10) : 10;
+
+  // Atomically mark the progress row completed — only succeeds once.
+  try {
+    await ddb.send(new UpdateItemCommand({
+      TableName: tableName('partner_task_progress'),
+      Key: marshall({ userId, taskId }),
+      UpdateExpression: 'SET #s = :completed, completed_at = :now',
+      ConditionExpression: 'attribute_not_exists(#s) OR #s <> :completed',
+      ExpressionAttributeNames: { '#s': 'status' },
+      ExpressionAttributeValues: marshall({ ':completed': 'completed', ':now': new Date().toISOString() }),
+    }));
+  } catch (err) {
+    if (/ConditionalCheckFailed/i.test(err && err.name || '')) {
+      return { awarded: false, reason: 'already_completed' };
+    }
+    throw err;
+  }
+
+  // Atomic increment — ADD, not a read-then-write, so nothing can be lost.
+  const result = await ddb.send(new UpdateItemCommand({
+    TableName: tableName('profiles'),
+    Key: marshall({ userId }),
+    UpdateExpression: 'ADD partner_xp :r SET updated_at = :now',
+    ExpressionAttributeValues: marshall({ ':r': reward, ':now': new Date().toISOString() }),
+    ReturnValues: 'ALL_NEW',
+  }));
+  const newTotal = result.Attributes ? parseInt(unmarshall(result.Attributes).partner_xp || 0, 10) : null;
+  return { awarded: true, reward, newTotal };
+}
+
+// ── expire_partner_task ────────────────────────────────────────────────────
+// Mirror of the above for a task that timed out unfinished: deducts the
+// task's xp_penalty (falling back to xp_reward), floored at 0, and is
+// likewise guarded so a task can only ever be expired/penalized once.
+async function expirePartnerTaskCore(userId, taskId) {
+  if (!userId || !taskId) throw new Error('userId and taskId are required');
+
+  const task = await readItems({
+    table: 'partner_tasks', op: 'select', select: '*',
+    filters: [{ op: 'eq', column: 'id', value: taskId }], maybeSingle: true,
+  });
+  if (!task || !task.id) return { penalized: false, reason: 'task_not_found' };
+
+  const rawPenalty = parseInt(task.xp_penalty, 10);
+  const rawReward  = parseInt(task.xp_reward, 10);
+  const penalty = Number.isFinite(rawPenalty) ? rawPenalty : (Number.isFinite(rawReward) ? rawReward : 10);
+
+  try {
+    await ddb.send(new UpdateItemCommand({
+      TableName: tableName('partner_task_progress'),
+      Key: marshall({ userId, taskId }),
+      UpdateExpression: 'SET #s = :expired, expired_at = :now',
+      ConditionExpression: 'attribute_not_exists(#s) OR (#s <> :completed AND #s <> :expired)',
+      ExpressionAttributeNames: { '#s': 'status' },
+      ExpressionAttributeValues: marshall({ ':expired': 'expired', ':completed': 'completed', ':now': new Date().toISOString() }),
+    }));
+  } catch (err) {
+    if (/ConditionalCheckFailed/i.test(err && err.name || '')) {
+      return { penalized: false, reason: 'already_resolved' };
+    }
+    throw err;
+  }
+
+  if (!penalty) return { penalized: false, reason: 'no_penalty_configured' };
+
+  // Read current XP so we can floor at 0 (DynamoDB ADD can't clamp on its own).
+  const profile = await readItems({
+    table: 'profiles', op: 'select', select: 'id,partner_xp',
+    filters: [{ op: 'eq', column: 'id', value: userId }], maybeSingle: true,
+  });
+  const current = parseInt(profile && profile.partner_xp || 0, 10) || 0;
+  const delta = -Math.min(penalty, current);
+  if (!delta) return { penalized: true, penalty: 0, newTotal: current };
+
+  const result = await ddb.send(new UpdateItemCommand({
+    TableName: tableName('profiles'),
+    Key: marshall({ userId }),
+    UpdateExpression: 'ADD partner_xp :d SET updated_at = :now',
+    ExpressionAttributeValues: marshall({ ':d': delta, ':now': new Date().toISOString() }),
+    ReturnValues: 'ALL_NEW',
+  }));
+  const newTotal = result.Attributes ? parseInt(unmarshall(result.Attributes).partner_xp || 0, 10) : null;
+  return { penalized: true, penalty: -delta, newTotal };
 }
 
 // ── cleanupDeletedHouseReferral ────────────────────────────────────────────
