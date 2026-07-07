@@ -13155,9 +13155,10 @@
       }
     }
 
-    async function markTaskDone(taskId) {
+    async function markTaskDone(taskId, xpReward) {
       const done = getCompletedTasks();
       if (done.includes(taskId)) return;
+      const reward = (Number.isFinite(xpReward) && xpReward >= 0) ? xpReward : XP_PER_TASK;
       done.push(taskId);
       setCompletedTasks(done);
 
@@ -13167,33 +13168,57 @@
           .eq('task_id', taskId).eq('user_id', user.id);
       } catch(e) { console.warn('[Tasks] progress update failed', e); }
 
-      // 2. Read current partner_xp from DB, increment, write back
+      // 2. Read current partner_xp from DB, increment by this task's own reward, write back
       try {
-        const { data: prof } = await sb.from('profiles').select('partner_xp').eq('id', user.id).maybeSingle();
+        const { data: prof, error: readErr } = await sb.from('profiles').select('partner_xp').eq('id', user.id).maybeSingle();
+        if (readErr) throw readErr;
         const currentXP = parseInt(prof?.partner_xp ?? 0, 10) || 0;
-        const newXP = currentXP + XP_PER_TASK;
-        await sb.from('profiles').update({ partner_xp: newXP }).eq('id', user.id);
+        const newXP = currentXP + reward;
+        const { error: writeErr } = await sb.from('profiles').update({ partner_xp: newXP }).eq('id', user.id);
+        if (writeErr) throw writeErr;
         setPartnerXP(newXP);
         updateProfileBtnRing();
         if (typeof updatePartnerLevelCard === 'function') updatePartnerLevelCard(newXP);
       } catch(e) {
         // Fallback: at least update localStorage
-        setPartnerXP(getPartnerXP() + XP_PER_TASK);
+        setPartnerXP(getPartnerXP() + reward);
         updateProfileBtnRing();
         console.warn('[Tasks] XP DB write failed, localStorage fallback used', e);
       }
 
-      // 3. Animate card out then reload
+      // 3. Animate card out then reload tasks + refresh XP display
       const card = document.getElementById('task-' + taskId);
       if (card) {
         card.style.transition = 'opacity .5s ease, transform .5s ease, max-height .5s ease';
         card.style.opacity = '0';
         card.style.transform = 'scale(.95) translateY(-8px)';
-        setTimeout(() => loadPartnerTasks(), 520);
+        setTimeout(() => { loadPartnerTasks(); loadPartnerDashboard(); }, 520);
       } else {
-        loadPartnerTasks();
+        loadPartnerTasks(); loadPartnerDashboard();
       }
-      toast(`+${XP_PER_TASK} XP earned! 🏆 Tap your profile to see progress.`, 'success');
+      toast(`+${reward} XP earned! 🏆 Tap your profile to see progress.`, 'success');
+    }
+
+    // Deduct XP when a task expires unfinished (uses the task's own xp_penalty,
+    // falling back to xp_reward, never dropping XP below 0).
+    async function applyTaskPenalty(penalty) {
+      const amt = (Number.isFinite(penalty) && penalty > 0) ? penalty : 0;
+      if (!amt || !user) return;
+      try {
+        const { data: prof, error: readErr } = await sb.from('profiles').select('partner_xp').eq('id', user.id).maybeSingle();
+        if (readErr) throw readErr;
+        const currentXP = parseInt(prof?.partner_xp ?? 0, 10) || 0;
+        const newXP = Math.max(0, currentXP - amt);
+        const { error: writeErr } = await sb.from('profiles').update({ partner_xp: newXP }).eq('id', user.id);
+        if (writeErr) throw writeErr;
+        setPartnerXP(newXP);
+        updateProfileBtnRing();
+        if (typeof updatePartnerLevelCard === 'function') updatePartnerLevelCard(newXP);
+      } catch(e) {
+        setPartnerXP(Math.max(0, getPartnerXP() - amt));
+        updateProfileBtnRing();
+        console.warn('[Tasks] XP penalty DB write failed, localStorage fallback used', e);
+      }
     }
 
     const TASK_LANGS = [
@@ -13254,7 +13279,12 @@
               try { await sb.from('partner_task_progress').delete().eq('task_id', t.id).eq('user_id', user.id); } catch {}
               // Mark as "done" locally so it doesn't reappear
               const doneArr = getCompletedTasks();
-              if (!doneArr.includes(t.id)) { doneArr.push(t.id); setCompletedTasks(doneArr); }
+              if (!doneArr.includes(t.id)) {
+                doneArr.push(t.id);
+                setCompletedTasks(doneArr);
+                // Deduct the configured penalty (falls back to xp_reward) — only once per task
+                await applyTaskPenalty(t.xp_penalty ?? t.xp_reward ?? 10);
+              }
               continue;
             }
           }
@@ -13267,7 +13297,9 @@
         }
         const ringTasksEl = document.getElementById('pd-ring-tasks');
         const ringTasksValEl = document.getElementById('pd-ring-tasks-val');
-        pdnSetRing(ringTasksEl, Math.min(100, activeTasks.length * 20));
+        const totalAssigned = activeTasks.length + done.length;
+        const openPct = totalAssigned ? Math.round((activeTasks.length / totalAssigned) * 100) : 0;
+        pdnSetRing(ringTasksEl, openPct);
         if (ringTasksValEl) ringTasksValEl.textContent = activeTasks.length;
         const activeHtml = activeTasks.map(t => renderPartnerTask(t)).join('');
         const missedSection = expiredHtml.length
@@ -13302,16 +13334,16 @@
           <!-- Title row -->
           <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:8px;">
             <div class="task-title-el" style="font-size:16px;font-weight:800;color:var(--ink);line-height:1.3;flex:1;">${esc(t.title)}</div>
-            <span style="flex-shrink:0;background:${accent}18;color:${accent};font-size:10px;font-weight:800;padding:3px 9px;border-radius:20px;letter-spacing:.4px;white-space:nowrap;border:1px solid ${accent}33;">+10 XP</span>
+            <span style="flex-shrink:0;background:${accent}18;color:${accent};font-size:10px;font-weight:800;padding:3px 9px;border-radius:20px;letter-spacing:.4px;white-space:nowrap;border:1px solid ${accent}33;">+${t.xp_reward ?? 10} XP</span>
           </div>
           ${t.description ? `<div class="task-desc-el" style="font-size:13px;color:var(--muted);line-height:1.6;margin-bottom:12px;">${esc(t.description)}</div>` : ''}
           <!-- Link button — clicking auto-completes task -->
           ${hasLink ? `<a href="${esc(t.link)}" target="_blank" rel="noopener"
-            onclick="setTimeout(()=>markTaskDone('${t.id}'),800)"
+            onclick="setTimeout(()=>markTaskDone('${t.id}', ${t.xp_reward ?? 10}),800)"
             style="display:inline-flex;align-items:center;gap:7px;background:var(--ink);color:#fff;padding:9px 16px;border-radius:12px;font-size:13px;font-weight:700;text-decoration:none;margin-bottom:14px;transition:opacity .15s;"
             onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
             🔗 Open Link <span style="opacity:.7;font-size:11px;">↗</span>
-          </a>` : `<button onclick="markTaskDone('${t.id}')"
+          </a>` : `<button onclick="markTaskDone('${t.id}', ${t.xp_reward ?? 10})"
             style="display:inline-flex;align-items:center;gap:7px;background:${accent};color:#fff;border:none;padding:9px 16px;border-radius:12px;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:14px;transition:opacity .15s;"
             onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
             ✅ Mark Complete
