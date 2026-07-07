@@ -9170,7 +9170,7 @@
       <p style="color:rgba(255,255,255,.5);font-size:13px;margin-bottom:10px;">Submit an appeal to contest this ban:</p>
       <textarea id="appeal-input" placeholder="Explain why you believe this ban is incorrect..."></textarea>
       <button class="btn btn-terra btn-full" onclick="submitAppeal()">📩 Submit Appeal</button>
-      <button onclick="doLogout()"
+      <button id="ban-signout-btn" data-i18n="ban_signout" onclick="doLogout()"
         style="margin-top:10px;background:none;border:none;color:rgba(255,255,255,.3);font-size:13px;cursor:pointer;display:block;width:100%;text-align:center;">Sign
         out</button>
     </div>
@@ -9948,15 +9948,15 @@
 
           <!-- REFERRAL STATS CARD -->
           <div class="prof-ref-card" id="rent-prof-referral-card" style="display:none;">
-            <div class="prof-card-title">🎟️ Your Referral</div>
+            <div class="prof-card-title" data-i18n="ref_profile_title">🎟️ Your Referral</div>
             <div class="prof-ref-code-box">
               <div>
-                <div style="font-size:11.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">Your Referral Code</div>
+                <div data-i18n="ref_profile_code_lbl" style="font-size:11.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">Your Referral Code</div>
                 <div class="prof-ref-code-val" id="rent-prof-ref-code">——————</div>
               </div>
               <button class="btn btn-soft btn-sm" onclick="copyRentProfRefCode()" style="flex-shrink:0;">📋 Copy</button>
             </div>
-            <div style="font-size:12.5px;color:var(--muted);margin:-8px 0 18px;">Share this code — when a friend signs up or someone adds a listing using your code, you get a reward.</div>
+            <div data-i18n="ref_profile_share_p" style="font-size:12.5px;color:var(--muted);margin:-8px 0 18px;">Share this code — when a friend signs up or someone adds a listing using your code, you get a reward.</div>
             <div class="prof-ref-stats">
               <div class="prof-ref-stat">
                 <div class="prof-ref-stat-val" id="rent-prof-ref-count">0</div>
@@ -10788,15 +10788,15 @@
 
           <!-- REFERRAL STATS CARD -->
           <div class="prof-ref-card" id="prof-referral-card" style="display:none;">
-            <div class="prof-card-title">🎟️ Your Referral</div>
+            <div class="prof-card-title" data-i18n="ref_profile_title">🎟️ Your Referral</div>
             <div class="prof-ref-code-box">
               <div>
-                <div style="font-size:11.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">Your Referral Code</div>
+                <div data-i18n="ref_profile_code_lbl" style="font-size:11.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">Your Referral Code</div>
                 <div class="prof-ref-code-val" id="prof-ref-code">——————</div>
               </div>
               <button class="btn btn-soft btn-sm" onclick="copyProfRefCode()" style="flex-shrink:0;">📋 Copy</button>
             </div>
-            <div style="font-size:12.5px;color:var(--muted);margin:-8px 0 18px;">Share this code — when someone adds a listing using your code, you get credit as their referrer.</div>
+            <div data-i18n="ref_profile_share_p" style="font-size:12.5px;color:var(--muted);margin:-8px 0 18px;">Share this code — when someone adds a listing using your code, you get credit as their referrer.</div>
             <div class="prof-ref-stats">
               <div class="prof-ref-stat">
                 <div class="prof-ref-stat-val" id="prof-ref-count">0</div>
@@ -10836,7 +10836,7 @@
                 <div class="credits-badge" style="font-size:16px;padding:8px 18px;">🪙 <span
                     id="sett-credits-count">—</span></div>
               </div>
-              <div style="font-size:12px;color:var(--green);margin-top:8px;font-weight:600;">🎁 New users get 10 free
+              <div id="sett-new-user-note" style="font-size:12px;color:var(--green);margin-top:8px;font-weight:600;">🎁 New users get 10 free
                 unlock credits on signup. Buying credits is paused for now.</div>
             </div>
             <div class="sett-card" style="border-color:rgba(220,38,38,.25);">
@@ -20130,8 +20130,8 @@
         <div class="rnref-hist-col">
           <div class="rnref-hist-head">Referral History</div>
           <div class="rnref-toggle" id="rnref-toggle">
-            <button class="rnref-toggle-btn active" data-tab="house" onclick="rnrefSwitchTab('house')">House</button>
-            <button class="rnref-toggle-btn" data-tab="register" onclick="rnrefSwitchTab('register')">Register</button>
+            <button class="rnref-toggle-btn active" data-tab="house" data-i18n="ref_tab_house" onclick="rnrefSwitchTab('house')">House</button>
+            <button class="rnref-toggle-btn" data-tab="register" data-i18n="ref_tab_register" onclick="rnrefSwitchTab('register')">Register</button>
             <div class="rnref-toggle-thumb"></div>
           </div>
           <div id="rnref-hist-list"></div>
@@ -20139,13 +20139,13 @@
 
         <div class="rnref-faq-col">
           <div class="rnref-faq-head">
-            <div class="rnref-faq-title">Got questions?</div>
+            <div class="rnref-faq-title" data-i18n="ref_faq_title">Got questions?</div>
           </div>
           <div id="rnref-faq-list"></div>
         </div>
       </div>
 
-      <button class="rnref-invite-btn" onclick="rnrefInviteFriends()">Invite Friends Now</button>
+      <button class="rnref-invite-btn" data-i18n="ref_invite_btn" onclick="rnrefInviteFriends()">Invite Friends Now</button>
     </div>
   </div>
 
@@ -20206,7 +20206,7 @@
       var btn = document.getElementById('rnref-copy-btn');
       navigator.clipboard.writeText(code).then(function(){
         var prev = btn.textContent;
-        btn.textContent = 'Copied!';
+        btn.textContent = (window.t && window.t('ref_copied')) || 'Copied!';
         setTimeout(function(){ btn.textContent = prev; }, 1800);
       }).catch(function(){
         toast('Your referral code: ' + code, 'info');
@@ -20234,7 +20234,7 @@
     async function rnrefLoadData() {
       if (!user) return;
       var listEl = document.getElementById('rnref-hist-list');
-      listEl.innerHTML = '<div class="rnref-empty">Loading...</div>';
+      listEl.innerHTML = '<div class="rnref-empty">' + ((window.t && window.t('ref_loading')) || 'Loading...') + '</div>';
       try {
         var isPartner = await _pdIsPartner(user.id);
         var statsRes = await _rnReferralApi('stats');
@@ -20270,7 +20270,7 @@
         var heroLbl = document.getElementById('rnref-hero-lbl');
         var heroAmt = document.getElementById('rnref-hero-amt');
         if (heroLbl && heroAmt) {
-          heroLbl.textContent = 'Get';
+          heroLbl.textContent = (window.t && window.t('ref_get_lbl')) || 'Get';
           heroAmt.innerHTML = isPartner ? '0.50 <span>credits</span> + 5 XP' : '0.50 <span>credits</span>';
         }
         if (isPartner) {
@@ -20315,7 +20315,7 @@
         rnrefRenderFaq();
       } catch (e) {
         console.warn('[Referral] load error:', e && e.message);
-        listEl.innerHTML = '<div class="rnref-empty">Could not load referral data.</div>';
+        listEl.innerHTML = '<div class="rnref-empty">Could not load referral data.</div>'; /* i18n-todo */
       }
     }
 
@@ -20350,7 +20350,7 @@
       var listEl = document.getElementById('rnref-hist-list');
       var rows = _rnrefData[_rnrefTab] || [];
       if (!rows.length) {
-        listEl.innerHTML = '<div class="rnref-empty">No ' + (_rnrefTab === 'house' ? 'house' : 'registration') + ' referrals yet.</div>';
+        listEl.innerHTML = '<div class="rnref-empty">No ' + (_rnrefTab === 'house' ? ((window.t && window.t('ref_tab_house')) || 'house') : ((window.t && window.t('ref_tab_register')) || 'registration')) + ' referrals yet.</div>';
         return;
       }
       if (_rnrefTab === 'register') {
