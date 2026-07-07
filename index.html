@@ -20604,10 +20604,9 @@
       }
       .pdn-back-arrow-btn:hover { background: #fff3ed; border-color: var(--terra); color: var(--terra); }
 
-      /* ── Tab strip: desktop only ── */
-      .pdn-tab-strip-desktop { display: flex; }
+      /* ── Tab strip: hidden everywhere ── */
+      .pdn-tab-strip-desktop { display: none !important; }
       @media (max-width: 768px) {
-        .pdn-tab-strip-desktop { display: none; }
         .pdn-back-arrow-btn { display: none; }
       }
 
