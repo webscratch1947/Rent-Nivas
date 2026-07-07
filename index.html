@@ -13155,14 +13155,35 @@
       }
     }
 
-    function markTaskDone(taskId) {
+    async function markTaskDone(taskId) {
       const done = getCompletedTasks();
       if (done.includes(taskId)) return;
       done.push(taskId);
       setCompletedTasks(done);
-      setPartnerXP(getPartnerXP() + XP_PER_TASK);
-      updateProfileBtnRing();
-      // Animate card out then reload
+
+      // 1. Persist completion to partner_task_progress
+      try {
+        await sb.from('partner_task_progress').update({ status: 'completed', completed_at: new Date().toISOString() })
+          .eq('task_id', taskId).eq('user_id', user.id);
+      } catch(e) { console.warn('[Tasks] progress update failed', e); }
+
+      // 2. Read current partner_xp from DB, increment, write back
+      try {
+        const { data: prof } = await sb.from('profiles').select('partner_xp').eq('id', user.id).maybeSingle();
+        const currentXP = parseInt(prof?.partner_xp ?? 0, 10) || 0;
+        const newXP = currentXP + XP_PER_TASK;
+        await sb.from('profiles').update({ partner_xp: newXP }).eq('id', user.id);
+        setPartnerXP(newXP);
+        updateProfileBtnRing();
+        if (typeof updatePartnerLevelCard === 'function') updatePartnerLevelCard(newXP);
+      } catch(e) {
+        // Fallback: at least update localStorage
+        setPartnerXP(getPartnerXP() + XP_PER_TASK);
+        updateProfileBtnRing();
+        console.warn('[Tasks] XP DB write failed, localStorage fallback used', e);
+      }
+
+      // 3. Animate card out then reload
       const card = document.getElementById('task-' + taskId);
       if (card) {
         card.style.transition = 'opacity .5s ease, transform .5s ease, max-height .5s ease';
