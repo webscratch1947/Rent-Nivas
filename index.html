@@ -14,7 +14,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link
-    href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800;1,9..40,400&family=Playfair+Display:ital,wght@0,700;0,800;1,700&family=Sora:wght@400;500;600;700;800&display=swap"
+    href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800;1,9..40,400&family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,700;0,800;1,700&family=Sora:wght@400;500;600;700;800&display=swap"
     rel="stylesheet">
   <!-- Used only by the Partner Dashboard's redesigned bottom nav (.pdn-navstyle) -->
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
@@ -12842,6 +12842,7 @@
       var ringXpEl = document.getElementById('pd-ring-xp');
       var ringXpValEl = document.getElementById('pd-ring-xp-val');
 
+      var _xpStatEl = document.getElementById('pd-stat-xp');
       if (next) {
         var span = next.min - tier.min;
         var into = xp - tier.min;
@@ -12849,12 +12850,14 @@
         if (fillEl) fillEl.style.width = pct + '%';
         if (curEl) curEl.textContent = into + ' / ' + span;
         if (nextEl) nextEl.textContent = (next.min - xp) + ' XP to ' + next.name.replace(' Partner', '');
+        if (_xpStatEl) _xpStatEl.textContent = into + ' XP';
         pdnSetRing(ringXpEl, pct);
         if (ringXpValEl) ringXpValEl.textContent = Math.round(pct) + '%';
       } else {
         if (fillEl) fillEl.style.width = '100%';
         if (curEl) curEl.textContent = xp + ' XP';
         if (nextEl) nextEl.textContent = 'Max tier reached!';
+        if (_xpStatEl) _xpStatEl.textContent = xp + ' XP';
         pdnSetRing(ringXpEl, 100);
         if (ringXpValEl) ringXpValEl.textContent = '100%';
       }
@@ -13018,7 +13021,6 @@
         setEl('pd-stat-total',   totalRefs);
         setEl('pd-stat-reg',     regRefs);
         setEl('pd-stat-list',    listRefs);
-        setEl('pd-stat-xp',      totalXP + ' XP');
         setEl('pd-stat-reg2',    totalRefs);
 
         // Performance rings — signup/listing share of total referrals
@@ -13032,7 +13034,7 @@
         if (ringSignupValEl) ringSignupValEl.textContent = signupPct + '%';
         pdnSetRing(ringListingEl, listingPct);
         if (ringListingValEl) ringListingValEl.textContent = listingPct + '%';
-        setEl('pd-stat-credits', credits % 1 === 0 ? credits + ' Credits' : credits.toFixed(2) + ' Credits');
+        setEl('pd-stat-credits', credits % 1 === 0 ? String(credits) : credits.toFixed(2));
 
         // ── 2. Render referral history from the stats payload ──────────────
         _renderReferralHistory(refCode, s.history || []);
@@ -20430,8 +20432,12 @@
       /* ── Layout ── */
       #partner-dashboard {
         background: #f4f5f7;
-        display: flex; flex-direction: column;
-        overflow-y: auto; height: 100%;
+      }
+      #partner-dashboard.active {
+        display: flex !important;
+        flex-direction: column;
+        overflow-y: auto;
+        min-height: 100vh;
       }
 
       /* ── Top bar ── */
@@ -20577,41 +20583,67 @@
       .pdn-faq-item.open .pdn-faq-arrow { transform: rotate(180deg); }
       .pdn-faq-arrow { transition: transform .2s; font-size: 13px; color: var(--muted); flex-shrink: 0; }
 
+      /* ── Inter font override for entire partner dashboard ── */
+      #partner-dashboard, #partner-dashboard * {
+        font-family: 'Inter', system-ui, sans-serif;
+      }
+
+      /* ── Inline title + ref code ── */
+      .pdn-topbar-brand {
+        display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+      }
+      .pdn-topbar-title {
+        font-size: 13px !important; font-weight: 700; color: var(--ink);
+        letter-spacing: -.1px; white-space: nowrap;
+      }
+      .pdn-inline-ref {
+        display: flex; align-items: center; gap: 6px;
+        background: #f4f5f7; border: 1.5px solid #e4e4ec;
+        border-radius: 8px; padding: 5px 5px 5px 10px;
+      }
+      .pdn-inline-ref-label {
+        font-size: 9px; color: var(--muted); font-weight: 700;
+        text-transform: uppercase; letter-spacing: .5px;
+      }
+      .pdn-inline-ref-val {
+        font-size: 12px; font-weight: 800; color: var(--ink);
+        font-family: monospace !important; letter-spacing: 1.5px;
+      }
+      .pdn-inline-ref-copy {
+        background: var(--terra); color: #fff; border: none;
+        border-radius: 6px; padding: 4px 10px; font-size: 11px; font-weight: 700;
+        cursor: pointer; white-space: nowrap; font-family: 'Inter', sans-serif !important;
+      }
+      .pdn-inline-ref-copy:hover { opacity: .88; }
+
       @media (max-width: 600px) {
-        .pdn-topbar-main { padding: 10px 14px; gap: 8px; }
-        .pdn-content { padding: 14px 14px 80px; }
+        .pdn-topbar-main { padding: 9px 12px; gap: 6px; }
+        .pdn-content { padding: 12px 12px 80px; }
         .pdn-kpi-row { grid-template-columns: 1fr 1fr; }
-        .pdn-back-btn span { display: none; }
+        .pdn-inline-ref-val { font-size: 11px; letter-spacing: 1px; }
       }
     </style>
 
     <!-- ── TOPBAR ── -->
     <div class="pdn-topbar">
       <div class="pdn-topbar-main">
-        <div class="pdn-topbar-left">
-          <button class="pdn-back-btn" onclick="closeModal();if(typeof switchToHost==='function'){switchToHost();}else{showPage('host-dashboard');}">
-            ← <span>Back</span>
-          </button>
+        <div class="pdn-topbar-brand">
           <div class="pdn-topbar-title">Partner Dashboard</div>
-        </div>
-        <div class="pdn-topbar-right">
-          <div class="pdn-code-pill">
+          <div class="pdn-inline-ref">
             <div>
-              <div class="pdn-code-pill-label">Referral code</div>
-              <div class="pdn-code-pill-val" id="pd-ref-code-display">——————</div>
+              <div class="pdn-inline-ref-label">Referral code</div>
+              <div class="pdn-inline-ref-val" id="pd-ref-code-display">——————</div>
             </div>
-            <button class="pdn-code-copy" onclick="pdCopyRefCode()" id="pd-copy-ref-btn">📋 Copy</button>
+            <button class="pdn-inline-ref-copy" onclick="pdCopyRefCode()" id="pd-copy-ref-btn">Copy</button>
           </div>
         </div>
       </div>
-      <!-- Tab strip -->
+      <!-- Tab strip: Home / Tasks / Partner Level / Performance only -->
       <div class="pdn-tab-strip">
         <button class="pdn-tab-btn active" onclick="pdnScrollTo('pdn-sec-kpi');pdnTabActive(this)">🏠 Home</button>
         <button class="pdn-tab-btn" onclick="pdnScrollTo('pdn-sec-tasks');pdnTabActive(this)">📋 Tasks</button>
         <button class="pdn-tab-btn" onclick="pdnScrollTo('pdn-sec-level');pdnTabActive(this)">🏆 Partner Level</button>
         <button class="pdn-tab-btn" onclick="pdnScrollTo('pdn-sec-perf');pdnTabActive(this)">📈 Performance</button>
-        <button class="pdn-tab-btn" onclick="pdnScrollTo('pdn-sec-how');pdnTabActive(this)">🔗 How It Works</button>
-        <button class="pdn-tab-btn" onclick="pdnScrollTo('pdn-sec-faq');pdnTabActive(this)">❓ FAQ</button>
       </div>
     </div>
 
@@ -20632,7 +20664,7 @@
               <div class="pdn-kpi-icon" style="background:#fff3ed;color:var(--terra);">🪙</div>
               <span class="pdn-kpi-tag" style="background:#fff3ed;color:var(--terra2);">Earned</span>
             </div>
-            <div class="pdn-kpi-label">Credits Earned</div>
+            <div class="pdn-kpi-label">Credits</div>
             <div class="pdn-kpi-val" id="pd-stat-credits">—</div>
           </div>
           <div class="pdn-kpi-card">
@@ -20736,7 +20768,7 @@
                     </svg>
                     <div class="pdn-ring-svg-val" id="pd-ring-signup-val">0%</div>
                   </div>
-                  <div class="pdn-perf-label">Signups</div>
+                  <div class="pdn-perf-label">Signup Referrals</div>
                 </div>
                 <div class="pdn-perf-box">
                   <div class="pdn-ring-svg-wrap">
@@ -20746,7 +20778,7 @@
                     </svg>
                     <div class="pdn-ring-svg-val" id="pd-ring-listing-val">0%</div>
                   </div>
-                  <div class="pdn-perf-label">Listings</div>
+                  <div class="pdn-perf-label">Listing Referrals</div>
                 </div>
                 <div class="pdn-perf-box">
                   <div class="pdn-ring-svg-wrap">
