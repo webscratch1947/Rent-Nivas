@@ -362,6 +362,14 @@
         countEl.textContent = visible.length;
       }
 
+      // Keep the "Open Tasks" performance ring in sync with the real count
+      const ringTasksEl = document.getElementById('pd-ring-tasks');
+      const ringTasksValEl = document.getElementById('pd-ring-tasks-val');
+      const totalAssigned = visible.length + _completedCount;
+      const openPct = totalAssigned ? Math.round((visible.length / totalAssigned) * 100) : 0;
+      if (typeof pdnSetRing === 'function') pdnSetRing(ringTasksEl, openPct);
+      if (ringTasksValEl) ringTasksValEl.textContent = visible.length;
+
       if (!visible.length) {
         el.innerHTML = `<div style="text-align:center;padding:64px 20px;color:var(--muted);">
           <div style="font-size:48px;margin-bottom:14px;">🎉</div>
@@ -484,20 +492,11 @@
 
   // ── RENDER A TASK CARD (timer + xp aware) ────────────────────────
   window.renderPartnerTask = function (t, progress) {
-    const TASK_LANGS = window.TASK_LANGS || [
-      { code: 'en', label: '🇬🇧 English' }, { code: 'hi', label: '🇮🇳 Hindi' },
-      { code: 'te', label: '🇮🇳 Telugu' }, { code: 'ta', label: '🇮🇳 Tamil' },
-      { code: 'mr', label: '🇮🇳 Marathi' }, { code: 'bn', label: '🇮🇳 Bengali' },
-      { code: 'gu', label: '🇮🇳 Gujarati' }, { code: 'kn', label: '🇮🇳 Kannada' },
-      { code: 'ml', label: '🇮🇳 Malayalam' }, { code: 'pa', label: '🇮🇳 Punjabi' },
-    ];
-    const langOpts = TASK_LANGS.map(l => `<option value="${l.code}">${l.label}</option>`).join('');
     const hasLink = !!t.link;
-    const titleJ = JSON.stringify(t.title).replace(/</g, '\\u003c');
-    const descJ = JSON.stringify(t.description || '').replace(/</g, '\\u003c');
     const accents = ['#6366f1', '#f59e0b', '#10b981', '#ef4444', '#3b82f6', '#a855f7', '#ec4899'];
     const accent = accents[Math.abs(t.id.charCodeAt(0) + t.id.charCodeAt(1)) % accents.length];
     const xpReward = t.xp_reward != null ? t.xp_reward : 10;
+    const xpPenalty = t.xp_penalty != null ? t.xp_penalty : xpReward;
 
     let timerHtml = '';
     if (t.time_limit_minutes && progress?.deadline) {
@@ -527,15 +526,11 @@
           onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
           ✅ Mark Complete
         </button>`}
-        <!-- Footer: language + date -->
+        <!-- Footer: XP-loss warning (if timed) + date -->
         <div style="display:flex;align-items:center;gap:8px;border-top:1px solid var(--border);padding-top:10px;flex-wrap:wrap;">
-          <select onchange="translatePartnerTask('${t.id}',this.value,${titleJ},${descJ})"
-            style="padding:5px 10px;border:1.5px solid var(--border2);border-radius:8px;font-size:12px;font-family:var(--font);background:var(--bg);color:var(--ink);cursor:pointer;flex:1;min-width:110px;">
-            ${langOpts}
-          </select>
-          <span style="font-size:11px;color:var(--muted);">${t.created_at && !isNaN(new Date(t.created_at)) ? fmtDate(t.created_at) : ''}</span>
+          ${t.time_limit_minutes ? `<span style="font-size:11px;font-weight:800;color:#ef4444;background:#ef444414;border:1px solid #ef444433;padding:4px 9px;border-radius:8px;white-space:nowrap;">⚠️ -${xpPenalty} XP if late</span>` : ''}
+          <span style="font-size:11px;color:var(--muted);margin-left:auto;">${t.created_at && !isNaN(new Date(t.created_at)) ? fmtDate(t.created_at) : ''}</span>
         </div>
-        <div class="task-translating-${t.id}" style="display:none;font-size:12px;color:var(--muted);margin-top:6px;font-style:italic;">Translating...</div>
       </div>
     </div>`;
   };
