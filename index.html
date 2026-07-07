@@ -13019,6 +13019,7 @@
         setEl('pd-stat-reg',     regRefs);
         setEl('pd-stat-list',    listRefs);
         setEl('pd-stat-xp',      totalXP + ' XP');
+        setEl('pd-stat-reg2',    totalRefs);
 
         // Performance rings — signup/listing share of total referrals
         const signupPct = totalRefs > 0 ? Math.round((regRefs / totalRefs) * 100) : 0;
@@ -19862,9 +19863,15 @@
       }
     }
 
-    // Sidebar active state helper
+    // Sidebar active state helper (kept for back-compat)
     function pdnSidebarActive(el) {
       document.querySelectorAll('.pdn-sidebar-item').forEach(function(i) { i.classList.remove('active'); });
+      if (el) el.classList.add('active');
+    }
+
+    // Tab strip active state helper
+    function pdnTabActive(el) {
+      document.querySelectorAll('.pdn-tab-btn').forEach(function(b) { b.classList.remove('active'); });
       if (el) el.classList.add('active');
     }
 
@@ -19889,15 +19896,11 @@
       const mbnId = _mbnPageMap[id];
       if (mbnId) mobBottomActive(mbnId);
       else document.querySelectorAll('.mob-bottom-btn').forEach(b => b.classList.remove('active'));
-      // Swap to the dedicated Partner Dashboard bottom nav while it's open
-      const _pdnNav = document.getElementById('pdn-bottom-nav');
+      // Show/hide main bottom nav based on active page
       const _siteNav = document.getElementById('mob-bottom-nav');
       if (id === 'partner-dashboard') {
-        if (_pdnNav) _pdnNav.classList.add('pdn-nav-visible');
         if (_siteNav) _siteNav.classList.remove('mob-nav-visible');
-        pdnNavActive('pdn-nav-overview');
       } else {
-        if (_pdnNav) _pdnNav.classList.remove('pdn-nav-visible');
         if (_siteNav && user) _siteNav.classList.add('mob-nav-visible');
       }
     };
@@ -20428,179 +20431,105 @@
       #partner-dashboard {
         background: #f4f5f7;
         display: flex; flex-direction: column;
-        overflow: hidden; height: 100%;
-      }
-
-      .pdn-layout {
-        display: flex; flex: 1; height: 100%; overflow: hidden;
-      }
-
-      /* ── Sidebar ── */
-      .pdn-sidebar {
-        width: 220px; flex-shrink: 0;
-        background: #fff;
-        border-right: 1px solid #e8e8ec;
-        display: flex; flex-direction: column;
-        overflow-y: auto;
-        box-shadow: 2px 0 8px rgba(0,0,0,.04);
-      }
-
-      .pdn-sidebar-brand {
-        display: flex; align-items: center; gap: 10px;
-        padding: 20px 20px 16px;
-        border-bottom: 1px solid #f0f0f4;
-      }
-      .pdn-sidebar-brand-icon {
-        width: 34px; height: 34px; border-radius: 10px;
-        background: linear-gradient(135deg,var(--terra),var(--terra2));
-        display: flex; align-items: center; justify-content: center;
-        font-size: 16px; color: #fff; flex-shrink: 0;
-      }
-      .pdn-sidebar-brand-name {
-        font-size: 15px; font-weight: 800; color: var(--ink); letter-spacing: -.2px;
-      }
-      .pdn-sidebar-brand-tag {
-        font-size: 10px; font-weight: 600; color: var(--muted); letter-spacing: .3px; margin-top: 1px;
-      }
-
-      .pdn-sidebar-nav { padding: 12px 10px; flex: 1; }
-      .pdn-sidebar-section-label {
-        font-size: 10px; font-weight: 700; color: #a0a0b0; letter-spacing: .8px;
-        text-transform: uppercase; padding: 10px 10px 4px;
-      }
-      .pdn-sidebar-item {
-        display: flex; align-items: center; gap: 10px;
-        padding: 9px 12px; border-radius: 10px; cursor: pointer;
-        color: #6b6b80; font-size: 13px; font-weight: 600;
-        transition: background .15s, color .15s;
-        margin-bottom: 2px;
-      }
-      .pdn-sidebar-item:hover { background: #f4f5f7; color: var(--ink); }
-      .pdn-sidebar-item.active { background: var(--terra-lt); color: var(--terra2); }
-      .pdn-sidebar-item .pdn-si-icon {
-        width: 28px; height: 28px; border-radius: 8px;
-        display: flex; align-items: center; justify-content: center; font-size: 14px;
-        flex-shrink: 0;
-      }
-      .pdn-sidebar-item.active .pdn-si-icon { background: rgba(194,113,79,.12); }
-      .pdn-sidebar-item .pdn-si-badge {
-        margin-left: auto; background: var(--terra); color: #fff;
-        font-size: 10px; font-weight: 800; border-radius: 20px; padding: 1px 7px;
-        display: none;
-      }
-
-      .pdn-sidebar-footer {
-        padding: 12px 10px;
-        border-top: 1px solid #f0f0f4;
-      }
-      .pdn-sidebar-back {
-        display: flex; align-items: center; gap: 10px;
-        padding: 9px 12px; border-radius: 10px; cursor: pointer;
-        color: #6b6b80; font-size: 13px; font-weight: 600;
-        transition: background .15s, color .15s;
-        border: none; background: none; width: 100%;
-      }
-      .pdn-sidebar-back:hover { background: #fee2e2; color: #dc2626; }
-      .pdn-sidebar-back .pdn-si-icon { width:28px; height:28px; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:14px; flex-shrink:0; }
-
-      /* ── Main area ── */
-      .pdn-main-area {
-        flex: 1; overflow-y: auto; display: flex; flex-direction: column;
-        min-width: 0;
+        overflow-y: auto; height: 100%;
       }
 
       /* ── Top bar ── */
       .pdn-topbar {
         position: sticky; top: 0; z-index: 10;
-        display: flex; align-items: center; justify-content: space-between; gap: 12px;
-        padding: 14px 24px; background: #fff;
-        border-bottom: 1px solid #e8e8ec;
-        box-shadow: 0 1px 4px rgba(0,0,0,.04);
-        flex-wrap: wrap;
+        background: #fff;
+        border-bottom: 1px solid #e4e4ec;
+        box-shadow: 0 2px 8px rgba(0,0,0,.05);
       }
-      .pdn-topbar-left { display: flex; flex-direction: column; }
-      .pdn-topbar-title { font-size: 18px; font-weight: 800; color: var(--ink); letter-spacing: -.3px; }
-      .pdn-topbar-sub { font-size: 12px; color: var(--muted); margin-top: 1px; font-weight: 500; }
-      .pdn-topbar-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+      .pdn-topbar-main {
+        display: flex; align-items: center; justify-content: space-between; gap: 12px;
+        padding: 13px 20px; flex-wrap: wrap;
+      }
+      .pdn-topbar-left { display: flex; align-items: center; gap: 12px; }
+      .pdn-back-btn {
+        display: flex; align-items: center; gap: 6px;
+        background: #f4f5f7; border: 1.5px solid #e4e4ec; border-radius: 8px;
+        padding: 7px 12px; font-size: 13px; font-weight: 700; color: var(--ink);
+        cursor: pointer; transition: all .15s; white-space: nowrap;
+      }
+      .pdn-back-btn:hover { border-color: var(--terra); color: var(--terra); background: #fff3ed; }
+      .pdn-topbar-title { font-size: 17px; font-weight: 800; color: var(--ink); letter-spacing: -.3px; }
+      .pdn-topbar-right { display: flex; align-items: center; gap: 10px; }
       .pdn-code-pill {
         display: flex; align-items: center; gap: 8px;
-        background: #f4f5f7; border: 1px solid #e2e2ea;
-        border-radius: 12px; padding: 7px 7px 7px 14px;
+        background: #f4f5f7; border: 1.5px solid #e4e4ec;
+        border-radius: 10px; padding: 6px 6px 6px 12px;
       }
-      .pdn-code-pill-label { font-size: 10px; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: .5px; }
+      .pdn-code-pill-label { font-size: 9px; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: .5px; }
       .pdn-code-pill-val { font-size: 13px; font-weight: 900; color: var(--ink); font-family: monospace; letter-spacing: 2px; }
       .pdn-code-copy {
         display: flex; align-items: center; gap: 5px;
         background: var(--terra); color: #fff; border: none;
-        border-radius: 9px; padding: 7px 14px; font-size: 12px; font-weight: 700;
+        border-radius: 8px; padding: 6px 14px; font-size: 12px; font-weight: 700;
         cursor: pointer; white-space: nowrap; transition: opacity .15s;
       }
       .pdn-code-copy:hover { opacity: .88; }
 
-      /* ── Content shell ── */
-      .pdn-content { padding: 20px 24px 80px; }
+      /* ── Nav tab strip ── */
+      .pdn-tab-strip {
+        display: flex; align-items: center; gap: 4px;
+        padding: 0 20px; overflow-x: auto; scrollbar-width: none;
+        border-top: 1px solid #f0f0f4;
+      }
+      .pdn-tab-strip::-webkit-scrollbar { display: none; }
+      .pdn-tab-btn {
+        display: flex; align-items: center; gap: 6px;
+        padding: 9px 14px; border: none; background: none; cursor: pointer;
+        font-size: 13px; font-weight: 600; color: #8888a0;
+        border-bottom: 2.5px solid transparent; margin-bottom: -1px;
+        white-space: nowrap; transition: color .15s, border-color .15s;
+      }
+      .pdn-tab-btn:hover { color: var(--ink); }
+      .pdn-tab-btn.active { color: var(--terra2); border-bottom-color: var(--terra); }
 
-      /* ── Section header ── */
-      .pdn-section-head {
-        display: flex; align-items: center; justify-content: space-between;
-        margin-bottom: 14px;
-      }
-      .pdn-section-title { font-size: 14px; font-weight: 700; color: var(--ink); }
-      .pdn-section-action {
-        font-size: 12px; font-weight: 700; color: var(--terra); background: none; border: none; cursor: pointer;
-      }
+      /* ── Content shell ── */
+      .pdn-content { padding: 18px 20px 80px; max-width: 1100px; margin: 0 auto; width: 100%; }
+
+      /* ── Greeting ── */
+      .pdn-greeting-row { margin-bottom: 16px; }
+      .pdn-greeting-name { font-size: 20px; font-weight: 800; color: var(--ink); letter-spacing: -.3px; }
+      .pdn-greeting-sub { font-size: 13px; color: var(--muted); margin-top: 3px; }
 
       /* ── KPI row ── */
-      .pdn-kpi-row {
-        display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; margin-bottom: 20px;
-      }
-      @media (max-width: 900px) { .pdn-kpi-row { grid-template-columns: repeat(2,1fr); } }
-      @media (max-width: 480px) {
-        .pdn-kpi-row { display: flex; overflow-x: auto; gap: 10px; scrollbar-width: none; margin: 0 -24px 20px; padding: 0 24px 8px; }
-        .pdn-kpi-row::-webkit-scrollbar { display: none; }
-      }
+      .pdn-kpi-row { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; margin-bottom: 20px; }
+      @media (max-width: 860px) { .pdn-kpi-row { grid-template-columns: repeat(2,1fr); } }
       .pdn-kpi-card {
-        background: #fff; border: 1px solid #e8e8ec; border-radius: 14px;
-        padding: 16px; box-shadow: 0 1px 4px rgba(0,0,0,.04);
-        display: flex; flex-direction: column; gap: 10px; min-width: 130px;
+        background: #fff; border: 1.5px solid #e4e4ec; border-radius: 12px;
+        padding: 15px 16px; box-shadow: 0 1px 4px rgba(0,0,0,.04);
+        display: flex; flex-direction: column; gap: 10px;
       }
       .pdn-kpi-card-top { display: flex; align-items: center; justify-content: space-between; }
-      .pdn-kpi-icon {
-        width: 36px; height: 36px; border-radius: 10px;
-        display: flex; align-items: center; justify-content: center; font-size: 17px; flex-shrink: 0;
-      }
-      .pdn-kpi-trend {
-        font-size: 10px; font-weight: 700; color: #16a34a; background: #dcfce7;
-        border-radius: 20px; padding: 2px 7px;
-      }
-      .pdn-kpi-label { font-size: 11px; color: var(--muted); font-weight: 600; }
-      .pdn-kpi-val { font-size: 24px; font-weight: 800; color: var(--ink); letter-spacing: -.4px; line-height: 1; }
+      .pdn-kpi-icon { width: 36px; height: 36px; border-radius: 9px; display: flex; align-items: center; justify-content: center; font-size: 17px; flex-shrink: 0; }
+      .pdn-kpi-tag { font-size: 10px; font-weight: 700; border-radius: 6px; padding: 2px 7px; }
+      .pdn-kpi-label { font-size: 11.5px; color: var(--muted); font-weight: 600; }
+      .pdn-kpi-val { font-size: 26px; font-weight: 800; color: var(--ink); letter-spacing: -.4px; line-height: 1; }
 
       /* ── Two-col body grid ── */
       .pdn-body-grid { display: grid; grid-template-columns: 1.2fr 1fr; gap: 16px; margin-bottom: 16px; align-items: start; }
-      @media (max-width: 860px) { .pdn-body-grid { grid-template-columns: 1fr; } }
+      @media (max-width: 800px) { .pdn-body-grid { grid-template-columns: 1fr; } }
 
       /* ── Cards ── */
-      .pdn-card { background: #fff; border: 1px solid #e8e8ec; border-radius: 14px; box-shadow: 0 1px 4px rgba(0,0,0,.04); overflow: hidden; }
-      .pdn-card-head {
-        display: flex; align-items: center; justify-content: space-between;
-        padding: 15px 18px; border-bottom: 1px solid #f0f0f4;
-      }
+      .pdn-card { background: #fff; border: 1.5px solid #e4e4ec; border-radius: 12px; box-shadow: 0 1px 4px rgba(0,0,0,.04); overflow: hidden; }
+      .pdn-card-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; border-bottom: 1px solid #f0f0f4; }
       .pdn-card-title { font-size: 14px; font-weight: 700; color: var(--ink); display: flex; align-items: center; gap: 8px; }
       .pdn-card-body { padding: 18px; }
 
       /* ── Partner Level ── */
       .pdn-level-top { display: flex; align-items: center; gap: 14px; margin-bottom: 16px; }
-      .pdn-level-badge { width: 52px; height: 52px; border-radius: 14px; background: #f4f5f7; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+      .pdn-level-badge { width: 52px; height: 52px; border-radius: 12px; background: #f4f5f7; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
       .pdn-level-badge img { width: 80%; height: 80%; object-fit: contain; }
       .pdn-level-name { font-size: 16px; font-weight: 800; color: var(--ink); }
       .pdn-level-sub2 { font-size: 12px; color: var(--muted); margin-top: 2px; }
-      .pdn-level-bar-track { width: 100%; height: 8px; background: #f0f0f4; border-radius: 999px; overflow: hidden; margin-bottom: 7px; }
-      .pdn-level-bar-fill { height: 100%; border-radius: 999px; background: linear-gradient(90deg,var(--terra),#f0a480); transition: width 1s cubic-bezier(.22,1,.36,1); }
+      .pdn-level-bar-track { width: 100%; height: 8px; background: #eeeef4; border-radius: 4px; overflow: hidden; margin-bottom: 7px; }
+      .pdn-level-bar-fill { height: 100%; border-radius: 4px; background: linear-gradient(90deg,var(--terra),#f0a480); transition: width 1s cubic-bezier(.22,1,.36,1); }
       .pdn-level-bar-labels { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); font-weight: 600; margin-bottom: 16px; }
-
       .pdn-stat-row { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; }
-      .pdn-stat-box { background: #f8f8fb; border: 1px solid #eeeef4; border-radius: 10px; padding: 12px 10px; text-align: center; }
+      .pdn-stat-box { background: #f8f8fb; border: 1px solid #eeeef4; border-radius: 8px; padding: 12px 10px; text-align: center; }
       .pdn-stat-box b { display: block; font-size: 17px; font-weight: 800; color: var(--ink); }
       .pdn-stat-box span { font-size: 10px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .4px; margin-top: 2px; display: block; }
 
@@ -20608,18 +20537,18 @@
       .pdn-tasks-badge { background: #ef4444; color: #fff; border-radius: 20px; font-size: 10px; font-weight: 800; padding: 1px 7px; display: none; }
       #pd-tasks-list { max-height: 380px; overflow-y: auto; }
 
-      /* ── Performance rings ── */
-      .pdn-perf-row { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; }
+      /* ── Performance rings (square caps, bigger) ── */
+      .pdn-perf-row { display: grid; grid-template-columns: repeat(4,1fr); gap: 14px; }
       @media (max-width: 700px) { .pdn-perf-row { grid-template-columns: repeat(2,1fr); } }
       .pdn-perf-box {
-        display: flex; flex-direction: column; align-items: center; gap: 8px;
-        background: #f8f8fb; border: 1px solid #eeeef4; border-radius: 12px; padding: 16px 8px;
+        display: flex; flex-direction: column; align-items: center; gap: 10px;
+        background: #f8f8fb; border: 1.5px solid #eeeef4; border-radius: 12px; padding: 20px 10px;
       }
-      .pdn-ring-svg-wrap { position: relative; width: 84px; height: 84px; }
+      .pdn-ring-svg-wrap { position: relative; width: 120px; height: 120px; }
       .pdn-ring-svg-wrap svg { width: 100%; height: 100%; }
-      .pdn-ring-track { stroke: #eeeef4; fill: transparent; }
+      .pdn-ring-track { stroke: #e8e8f0; fill: transparent; }
       .pdn-ring-progress {
-        fill: transparent; stroke-linecap: round; stroke: var(--terra);
+        fill: transparent; stroke-linecap: butt; stroke: var(--terra);
         stroke-dasharray: 251.2; stroke-dashoffset: 251.2;
         transform: rotate(-90deg); transform-origin: 50% 50%;
         transition: stroke-dashoffset .8s ease-in-out;
@@ -20627,15 +20556,15 @@
       .pdn-ring-progress.pdn-ring-blue  { stroke: #3b82f6; }
       .pdn-ring-progress.pdn-ring-amber { stroke: #f59e0b; }
       .pdn-ring-progress.pdn-ring-green { stroke: #10b981; }
-      .pdn-ring-svg-val { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 800; color: var(--ink); }
-      .pdn-perf-label { font-size: 11px; color: var(--muted); font-weight: 600; text-align: center; }
-      .pdn-refresh-btn { background: none; border: 1px solid #e2e2ea; border-radius: 8px; padding: 5px 11px; font-size: 11.5px; font-weight: 700; color: var(--muted); cursor: pointer; }
+      .pdn-ring-svg-val { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 17px; font-weight: 800; color: var(--ink); }
+      .pdn-perf-label { font-size: 12px; color: var(--muted); font-weight: 600; text-align: center; }
+      .pdn-refresh-btn { background: none; border: 1.5px solid #e4e4ec; border-radius: 8px; padding: 5px 11px; font-size: 11.5px; font-weight: 700; color: var(--muted); cursor: pointer; }
       .pdn-refresh-btn:hover { border-color: var(--terra); color: var(--terra); }
 
       /* ── How it works ── */
       .pdn-steps-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; }
       @media (max-width: 860px) { .pdn-steps-grid { grid-template-columns: 1fr; } }
-      .pdn-step-card { background: #f8f8fb; border: 1px solid #eeeef4; border-radius: 12px; padding: 16px; }
+      .pdn-step-card { background: #f8f8fb; border: 1px solid #eeeef4; border-radius: 10px; padding: 16px; }
       .pdn-step-icon { width: 38px; height: 38px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 17px; margin-bottom: 10px; }
       .pdn-step-title { font-size: 13px; font-weight: 700; color: var(--ink); margin-bottom: 4px; }
       .pdn-step-text { font-size: 12px; color: var(--muted); line-height: 1.55; }
@@ -20648,122 +20577,90 @@
       .pdn-faq-item.open .pdn-faq-arrow { transform: rotate(180deg); }
       .pdn-faq-arrow { transition: transform .2s; font-size: 13px; color: var(--muted); flex-shrink: 0; }
 
-      /* ── Mobile: hide sidebar, full width ── */
-      @media (max-width: 768px) {
-        .pdn-sidebar { display: none; }
-        .pdn-topbar { padding: 12px 16px; }
-        .pdn-content { padding: 16px 16px 96px; }
-        .pdn-kpi-row { grid-template-columns: repeat(2,1fr); }
+      @media (max-width: 600px) {
+        .pdn-topbar-main { padding: 10px 14px; gap: 8px; }
+        .pdn-content { padding: 14px 14px 80px; }
+        .pdn-kpi-row { grid-template-columns: 1fr 1fr; }
+        .pdn-back-btn span { display: none; }
       }
     </style>
 
-    <div class="pdn-layout">
-
-      <!-- ── SIDEBAR ── -->
-      <aside class="pdn-sidebar">
-        <div class="pdn-sidebar-brand">
-          <div class="pdn-sidebar-brand-icon">🏠</div>
-          <div>
-            <div class="pdn-sidebar-brand-name">Rent Nivas</div>
-            <div class="pdn-sidebar-brand-tag">Partner Program</div>
-          </div>
-        </div>
-
-        <nav class="pdn-sidebar-nav">
-          <div class="pdn-sidebar-section-label">Dashboard</div>
-          <div class="pdn-sidebar-item active" onclick="pdnScrollTo('pdn-sec-overview');pdnSidebarActive(this)">
-            <div class="pdn-si-icon">📊</div> Overview
-          </div>
-          <div class="pdn-sidebar-item" onclick="pdnScrollTo('pdn-sec-tasks');pdnSidebarActive(this)">
-            <div class="pdn-si-icon">📋</div> My Tasks
-            <span class="pdn-si-badge" id="pdn-si-tasks-badge"></span>
-          </div>
-          <div class="pdn-sidebar-item" onclick="pdnScrollTo('pdn-sec-level');pdnSidebarActive(this)">
-            <div class="pdn-si-icon">🏆</div> Partner Level
-          </div>
-          <div class="pdn-sidebar-item" onclick="pdnScrollTo('pdn-sec-perf');pdnSidebarActive(this)">
-            <div class="pdn-si-icon">📈</div> Performance
-          </div>
-
-          <div class="pdn-sidebar-section-label" style="margin-top:8px;">Resources</div>
-          <div class="pdn-sidebar-item" onclick="pdnScrollTo('pdn-sec-how');pdnSidebarActive(this)">
-            <div class="pdn-si-icon">🔗</div> How It Works
-          </div>
-          <div class="pdn-sidebar-item" onclick="pdnScrollTo('pdn-sec-faq');pdnSidebarActive(this)">
-            <div class="pdn-si-icon">❓</div> FAQ
-          </div>
-        </nav>
-
-        <div class="pdn-sidebar-footer">
-          <button class="pdn-sidebar-back" onclick="closeModal();if(typeof switchToHost==='function'){switchToHost();}else{showPage('host-dashboard');}">
-            <div class="pdn-si-icon">←</div> Back to App
+    <!-- ── TOPBAR ── -->
+    <div class="pdn-topbar">
+      <div class="pdn-topbar-main">
+        <div class="pdn-topbar-left">
+          <button class="pdn-back-btn" onclick="closeModal();if(typeof switchToHost==='function'){switchToHost();}else{showPage('host-dashboard');}">
+            ← <span>Back</span>
           </button>
+          <div class="pdn-topbar-title">Partner Dashboard</div>
         </div>
-      </aside>
-
-      <!-- ── MAIN AREA ── -->
-      <div class="pdn-main-area" id="pdn-main-scroll">
-
-        <!-- TOP BAR -->
-        <div class="pdn-topbar">
-          <div class="pdn-topbar-left">
-            <div class="pdn-topbar-title" id="pd-greeting">Overview</div>
-            <div class="pdn-topbar-sub">Here's what's happening with your network today.</div>
-          </div>
-          <div class="pdn-topbar-right">
-            <div class="pdn-code-pill">
-              <div>
-                <div class="pdn-code-pill-label">Referral code</div>
-                <div class="pdn-code-pill-val" id="pd-ref-code-display">——————</div>
-              </div>
-              <button class="pdn-code-copy" onclick="pdCopyRefCode()" id="pd-copy-ref-btn">📋 Copy</button>
+        <div class="pdn-topbar-right">
+          <div class="pdn-code-pill">
+            <div>
+              <div class="pdn-code-pill-label">Referral code</div>
+              <div class="pdn-code-pill-val" id="pd-ref-code-display">——————</div>
             </div>
+            <button class="pdn-code-copy" onclick="pdCopyRefCode()" id="pd-copy-ref-btn">📋 Copy</button>
           </div>
         </div>
+      </div>
+      <!-- Tab strip -->
+      <div class="pdn-tab-strip">
+        <button class="pdn-tab-btn active" onclick="pdnScrollTo('pdn-sec-kpi');pdnTabActive(this)">🏠 Home</button>
+        <button class="pdn-tab-btn" onclick="pdnScrollTo('pdn-sec-tasks');pdnTabActive(this)">📋 Tasks</button>
+        <button class="pdn-tab-btn" onclick="pdnScrollTo('pdn-sec-level');pdnTabActive(this)">🏆 Partner Level</button>
+        <button class="pdn-tab-btn" onclick="pdnScrollTo('pdn-sec-perf');pdnTabActive(this)">📈 Performance</button>
+        <button class="pdn-tab-btn" onclick="pdnScrollTo('pdn-sec-how');pdnTabActive(this)">🔗 How It Works</button>
+        <button class="pdn-tab-btn" onclick="pdnScrollTo('pdn-sec-faq');pdnTabActive(this)">❓ FAQ</button>
+      </div>
+    </div>
 
-        <!-- CONTENT -->
-        <div class="pdn-content">
+    <!-- CONTENT -->
+    <div class="pdn-content">
 
-          <!-- KPI ROW -->
-          <div id="pdn-sec-overview">
-            <div class="pdn-section-head">
-              <div class="pdn-section-title">Overview</div>
+      <!-- Greeting -->
+      <div class="pdn-greeting-row">
+        <div class="pdn-greeting-name" id="pd-greeting">Welcome back 👋</div>
+        <div class="pdn-greeting-sub">Here's how your network is growing today.</div>
+      </div>
+
+      <!-- KPI ROW -->
+      <div id="pdn-sec-kpi">
+        <div class="pdn-kpi-row">
+          <div class="pdn-kpi-card">
+            <div class="pdn-kpi-card-top">
+              <div class="pdn-kpi-icon" style="background:#fff3ed;color:var(--terra);">🪙</div>
+              <span class="pdn-kpi-tag" style="background:#fff3ed;color:var(--terra2);">Earned</span>
             </div>
-            <div class="pdn-kpi-row">
-              <div class="pdn-kpi-card">
-                <div class="pdn-kpi-card-top">
-                  <div class="pdn-kpi-icon" style="background:#fff3ed;color:var(--terra);">🪙</div>
-                  <span class="pdn-kpi-trend">+Earn</span>
-                </div>
-                <div class="pdn-kpi-label">Credits Earned</div>
-                <div class="pdn-kpi-val" id="pd-stat-credits">—</div>
-              </div>
-              <div class="pdn-kpi-card">
-                <div class="pdn-kpi-card-top">
-                  <div class="pdn-kpi-icon" style="background:#f0fdf4;color:#16a34a;">👥</div>
-                  <span class="pdn-kpi-trend" style="color:#2563eb;background:#dbeafe;">Total</span>
-                </div>
-                <div class="pdn-kpi-label">Total Referrals</div>
-                <div class="pdn-kpi-val" id="pd-stat-total">—</div>
-              </div>
-              <div class="pdn-kpi-card">
-                <div class="pdn-kpi-card-top">
-                  <div class="pdn-kpi-icon" style="background:#eff6ff;color:#3b82f6;">✅</div>
-                  <span class="pdn-kpi-trend" style="color:#7c3aed;background:#ede9fe;">Sign-ups</span>
-                </div>
-                <div class="pdn-kpi-label">Signups</div>
-                <div class="pdn-kpi-val" id="pd-stat-reg">—</div>
-              </div>
-              <div class="pdn-kpi-card">
-                <div class="pdn-kpi-card-top">
-                  <div class="pdn-kpi-icon" style="background:#fffbeb;color:#f59e0b;">🏠</div>
-                  <span class="pdn-kpi-trend" style="color:#d97706;background:#fef3c7;">Listed</span>
-                </div>
-                <div class="pdn-kpi-label">Listings</div>
-                <div class="pdn-kpi-val" id="pd-stat-list">—</div>
-              </div>
-            </div>
+            <div class="pdn-kpi-label">Credits Earned</div>
+            <div class="pdn-kpi-val" id="pd-stat-credits">—</div>
           </div>
+          <div class="pdn-kpi-card">
+            <div class="pdn-kpi-card-top">
+              <div class="pdn-kpi-icon" style="background:#f0fdf4;color:#16a34a;">👥</div>
+              <span class="pdn-kpi-tag" style="background:#dbeafe;color:#2563eb;">All</span>
+            </div>
+            <div class="pdn-kpi-label">Total Referrals</div>
+            <div class="pdn-kpi-val" id="pd-stat-total">—</div>
+          </div>
+          <div class="pdn-kpi-card">
+            <div class="pdn-kpi-card-top">
+              <div class="pdn-kpi-icon" style="background:#eff6ff;color:#3b82f6;">✅</div>
+              <span class="pdn-kpi-tag" style="background:#ede9fe;color:#7c3aed;">Signed</span>
+            </div>
+            <div class="pdn-kpi-label">Signups</div>
+            <div class="pdn-kpi-val" id="pd-stat-reg">—</div>
+          </div>
+          <div class="pdn-kpi-card">
+            <div class="pdn-kpi-card-top">
+              <div class="pdn-kpi-icon" style="background:#fffbeb;color:#f59e0b;">🏠</div>
+              <span class="pdn-kpi-tag" style="background:#fef3c7;color:#d97706;">Listed</span>
+            </div>
+            <div class="pdn-kpi-label">Listings</div>
+            <div class="pdn-kpi-val" id="pd-stat-list">—</div>
+          </div>
+        </div>
+      </div>
 
           <!-- BODY GRID: Partner Level + Tasks -->
           <div class="pdn-body-grid">
@@ -20790,8 +20687,8 @@
                   <span id="pd-level-xp-next">25 XP to Bronze</span>
                 </div>
                 <div class="pdn-stat-row">
-                  <div class="pdn-stat-box"><b id="pd-stat-xp">—</b><span>Total XP</span></div>
-                  <div class="pdn-stat-box"><b id="pd-stat-reg2">—</b><span>Sign-ups</span></div>
+                  <div class="pdn-stat-box"><b id="pd-stat-xp">—</b><span>XP Earned</span></div>
+                  <div class="pdn-stat-box"><b id="pd-stat-reg2">—</b><span>Total Referrals</span></div>
                   <div class="pdn-stat-box"><b>0.50</b><span>Credits/ref</span></div>
                 </div>
               </div>
@@ -20912,8 +20809,6 @@
         </div>
       </div>
     </div><!-- /.pdn-content -->
-    </div><!-- /.pdn-main-area -->
-    </div><!-- /.pdn-layout -->
 
     <!-- Hidden stubs kept for JS compatibility -->
     <div style="display:none;" id="pd-ref-stats-grid"></div>
@@ -20948,29 +20843,6 @@
     </button>
   </nav>
 
-  <!-- ══ PARTNER DASHBOARD BOTTOM NAV (dedicated, matches reference design) ══ -->
-  <nav class="pdn-bottom-nav" id="pdn-bottom-nav">
-    <a class="pdn-nav-btn active" id="pdn-nav-overview" href="javascript:void(0)"
-      onclick="document.getElementById('partner-dashboard').scrollTo({top:0,behavior:'smooth'});pdnNavActive('pdn-nav-overview')">
-      <span class="material-symbols-outlined" style="font-variation-settings:'FILL' 1;">dashboard</span>
-      <span>Overview</span>
-    </a>
-    <a class="pdn-nav-btn" id="pdn-nav-tasks" href="javascript:void(0)"
-      onclick="var _t=document.getElementById('pd-tasks-list');if(_t)_t.scrollIntoView({behavior:'smooth',block:'start'});pdnNavActive('pdn-nav-tasks')">
-      <span class="material-symbols-outlined">assignment_turned_in</span>
-      <span>Tasks</span>
-    </a>
-    <a class="pdn-nav-btn" id="pdn-nav-referrals" href="javascript:void(0)"
-      onclick="var _r=document.getElementById('pd-ref-code-display');if(_r)_r.scrollIntoView({behavior:'smooth',block:'start'});pdnNavActive('pdn-nav-referrals')">
-      <span class="material-symbols-outlined">group_add</span>
-      <span>Referrals</span>
-    </a>
-    <a class="pdn-nav-btn" id="pdn-nav-profile" href="javascript:void(0)"
-      onclick="closeModal();var _r=localStorage.getItem('nestly-role');if(_r==='rent'){rentShowSection('profile');}else{var _hd=document.getElementById('host-dashboard');if(_hd&&_hd.classList.contains('active')){showSection('profile');}else if(typeof switchToHost==='function'){Promise.resolve(switchToHost()).then(function(){showSection('profile');});}else{showPage('host-dashboard');showSection('profile');}}">
-      <span class="material-symbols-outlined">person</span>
-      <span>Profile</span>
-    </a>
-  </nav>
 
   <!-- ══ ADMIN ACTION MODAL (custom popup replacing browser prompt/confirm) ══ -->
   <div id="adm-modal-wrap" onclick="if(event.target===this)closeAdminModal()"
