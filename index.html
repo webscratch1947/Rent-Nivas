@@ -13158,35 +13158,36 @@
     async function markTaskDone(taskId, xpReward) {
       const done = getCompletedTasks();
       if (done.includes(taskId)) return;
-      const reward = (Number.isFinite(xpReward) && xpReward >= 0) ? xpReward : XP_PER_TASK;
       done.push(taskId);
       setCompletedTasks(done);
 
-      // 1. Persist completion to partner_task_progress
+      // Award XP atomically on the server (ADD, not a client read-then-write —
+      // this is what actually fixes tasks silently not paying out XP).
+      let reward = (Number.isFinite(xpReward) && xpReward >= 0) ? xpReward : XP_PER_TASK;
       try {
-        await sb.from('partner_task_progress').update({ status: 'completed', completed_at: new Date().toISOString() })
-          .eq('task_id', taskId).eq('user_id', user.id);
-      } catch(e) { console.warn('[Tasks] progress update failed', e); }
-
-      // 2. Read current partner_xp from DB, increment by this task's own reward, write back
-      try {
-        const { data: prof, error: readErr } = await sb.from('profiles').select('partner_xp').eq('id', user.id).maybeSingle();
-        if (readErr) throw readErr;
-        const currentXP = parseInt(prof?.partner_xp ?? 0, 10) || 0;
-        const newXP = currentXP + reward;
-        const { error: writeErr } = await sb.from('profiles').update({ partner_xp: newXP }).eq('id', user.id);
-        if (writeErr) throw writeErr;
-        setPartnerXP(newXP);
-        updateProfileBtnRing();
-        if (typeof updatePartnerLevelCard === 'function') updatePartnerLevelCard(newXP);
+        const res = await _rnReferralApi('complete_task', { taskId });
+        if (res.ok && res.data && res.data.awarded) {
+          reward = res.data.reward ?? reward;
+          if (typeof res.data.newTotal === 'number') {
+            setPartnerXP(res.data.newTotal);
+            updateProfileBtnRing();
+            if (typeof updatePartnerLevelCard === 'function') updatePartnerLevelCard(res.data.newTotal);
+          }
+        } else if (res.ok && res.data && !res.data.awarded) {
+          // Already completed server-side (e.g. double-click) — don't toast twice.
+          console.warn('[Tasks] task not awarded:', res.data.reason);
+        } else {
+          toast('Could not save task completion — please try again.', 'error');
+          console.warn('[Tasks] complete_task RPC failed:', res.error);
+          return;
+        }
       } catch(e) {
-        // Fallback: at least update localStorage
-        setPartnerXP(getPartnerXP() + reward);
-        updateProfileBtnRing();
-        console.warn('[Tasks] XP DB write failed, localStorage fallback used', e);
+        toast('Could not save task completion — please try again.', 'error');
+        console.warn('[Tasks] complete_task RPC error', e);
+        return;
       }
 
-      // 3. Animate card out then reload tasks + refresh XP display
+      // Animate card out then reload tasks + refresh XP display
       const card = document.getElementById('task-' + taskId);
       if (card) {
         card.style.transition = 'opacity .5s ease, transform .5s ease, max-height .5s ease';
@@ -13199,38 +13200,28 @@
       toast(`+${reward} XP earned! 🏆 Tap your profile to see progress.`, 'success');
     }
 
-    // Deduct XP when a task expires unfinished (uses the task's own xp_penalty,
-    // falling back to xp_reward, never dropping XP below 0).
-    async function applyTaskPenalty(penalty) {
-      const amt = (Number.isFinite(penalty) && penalty > 0) ? penalty : 0;
-      if (!amt || !user) return;
+    // Deduct XP when a task expires unfinished — atomic server-side RPC,
+    // guarded so a task can only ever be expired/penalized once.
+    async function applyTaskPenalty(taskId) {
+      if (!taskId || !user) return;
       try {
-        const { data: prof, error: readErr } = await sb.from('profiles').select('partner_xp').eq('id', user.id).maybeSingle();
-        if (readErr) throw readErr;
-        const currentXP = parseInt(prof?.partner_xp ?? 0, 10) || 0;
-        const newXP = Math.max(0, currentXP - amt);
-        const { error: writeErr } = await sb.from('profiles').update({ partner_xp: newXP }).eq('id', user.id);
-        if (writeErr) throw writeErr;
-        setPartnerXP(newXP);
-        updateProfileBtnRing();
-        if (typeof updatePartnerLevelCard === 'function') updatePartnerLevelCard(newXP);
+        const res = await _rnReferralApi('expire_task', { taskId });
+        if (res.ok && res.data && res.data.penalized && typeof res.data.newTotal === 'number') {
+          setPartnerXP(res.data.newTotal);
+          updateProfileBtnRing();
+          if (typeof updatePartnerLevelCard === 'function') updatePartnerLevelCard(res.data.newTotal);
+        } else if (!res.ok) {
+          console.warn('[Tasks] expire_task RPC failed:', res.error);
+        }
       } catch(e) {
-        setPartnerXP(Math.max(0, getPartnerXP() - amt));
-        updateProfileBtnRing();
-        console.warn('[Tasks] XP penalty DB write failed, localStorage fallback used', e);
+        console.warn('[Tasks] expire_task RPC error', e);
       }
     }
 
     const TASK_LANGS = [
       { code: 'en', label: '🇬🇧 English' },
       { code: 'hi', label: '🇮🇳 Hindi' },
-      { code: 'ta', label: '🇮🇳 Tamil' },
-      { code: 'mr', label: '🇮🇳 Marathi' },
-      { code: 'bn', label: '🇮🇳 Bengali' },
-      { code: 'gu', label: '🇮🇳 Gujarati' },
-      { code: 'kn', label: '🇮🇳 Kannada' },
-      { code: 'ml', label: '🇮🇳 Malayalam' },
-      { code: 'pa', label: '🇮🇳 Punjabi' },
+      { code: 'te', label: '🇮🇳 Telugu' },
     ];
 
     async function loadPartnerTasks() {
@@ -13244,6 +13235,18 @@
           sb.from('partner_requests').select('created_at').eq('user_id', user.id).eq('status', 'accepted').limit(1).maybeSingle(),
         ]);
         if (tasksResult.error) throw tasksResult.error;
+
+        // If this user is not (or no longer) an accepted partner, show nothing —
+        // fixes revoked partners still seeing tasks via a stale assigned_to snapshot.
+        if (!partnerResult.data) {
+          if (countEl) countEl.style.display = 'none';
+          el.innerHTML = `<div style="text-align:center;padding:64px 20px;color:var(--muted);">
+            <div style="font-size:48px;margin-bottom:14px;">🔒</div>
+            <div style="font-size:16px;font-weight:700;color:var(--ink);margin-bottom:6px;">No partner access</div>
+            <div style="font-size:14px;">Tasks are only available to accepted partners.</div>
+          </div>`;
+          return;
+        }
 
         const allTasks = tasksResult.data || [];
         const partnerSince = partnerResult.data?.created_at ? new Date(partnerResult.data.created_at) : null;
@@ -13282,8 +13285,8 @@
               if (!doneArr.includes(t.id)) {
                 doneArr.push(t.id);
                 setCompletedTasks(doneArr);
-                // Deduct the configured penalty (falls back to xp_reward) — only once per task
-                await applyTaskPenalty(t.xp_penalty ?? t.xp_reward ?? 10);
+                // Deduct the configured penalty server-side (atomic, guarded against double-penalizing)
+                await applyTaskPenalty(t.id);
               }
               continue;
             }
@@ -13376,8 +13379,7 @@
       const loadingEl = card.querySelector('.task-translating-' + taskId);
       if (loadingEl) loadingEl.style.display = 'block';
 
-      const LANG_NAMES = { hi:'Hindi', ta:'Tamil', mr:'Marathi',
-        bn:'Bengali', gu:'Gujarati', kn:'Kannada', ml:'Malayalam', pa:'Punjabi' };
+      const LANG_NAMES = { hi:'Hindi', te:'Telugu' };
       const langName = LANG_NAMES[langCode] || langCode;
       const toTranslate = origTitle + (origDesc ? '\n\n' + origDesc : '');
 
@@ -18835,6 +18837,8 @@
             stats:                'get_referral_data',
             process_registration: 'process_registration_referral',
             award_listing:        'award_listing_referral',
+            complete_task:        'complete_partner_task',
+            expire_task:          'expire_partner_task',
           };
 
           // validate → /api/check-referral (public, no auth)
@@ -18855,6 +18859,7 @@
           const params = {};
           if (action === 'process_registration' && body && body.code)    params.p_referral_code = body.code;
           if (action === 'award_listing'         && body && body.houseId) params.p_house_id      = body.houseId;
+          if ((action === 'complete_task' || action === 'expire_task') && body && body.taskId) params.p_task_id = body.taskId;
           try {
             const raw = localStorage.getItem('rentnivas-auth');
             if (raw) {
