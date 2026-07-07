@@ -13004,7 +13004,7 @@
         if (codeEl) codeEl.textContent = refCode || '——————';
 
         // Show stats
-        const totalXP    = parseInt(prof?.partner_xp ?? prof?.xp ?? 0, 10) || 0;
+        const totalXP    = parseInt(prof?.xp ?? prof?.partner_xp ?? 0, 10) || 0;
         const credits    = parseFloat(prof?.credits ?? 0) || 0;
         const totalRefs  = parseInt(s.totalReferrals ?? 0, 10) || 0;
         const regRefs    = parseInt(s.registrationReferrals ?? 0, 10) || 0;
