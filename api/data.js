@@ -2320,16 +2320,22 @@ async function completePartnerTaskCore(userId, taskId) {
   // row actually lives under. Double-spending is already prevented by the
   // partner_task_progress ConditionExpression guard above, so a read-then-write
   // is safe here.
+  // Read BOTH xp and partner_xp — we update both, exactly like awardReferralReward does,
+  // so that task XP shows up on the profile page (which reads xp) AND the partner
+  // dashboard (which reads partner_xp). Before this fix, tasks only incremented
+  // partner_xp, so the profile page always showed stale/lower XP.
   const profileForXp = await readItems({
-    table: 'profiles', op: 'select', select: 'id,partner_xp',
+    table: 'profiles', op: 'select', select: 'id,xp,partner_xp',
     filters: [{ op: 'eq', column: 'id', value: userId }], maybeSingle: true,
   });
-  const currentXp = parseInt(profileForXp && profileForXp.partner_xp || 0, 10) || 0;
-  const newTotal = currentXp + reward;
+  const currentPartnerXp = parseInt(profileForXp && profileForXp.partner_xp || 0, 10) || 0;
+  const currentXp        = parseInt(profileForXp && profileForXp.xp || 0, 10) || 0;
+  const newTotal         = currentPartnerXp + reward;
+  const newXp            = currentXp + reward;
   await updateRows({
     table: 'profiles',
     op: 'update',
-    values: { partner_xp: newTotal },
+    values: { partner_xp: newTotal, xp: newXp },
     filters: [{ op: 'eq', column: 'id', value: userId }],
   });
   return { awarded: true, reward, newTotal };
@@ -2371,21 +2377,22 @@ async function expirePartnerTaskCore(userId, taskId) {
   if (!penalty) return { penalized: false, reason: 'no_penalty_configured' };
 
   // Read current XP so we can floor at 0 (DynamoDB ADD can't clamp on its own).
+  // Read both xp and partner_xp — penalty deducts from both fields so they stay in sync.
   const profile = await readItems({
-    table: 'profiles', op: 'select', select: 'id,partner_xp',
+    table: 'profiles', op: 'select', select: 'id,xp,partner_xp',
     filters: [{ op: 'eq', column: 'id', value: userId }], maybeSingle: true,
   });
-  const current = parseInt(profile && profile.partner_xp || 0, 10) || 0;
-  const delta = -Math.min(penalty, current);
-  if (!delta) return { penalized: true, penalty: 0, newTotal: current };
+  const currentPartnerXp = parseInt(profile && profile.partner_xp || 0, 10) || 0;
+  const currentXp        = parseInt(profile && profile.xp || 0, 10) || 0;
+  const delta = -Math.min(penalty, currentPartnerXp);
+  if (!delta) return { penalized: true, penalty: 0, newTotal: currentPartnerXp };
 
-  // Same readItems → updateRows pattern as completePartnerTaskCore and
-  // awardReferralReward so legacy id-keyed rows are found and written correctly.
-  const newTotal = current + delta; // delta is already negative and floored at -current
+  const newTotal = currentPartnerXp + delta;
+  const newXp    = Math.max(0, currentXp + delta); // floor xp at 0 too
   await updateRows({
     table: 'profiles',
     op: 'update',
-    values: { partner_xp: newTotal },
+    values: { partner_xp: newTotal, xp: newXp },
     filters: [{ op: 'eq', column: 'id', value: userId }],
   });
   return { penalized: true, penalty: -delta, newTotal };
