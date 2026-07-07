@@ -19853,6 +19853,13 @@
       if (el) el.classList.add('active');
     }
 
+    // Partner Dashboard mobile bottom nav
+    function pdnMobNavActive(id) {
+      document.querySelectorAll('.pdn-mob-nav-btn').forEach(b => b.classList.remove('active'));
+      const el = document.getElementById(id);
+      if (el) el.classList.add('active');
+    }
+
     // Sidebar scroll-to section helper
     function pdnScrollTo(sectionId) {
       var el = document.getElementById(sectionId);
@@ -19900,11 +19907,9 @@
       else document.querySelectorAll('.mob-bottom-btn').forEach(b => b.classList.remove('active'));
       // Show/hide main bottom nav based on active page
       const _siteNav = document.getElementById('mob-bottom-nav');
-      if (id === 'partner-dashboard') {
-        if (_siteNav) _siteNav.classList.remove('mob-nav-visible');
-      } else {
-        if (_siteNav && user) _siteNav.classList.add('mob-nav-visible');
-      }
+      const _pdnMobNav = document.getElementById('pdn-mob-nav');
+      if (_siteNav && user) _siteNav.classList.add('mob-nav-visible');
+      if (_pdnMobNav) _pdnMobNav.classList.remove('pdn-mob-nav-visible');
     };
 
     // Sync nav auth state on load (bottom nav + sidebar hidden until login)
@@ -20588,6 +20593,46 @@
         font-family: 'Inter', system-ui, sans-serif;
       }
 
+      /* ── Back arrow button (desktop only) ── */
+      .pdn-back-arrow-btn {
+        display: flex; align-items: center; justify-content: center;
+        width: 34px; height: 34px; flex-shrink: 0;
+        background: #f4f5f7; border: 1.5px solid #e4e4ec; border-radius: 8px;
+        font-size: 18px; color: var(--ink); cursor: pointer;
+        transition: background .15s, border-color .15s, color .15s;
+        line-height: 1;
+      }
+      .pdn-back-arrow-btn:hover { background: #fff3ed; border-color: var(--terra); color: var(--terra); }
+
+      /* ── Tab strip: desktop only ── */
+      .pdn-tab-strip-desktop { display: flex; }
+      @media (max-width: 768px) {
+        .pdn-tab-strip-desktop { display: none; }
+        .pdn-back-arrow-btn { display: none; }
+      }
+
+      /* ── Partner Dashboard mobile bottom nav ── */
+      .pdn-mob-nav {
+        display: none;
+        position: fixed; bottom: 0; left: 0; right: 0; z-index: 7100;
+        background: #fff; border-top: 1px solid #e4e4ec;
+        box-shadow: 0 -2px 12px rgba(0,0,0,.07);
+        padding: 8px 4px 10px;
+        justify-content: space-around; align-items: center;
+      }
+      .pdn-mob-nav.pdn-mob-nav-visible { display: flex; }
+      .pdn-mob-nav-btn {
+        flex: 1; display: flex; flex-direction: column; align-items: center;
+        gap: 3px; border: none; background: none; cursor: pointer;
+        padding: 6px 4px; border-radius: 10px;
+        transition: background .15s;
+        -webkit-tap-highlight-color: transparent;
+      }
+      .pdn-mob-nav-btn span:first-child { font-size: 20px; line-height: 1; }
+      .pdn-mob-nav-btn span:last-child { font-size: 10px; font-weight: 600; color: #8888a0; }
+      .pdn-mob-nav-btn.active { background: #fff3ed; }
+      .pdn-mob-nav-btn.active span:last-child { color: var(--terra2); }
+
       /* ── Inline title + ref code ── */
       .pdn-topbar-title {
         font-size: 17px; font-weight: 800; color: var(--ink);
@@ -20624,7 +20669,10 @@
     <!-- ── TOPBAR ── -->
     <div class="pdn-topbar">
       <div class="pdn-topbar-main">
-        <div class="pdn-topbar-title">Partner Dashboard</div>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <button class="pdn-back-arrow-btn" onclick="closeModal();if(typeof switchToHost==='function'){switchToHost();}else{showPage('host-dashboard');}mobBottomActive('mbn-home')" title="Back">&#8592;</button>
+          <div class="pdn-topbar-title">Partner Dashboard</div>
+        </div>
         <div class="pdn-inline-ref">
           <div>
             <div class="pdn-inline-ref-label">Referral code</div>
@@ -20632,6 +20680,13 @@
           </div>
           <button class="pdn-inline-ref-copy" onclick="pdCopyRefCode()" id="pd-copy-ref-btn">Copy</button>
         </div>
+      </div>
+      <!-- Tab strip: desktop only -->
+      <div class="pdn-tab-strip pdn-tab-strip-desktop">
+        <button class="pdn-tab-btn active" onclick="pdnScrollTo('pdn-sec-kpi');pdnTabActive(this)">🏠 Home</button>
+        <button class="pdn-tab-btn" onclick="pdnScrollTo('pdn-sec-tasks');pdnTabActive(this)">📋 Tasks</button>
+        <button class="pdn-tab-btn" onclick="pdnScrollTo('pdn-sec-level');pdnTabActive(this)">🏆 Partner Level</button>
+        <button class="pdn-tab-btn" onclick="pdnScrollTo('pdn-sec-perf');pdnTabActive(this)">📈 Performance</button>
       </div>
     </div>
 
@@ -20835,6 +20890,22 @@
     <div style="display:none;" id="pd-btn-ring"></div>
     <div style="display:none;" id="pd-profile-btn"></div>
   </div>
+  <!-- ══ PARTNER DASHBOARD MOBILE BOTTOM NAV ══ -->
+  <div class="pdn-mob-nav" id="pdn-mob-nav">
+    <button class="pdn-mob-nav-btn active" id="pdmn-home" onclick="pdnScrollTo('pdn-sec-kpi');pdnMobNavActive('pdmn-home')">
+      <span>🏠</span><span>Home</span>
+    </button>
+    <button class="pdn-mob-nav-btn" id="pdmn-tasks" onclick="pdnScrollTo('pdn-sec-tasks');pdnMobNavActive('pdmn-tasks')">
+      <span>📋</span><span>Tasks</span>
+    </button>
+    <button class="pdn-mob-nav-btn" id="pdmn-level" onclick="pdnScrollTo('pdn-sec-level');pdnMobNavActive('pdmn-level')">
+      <span>🏆</span><span>Level</span>
+    </button>
+    <button class="pdn-mob-nav-btn" id="pdmn-perf" onclick="pdnScrollTo('pdn-sec-perf');pdnMobNavActive('pdmn-perf')">
+      <span>📈</span><span>Stats</span>
+    </button>
+  </div>
+
   <!-- ══ MOBILE BOTTOM NAV BAR (Airbnb-style) ══ -->
   <!-- BOTTOM NAV: hidden until logged in -->
   <nav class="mob-bottom-nav" id="mob-bottom-nav">
