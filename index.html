@@ -20589,12 +20589,9 @@
       }
 
       /* ── Inline title + ref code ── */
-      .pdn-topbar-brand {
-        display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
-      }
       .pdn-topbar-title {
-        font-size: 13px !important; font-weight: 700; color: var(--ink);
-        letter-spacing: -.1px; white-space: nowrap;
+        font-size: 17px; font-weight: 800; color: var(--ink);
+        letter-spacing: -.3px; white-space: nowrap;
       }
       .pdn-inline-ref {
         display: flex; align-items: center; gap: 6px;
@@ -20627,23 +20624,14 @@
     <!-- ── TOPBAR ── -->
     <div class="pdn-topbar">
       <div class="pdn-topbar-main">
-        <div class="pdn-topbar-brand">
-          <div class="pdn-topbar-title">Partner Dashboard</div>
-          <div class="pdn-inline-ref">
-            <div>
-              <div class="pdn-inline-ref-label">Referral code</div>
-              <div class="pdn-inline-ref-val" id="pd-ref-code-display">——————</div>
-            </div>
-            <button class="pdn-inline-ref-copy" onclick="pdCopyRefCode()" id="pd-copy-ref-btn">Copy</button>
+        <div class="pdn-topbar-title">Partner Dashboard</div>
+        <div class="pdn-inline-ref">
+          <div>
+            <div class="pdn-inline-ref-label">Referral code</div>
+            <div class="pdn-inline-ref-val" id="pd-ref-code-display">——————</div>
           </div>
+          <button class="pdn-inline-ref-copy" onclick="pdCopyRefCode()" id="pd-copy-ref-btn">Copy</button>
         </div>
-      </div>
-      <!-- Tab strip: Home / Tasks / Partner Level / Performance only -->
-      <div class="pdn-tab-strip">
-        <button class="pdn-tab-btn active" onclick="pdnScrollTo('pdn-sec-kpi');pdnTabActive(this)">🏠 Home</button>
-        <button class="pdn-tab-btn" onclick="pdnScrollTo('pdn-sec-tasks');pdnTabActive(this)">📋 Tasks</button>
-        <button class="pdn-tab-btn" onclick="pdnScrollTo('pdn-sec-level');pdnTabActive(this)">🏆 Partner Level</button>
-        <button class="pdn-tab-btn" onclick="pdnScrollTo('pdn-sec-perf');pdnTabActive(this)">📈 Performance</button>
       </div>
     </div>
 
@@ -20721,7 +20709,7 @@
                 <div class="pdn-stat-row">
                   <div class="pdn-stat-box"><b id="pd-stat-xp">—</b><span>XP Earned</span></div>
                   <div class="pdn-stat-box"><b id="pd-stat-reg2">—</b><span>Total Referrals</span></div>
-                  <div class="pdn-stat-box"><b>0.50</b><span>Credits/ref</span></div>
+                  <div class="pdn-stat-box"><b>5 XP</b><span>Per Referral</span></div>
                 </div>
               </div>
             </div>
