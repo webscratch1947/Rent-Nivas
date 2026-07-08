@@ -10893,10 +10893,15 @@
               <div class="admin-kpi-val" id="adm-pending-partners">—</div>
               <div class="admin-kpi-lbl">Partner Requests</div>
             </div>
+            <div class="admin-kpi">
+              <div class="admin-kpi-val" id="adm-pending-verify">—</div>
+              <div class="admin-kpi-lbl">Verify Requests</div>
+            </div>
           </div>
           <div class="admin-tabs">
             <button class="admin-tab active" onclick="adminTab(this,'adm-users')">👥 Users</button>
             <button class="admin-tab" onclick="adminTab(this,'adm-houses');loadAdminHouses()">🏠 All Listings</button>
+            <button class="admin-tab" onclick="adminTab(this,'adm-verify');loadAdminVerifyRequests()">🔔 Verify Requests <span id="adm-verify-count" style="display:none;background:#dc2626;color:#fff;font-size:10px;font-weight:800;padding:1px 7px;border-radius:20px;margin-left:4px;"></span></button>
             <button class="admin-tab" onclick="adminTab(this,'adm-sold');loadAdminSoldHouses()">🏷️ Sold Houses</button>
             <button class="admin-tab" onclick="adminTab(this,'adm-bans');loadAdminBans()">🚫 Bans</button>
             <button class="admin-tab" onclick="adminTab(this,'adm-appeals');loadAdminAppeals()">📩 Appeals</button>
@@ -10931,6 +10936,13 @@
           <div class="admin-sub" id="adm-houses">
             <div id="adm-house-list">
               <div style="text-align:center;padding:32px;color:var(--muted);" data-i18n="t_loading_listings">Loading listings...</div>
+            </div>
+          </div>
+
+          <!-- VERIFY REQUESTS TAB -->
+          <div class="admin-sub" id="adm-verify">
+            <div id="adm-verify-list">
+              <div style="text-align:center;padding:32px;color:var(--muted);">Loading verify requests...</div>
             </div>
           </div>
 
@@ -17746,11 +17758,12 @@
     async function loadAdmin() {
       if (!isAdmin()) return;
       try {
-        const [hc, bc, ac, pc] = await Promise.all([
+        const [hc, bc, ac, pc, vc] = await Promise.all([
           sb.from('houses').select('*', { count: 'exact', head: true }),
           sb.from('admin_bans').select('*', { count: 'exact', head: true }).eq('active', true),
           sb.from('admin_appeals').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
           sb.from('partner_requests').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
+          sb.from('houses').select('*', { count: 'exact', head: true }).eq('verify_status', 'pending'),
         ]);
         const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v ?? '—'; };
         // adm-total-users is set by loadAdminUsers after fetching all auth users
@@ -17758,6 +17771,12 @@
         set('adm-banned-users', bc.count);
         set('adm-open-appeals', ac.count);
         set('adm-pending-partners', pc.count);
+        set('adm-pending-verify', vc.count);
+        const vBadge = document.getElementById('adm-verify-count');
+        if (vBadge) {
+          if (vc.count) { vBadge.textContent = vc.count; vBadge.style.display = 'inline-block'; }
+          else { vBadge.style.display = 'none'; }
+        }
       } catch (e) {
         console.warn('[RentNivas] loadAdmin KPI error:', e.message);
       }
@@ -18560,6 +18579,63 @@
       }
     }
 
+    // Shows ONLY listings whose owner tapped "Request Verify" and are still pending review.
+    async function loadAdminVerifyRequests() {
+      const el = document.getElementById('adm-verify-list');
+      if (!el) return;
+      el.innerHTML = '<div style="text-align:center;padding:32px;color:var(--muted);">Loading verify requests...</div>';
+      try {
+        const [{ data, error }] = await Promise.all([
+          withTimeout(
+            sb.from('houses').select('id,title,city,area,price,status,created_at,owner_id,verified,verify_status').order('created_at', { ascending: false }).limit(500),
+            8000, 'Listings load timed out'
+          ),
+          (!_adminUsersCache?.length ? loadAdminUsers() : Promise.resolve())
+        ]);
+        if (error) throw error;
+        const pending = (data || []).filter(h => h.verify_status === 'pending');
+        const countBadge = document.getElementById('adm-verify-count');
+        if (countBadge) {
+          if (pending.length) { countBadge.textContent = pending.length; countBadge.style.display = 'inline-block'; }
+          else { countBadge.style.display = 'none'; }
+        }
+        if (!pending.length) { el.innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted);">No pending verify requests. 🎉</div>'; return; }
+        el.innerHTML = pending.map(h => {
+          const owner = _adminUsersCache?.find(u => u.id === h.owner_id);
+          const ownerLabel = owner ? `${esc(owner.name || 'Unnamed')} · ${esc(owner.email || '')}` : (h.owner_id ? `Owner ID: ${esc(h.owner_id)}` : 'Unknown owner');
+          return `
+          <div style="border:1.5px solid #fbbf24;border-radius:var(--r);margin-bottom:10px;background:#fffbeb;padding:12px 14px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+            <div style="min-width:0;">
+              <div style="font-size:14px;font-weight:700;color:var(--ink);margin-bottom:2px;">${esc(h.title||'Untitled')} <span style="font-size:11px;font-weight:700;color:#b45309;background:#fef3c7;padding:2px 9px;border-radius:20px;">🔔 Requested</span></div>
+              <div style="font-size:12px;color:var(--muted);margin-bottom:2px;">👤 ${ownerLabel}</div>
+              <div style="font-size:12px;color:var(--muted);">${esc(h.city||h.area||'—')} &nbsp;·&nbsp; ₹${parseInt(h.price||0).toLocaleString('en-IN')}/mo &nbsp;·&nbsp; ${new Date(h.created_at).toLocaleDateString('en-IN')}</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;flex-wrap:wrap;">
+              <button class="btn btn-sm" style="background:var(--blue-bg);color:#2563eb;font-size:12px;" onclick="adminToggleListingVerified('${esc(h.id)}','${esc(h.title||'listing')}',false)">☑️ Approve Verify</button>
+              <button class="btn btn-sm" style="background:var(--red-bg);color:var(--red);font-size:12px;" onclick="adminRejectVerifyRequest('${esc(h.id)}','${esc(h.title||'listing')}')">✖️ Reject</button>
+            </div>
+          </div>`;
+        }).join('');
+      } catch(e) {
+        el.innerHTML = `<div style="padding:24px;text-align:center;color:var(--muted);">Failed to load: ${esc(e.message)}</div>`;
+      }
+    }
+
+    // Rejects a pending request without marking the listing verified (owner can resubmit later)
+    async function adminRejectVerifyRequest(houseId, title) {
+      try {
+        const { error } = await sb.from('houses').update({ verify_status: 'none' }).eq('id', houseId);
+        if (error) throw error;
+        const h1 = allHouses?.find(h => h.id === houseId); if (h1) h1.verify_status = 'none';
+        const h2 = rentAllHouses?.find(h => h.id === houseId); if (h2) h2.verify_status = 'none';
+        toast(`Rejected verify request for "${title}"`, 'success');
+        loadAdminVerifyRequests();
+        if (document.getElementById('adm-houses')?.classList.contains('active')) loadAdminHouses();
+      } catch(e) {
+        toast('Failed: ' + (e.message || 'Could not reject request.'), 'error');
+      }
+    }
+
     // Toggle the "Verified" badge shown on this specific listing's card + detail page
     async function adminToggleListingVerified(houseId, title, currentlyVerified) {
       const next = !currentlyVerified;
@@ -18573,7 +18649,10 @@
         const h1 = allHouses?.find(h => h.id === houseId); if (h1) { h1.verified = next; h1.verify_status = nextVerifyStatus; }
         const h2 = rentAllHouses?.find(h => h.id === houseId); if (h2) { h2.verified = next; h2.verify_status = nextVerifyStatus; }
         toast(next ? '✓ Listing verified' : 'Verification removed', 'success');
-        setTimeout(loadAdminHouses, 400);
+        setTimeout(() => {
+          if (document.getElementById('adm-houses')?.classList.contains('active')) loadAdminHouses();
+          if (document.getElementById('adm-verify')?.classList.contains('active')) loadAdminVerifyRequests();
+        }, 400);
       } catch (e) {
         toast('Failed: ' + (e.message || 'error'), 'error');
       }
