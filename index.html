@@ -5228,8 +5228,13 @@
       transition: transform .32s cubic-bezier(.4, 0, .2, 1);
       display: flex;
       flex-direction: column;
-      overflow-y: auto;
-      overflow-x: hidden;
+      /* FIX: the whole panel used to be the scroll container (overflow-y:auto here),
+         which meant that whenever the mobile browser's URL bar was visible (shorter
+         real viewport) the Sign Out footer could end up pushed below the fold with
+         no reliable way to reach it. Now only the middle nav section scrolls, and
+         the footer is pinned via flex so Sign Out is always visible/reachable,
+         regardless of the URL bar being shown or hidden. */
+      overflow: hidden;
       box-shadow: 4px 0 32px rgba(0, 0, 0, .4);
     }
 
@@ -5281,7 +5286,10 @@
 
     .mob-sidebar-nav {
       padding: 16px 14px;
-      flex: 1;
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
       display: flex;
       flex-direction: column;
       gap: 3px;
@@ -5328,8 +5336,9 @@
     }
 
     .mob-sidebar-footer {
-      padding: 16px 14px 40px;
+      padding: 16px 14px calc(24px + env(safe-area-inset-bottom, 0px));
       border-top: 1px solid rgba(255, 255, 255, .08);
+      flex-shrink: 0;
     }
 
     /* ── HAMBURGER BUTTON (landing nav) ── */
@@ -14547,11 +14556,89 @@
                   : `<button class="btn btn-sm btn-success-soft" onclick="toggleStatus('${h.id}','${h.status}')">Publish</button>`
                 }
                 <button class="btn btn-soft btn-sm" onclick="editHouse('${h.id}')">Edit</button>
+                ${_verifyBtnHtml(h)}
               </div>
             </div>
           </div>
         </div>`;
       }).join('');
+    }
+
+    // ══ LISTING VERIFICATION REQUESTS ══
+    // verify_status on a house row: 'none' (default/never asked) | 'pending' (owner asked,
+    // waiting on admin) | 'verified' (admin approved — mirrors the `verified` flag).
+    function _verifyBtnHtml(h) {
+      const vs = h.verify_status || (h.verified ? 'verified' : 'none');
+      if (vs === 'verified') return `<button class="btn btn-sm btn-soft" style="color:#2563eb;" onclick="openVerifyCenter('${h.id}')">✅ Verified</button>`;
+      if (vs === 'pending') return `<button class="btn btn-sm btn-soft" style="color:#b45309;" onclick="openVerifyCenter('${h.id}')">⏳ Verify Pending</button>`;
+      return `<button class="btn btn-sm btn-soft" onclick="openVerifyCenter('${h.id}')">🛡️ Request Verify</button>`;
+    }
+
+    function _verifyStatusMeta(vs) {
+      if (vs === 'verified') return { label: '✅ Verified', color: '#2563eb', bg: '#dbeafe' };
+      if (vs === 'pending') return { label: '⏳ Pending review', color: '#b45309', bg: '#fef3c7' };
+      return { label: 'Not requested', color: 'var(--muted)', bg: 'var(--bg2)' };
+    }
+
+    // Opens the "Verification Requests" center: shows every one of the owner's listings
+    // in one place with its verification status, and lets them submit a request, or
+    // retake (resubmit) it if it's already pending/verified and needs a fresh review.
+    function openVerifyCenter(focusHouseId) {
+      const overlay = document.createElement('div');
+      overlay.id = 'verify-center-overlay';
+      overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;';
+      overlay.innerHTML = `
+        <div style="background:var(--white);border-radius:18px;padding:24px 22px;max-width:480px;width:100%;box-shadow:var(--sh3);animation:fadeUp .25s var(--ease);max-height:85vh;display:flex;flex-direction:column;">
+          <div style="font-size:20px;font-weight:800;color:var(--ink);margin-bottom:4px;">🛡️ Verify Requests</div>
+          <div style="font-size:13px;color:var(--muted);margin-bottom:16px;">Request verification for your listings and track their review status here.</div>
+          <div id="verify-center-list" style="overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:10px;margin-bottom:16px;"></div>
+          <button onclick="document.getElementById('verify-center-overlay').remove()" style="width:100%;padding:11px;border:none;background:var(--bg2);border-radius:var(--r);font-family:var(--font);font-size:14px;cursor:pointer;color:var(--muted);">Close</button>
+        </div>`;
+      document.body.appendChild(overlay);
+      overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+      _renderVerifyCenterList(focusHouseId);
+    }
+
+    function _renderVerifyCenterList(focusHouseId) {
+      const listEl = document.getElementById('verify-center-list');
+      if (!listEl) return;
+      if (!allHouses.length) {
+        listEl.innerHTML = '<div style="text-align:center;padding:24px;color:var(--muted);font-size:13px;">No listings yet.</div>';
+        return;
+      }
+      listEl.innerHTML = allHouses.map(h => {
+        const vs = h.verify_status || (h.verified ? 'verified' : 'none');
+        const meta = _verifyStatusMeta(vs);
+        let actionBtn = '';
+        if (vs === 'none') {
+          actionBtn = `<button class="btn btn-sm btn-terra" onclick="_submitVerifyRequest('${h.id}')">Request Verify</button>`;
+        } else if (vs === 'pending') {
+          actionBtn = `<button class="btn btn-sm btn-outline" onclick="_submitVerifyRequest('${h.id}')">🔁 Retake Request</button>`;
+        } else {
+          actionBtn = `<button class="btn btn-sm btn-outline" onclick="_submitVerifyRequest('${h.id}')">🔁 Retake Verification</button>`;
+        }
+        return `<div style="border:1.5px solid ${h.id === focusHouseId ? 'var(--terra-mid)' : 'var(--border2)'};border-radius:var(--r);padding:12px 14px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;background:${h.id === focusHouseId ? 'var(--terra-lt)' : 'var(--bg2)'};">
+          <div style="min-width:0;">
+            <div style="font-size:13.5px;font-weight:700;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px;">${esc(h.title || 'Untitled')}</div>
+            <div style="font-size:11.5px;font-weight:700;margin-top:3px;color:${meta.color};background:${meta.bg};display:inline-block;padding:2px 9px;border-radius:20px;">${meta.label}</div>
+          </div>
+          <div style="flex-shrink:0;">${actionBtn}</div>
+        </div>`;
+      }).join('');
+    }
+
+    async function _submitVerifyRequest(houseId) {
+      try {
+        const { error } = await sb.from('houses').update({ verify_status: 'pending' }).eq('id', houseId);
+        if (error) throw error;
+        const h = allHouses.find(x => x.id === houseId);
+        if (h) h.verify_status = 'pending';
+        toast('✅ Verification requested — our team will review it shortly.', 'success');
+        renderCards();
+        _renderVerifyCenterList(houseId);
+      } catch (e) {
+        toast('Failed: ' + (e.message || 'Could not submit request. Make sure the verify_status column exists on houses.'), 'error');
+      }
     }
 
     async function toggleStatus(id, cur) {
@@ -16719,8 +16806,11 @@
         purgeExpiredUnlocks();
         rentShowSection('browse');
         // Show in-memory cache instantly, or fall back to localStorage cache
+        // FIX: use filterRent() (not a raw renderRentPage(rentAllHouses)) so that if the
+        // search box still has text left over from before the user navigated away, the
+        // list shown actually matches what's typed instead of silently showing everything.
         if (rentAllHouses.length && grid) {
-          renderRentPage(rentAllHouses);
+          filterRent();
         } else {
           try {
             const cached = JSON.parse(localStorage.getItem('rn_listings_cache_v2') || 'null');
@@ -16728,7 +16818,7 @@
               // Strip any ghost entries: only show cached houses that have owner_id
               const validCached = cached.filter(h => h && h.id && h.owner_id);
               rentAllHouses = validCached;
-              renderRentPage(rentAllHouses);
+              filterRent();
               // Dim stale cache — real data will clear this
               grid.style.opacity = '0.45';
               grid.style.pointerEvents = 'none';
@@ -16775,7 +16865,8 @@
         document.querySelectorAll('.prop-filter-chip').forEach(c => c.classList.remove('active'));
         const allChip = document.querySelector('.prop-filter-chip');
         if (allChip) allChip.classList.add('active');
-        renderRentPage(rentAllHouses);
+        // FIX: reapply the search box text (if any) against the freshly-fetched list.
+        filterRent();
         // Clear stale-cache dim — live data is now shown
         if (grid) { grid.style.opacity = ''; grid.style.pointerEvents = ''; }
       } catch (e) {
@@ -18447,15 +18538,15 @@
       el.innerHTML = '<div style="text-align:center;padding:32px;color:var(--muted);">Loading listings...</div>';
       try {
         const { data, error } = await withTimeout(
-          sb.from('houses').select('id,title,city,area,price,status,created_at,owner_id,verified').order('created_at', { ascending: false }).limit(200),
+          sb.from('houses').select('id,title,city,area,price,status,created_at,owner_id,verified,verify_status').order('created_at', { ascending: false }).limit(200),
           8000, 'Listings load timed out'
         );
         if (error) throw error;
         if (!data?.length) { el.innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted);">No listings found.</div>'; return; }
         el.innerHTML = data.map(h => `
-          <div style="border:1px solid var(--border2);border-radius:var(--r);margin-bottom:10px;background:var(--bg2);padding:12px 14px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+          <div style="border:1px solid ${h.verify_status==='pending' ? '#fbbf24' : 'var(--border2)'};border-radius:var(--r);margin-bottom:10px;background:var(--bg2);padding:12px 14px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
             <div style="min-width:0;">
-              <div style="font-size:14px;font-weight:700;color:var(--ink);margin-bottom:2px;">${esc(h.title||'Untitled')}${h.verified ? ' <span class="verified-chip">✓ Verified</span>' : ''}</div>
+              <div style="font-size:14px;font-weight:700;color:var(--ink);margin-bottom:2px;">${esc(h.title||'Untitled')}${h.verified ? ' <span class="verified-chip">✓ Verified</span>' : ''}${h.verify_status==='pending' ? ' <span style="font-size:11px;font-weight:700;color:#b45309;background:#fef3c7;padding:2px 9px;border-radius:20px;">🔔 Verify Requested</span>' : ''}</div>
               <div style="font-size:12px;color:var(--muted);">${esc(h.city||h.area||'—')} &nbsp;·&nbsp; ₹${parseInt(h.price||0).toLocaleString('en-IN')}/mo &nbsp;·&nbsp; ${new Date(h.created_at).toLocaleDateString('en-IN')}</div>
             </div>
             <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;flex-wrap:wrap;">
@@ -18472,11 +18563,15 @@
     // Toggle the "Verified" badge shown on this specific listing's card + detail page
     async function adminToggleListingVerified(houseId, title, currentlyVerified) {
       const next = !currentlyVerified;
+      // Keep verify_status (the owner-facing request state) in sync with the verified flag:
+      // approving closes out a pending request as 'verified'; unverifying resets it to 'none'
+      // so the owner can submit a fresh request if they want to be re-reviewed.
+      const nextVerifyStatus = next ? 'verified' : 'none';
       try {
-        const { error } = await sb.from('houses').update({ verified: next }).eq('id', houseId);
+        const { error } = await sb.from('houses').update({ verified: next, verify_status: nextVerifyStatus }).eq('id', houseId);
         if (error) throw error;
-        const h1 = allHouses?.find(h => h.id === houseId); if (h1) h1.verified = next;
-        const h2 = rentAllHouses?.find(h => h.id === houseId); if (h2) h2.verified = next;
+        const h1 = allHouses?.find(h => h.id === houseId); if (h1) { h1.verified = next; h1.verify_status = nextVerifyStatus; }
+        const h2 = rentAllHouses?.find(h => h.id === houseId); if (h2) { h2.verified = next; h2.verify_status = nextVerifyStatus; }
         toast(next ? '✓ Listing verified' : 'Verification removed', 'success');
         setTimeout(loadAdminHouses, 400);
       } catch (e) {
