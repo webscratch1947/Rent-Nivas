@@ -10070,6 +10070,9 @@
           </div>
         </div>
         <div class="topbar-right">
+          <div class="topbar-notif" id="update-log-btn" onclick="openUpdateLog(event)" title="What's New">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg><span class="notif-dot" id="update-log-dot" style="display:none"></span>
+          </div>
           <div class="topbar-notif" id="notif-bell" onclick="openNotif(event)">
             <span id="bell-icon" class="bell-ring">🔔</span><span class="notif-dot pulse" id="notif-dot"></span>
           </div>
@@ -12189,6 +12192,111 @@
           </div>
         </div>`).join('');
     }
+    // ── UPDATE LOG ──────────────────────────────────────────────────────────
+    const _RN_UPDATES = [
+      {
+        id: 'update-1',
+        version: 'UPDATE 1',
+        date: 'July 2025',
+        banner: 'update.png',
+        sections: [
+          {
+            emoji: '🏆',
+            title: 'PARTNER PANEL',
+            items: [
+              'Earn XP by completing partner tasks and grow your rank.',
+              'Badge tiers: Bronze, Silver, Gold, Platinum, Diamond, Legendary — each with unique perks.',
+              '7-day Daily Streak system — log in every day and claim chest rewards.',
+              'Animated reward chests with coins and XP on streak completion.',
+              'Partner-only dashboard with your stats, XP bar, and task list.',
+            ]
+          },
+          {
+            emoji: '🔗',
+            title: 'REFERRAL SYSTEM',
+            items: [
+              'Get your unique 8-digit referral code to share with friends.',
+              'Earn 0.50 credits every time someone lists a home using your code.',
+              'Earn credits when someone registers on Rent Nivas with your referral.',
+              'Full referral history — track every house and registration referral.',
+              'Animated referral popup with share options.',
+            ]
+          },
+          {
+            emoji: '🥇',
+            title: 'LEADERBOARD',
+            items: [
+              'Live leaderboard showing the top partners on Rent Nivas.',
+              'Rankings refresh every 30 seconds — always up to date.',
+              'Crown icon for the #1 ranked partner.',
+              'Animated rank entries with smooth transitions.',
+              'See your own position even if you\'re outside the top ranks.',
+            ]
+          },
+        ]
+      }
+    ];
+    const _UL_SEEN_KEY = 'rn_update_log_seen_update1';
+
+    function openUpdateLog(e) {
+      if (e) e.stopPropagation();
+      localStorage.setItem(_UL_SEEN_KEY, '1');
+      const dot = document.getElementById('update-log-dot');
+      if (dot) dot.style.display = 'none';
+      if (document.getElementById('rn-ul-overlay')) { _closeUpdateLog(); return; }
+
+      const u = _RN_UPDATES[0];
+      const overlay = document.createElement('div');
+      overlay.id = 'rn-ul-overlay';
+      overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.82);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;animation:rnUlFadeIn .2s ease;';
+
+      const modal = document.createElement('div');
+      modal.id = 'rn-ul-modal';
+      modal.style.cssText = 'position:relative;width:100%;max-width:640px;max-height:90vh;overflow-y:auto;background:#0f0f13;border-radius:16px;color:#fff;box-shadow:0 24px 80px rgba(0,0,0,0.7);scrollbar-width:thin;scrollbar-color:#333 transparent;';
+
+      modal.innerHTML = `
+        <button onclick="_closeUpdateLog()" style="position:sticky;top:12px;float:right;margin:12px 12px 0 0;z-index:10;background:#c0392b;border:none;color:#fff;font-size:14px;font-weight:700;width:32px;height:32px;border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;">✕</button>
+        <div style="clear:both;"></div>
+        <img src="${u.banner}" alt="Update Banner" style="width:100%;display:block;margin-top:-44px;border-radius:16px 16px 0 0;object-fit:cover;max-height:280px;" onerror="this.style.display='none'">
+        <div style="padding:20px 24px 28px;">
+          <div style="font-size:26px;font-weight:900;letter-spacing:1px;margin-bottom:4px;">${u.version} <span style="font-size:20px;">🚀</span></div>
+          <div style="font-size:13px;color:#aaa;margin-bottom:24px;">${u.date} · Rent Nivas</div>
+          ${u.sections.map(s => `
+            <div style="margin-bottom:24px;">
+              <div style="font-size:15px;font-weight:800;letter-spacing:.5px;margin-bottom:10px;color:#fff;">${s.emoji} ${s.title}</div>
+              ${s.items.map(item => `
+                <div style="display:flex;gap:8px;margin-bottom:7px;font-size:13.5px;color:#ccc;line-height:1.5;">
+                  <span style="color:#4ade80;margin-top:1px;flex-shrink:0;">•</span>
+                  <span>${item}</span>
+                </div>`).join('')}
+            </div>`).join('')}
+          <button onclick="_closeUpdateLog()" style="width:100%;padding:13px;background:#4f46e5;color:#fff;font-weight:700;font-size:15px;border:none;border-radius:10px;cursor:pointer;margin-top:8px;">Got it! 🎉</button>
+        </div>`;
+
+      overlay.appendChild(modal);
+      overlay.addEventListener('click', function(ev) { if (ev.target === overlay) _closeUpdateLog(); });
+      document.body.appendChild(overlay);
+
+      if (!document.getElementById('rn-ul-style')) {
+        const st = document.createElement('style');
+        st.id = 'rn-ul-style';
+        st.textContent = '@keyframes rnUlFadeIn{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:scale(1)}}';
+        document.head.appendChild(st);
+      }
+    }
+
+    function _closeUpdateLog() {
+      const el = document.getElementById('rn-ul-overlay');
+      if (el) el.remove();
+    }
+
+    function _checkUpdateLogDot() {
+      if (!localStorage.getItem(_UL_SEEN_KEY)) {
+        const dot = document.getElementById('update-log-dot');
+        if (dot) dot.style.display = '';
+      }
+    }
+    // ────────────────────────────────────────────────────────────────────────
     function openNotif(e) {
       if (e) e.stopPropagation();
       const dd = document.getElementById('notif-dd');
@@ -14335,6 +14443,7 @@
 
     function initDashUI() {
       if (!user) return;
+      _checkUpdateLogDot();
       const name = user.user_metadata?.name || user.email.split('@')[0] || 'there';
       applyAvatarVisual(document.getElementById('sb-av'), name, null);
       document.getElementById('sb-nm').textContent = name;
@@ -20524,7 +20633,7 @@
       var listEl = document.getElementById('rnref-hist-list');
       var rows = _rnrefData[_rnrefTab] || [];
       if (!rows.length) {
-        listEl.innerHTML = '<div class="rnref-empty">No ' + (_rnrefTab === 'house' ? ((window.t && window.t('ref_tab_house')) || 'house') : ((window.t && window.t('ref_tab_register')) || 'registration')) + ' referrals yet.</div>';
+        listEl.innerHTML = '<div class="rnref-empty">No referrals yet.</div>';
         return;
       }
       if (_rnrefTab === 'register') {
