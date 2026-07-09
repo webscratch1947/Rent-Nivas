@@ -12207,7 +12207,7 @@
               'Approved partners get access to the Partner Panel with their own dashboard.',
               'Earn XP by completing partner tasks and grow your badge rank.',
               'Badge tiers: Bronze (100 XP) → Silver (300 XP) → Gold (500 XP) → Diamond (800 XP) → Legendary (1000 XP).',
-              'Daily Reward — log in every day as a partner and claim your reward.',
+              'Daily Reward — log in every day and claim your reward.',
               'Partners earn +5 XP on every successful referral on top of the credit reward.',
             ]
           },
@@ -21999,10 +21999,18 @@
         if (!grid) return;
         var s = getStreak();
         var claimableDay = getClaimableDay();
+        // If day 7 was completed and next cycle is starting, treat as a fresh cycle for display
+        var isNewCycle = (s.day >= 7 && claimableDay === 1);
         var html = '';
         for (var d = 1; d <= 7; d++) {
-          var isClaimed = d < s.day || (d === s.day && claimableDay !== s.day);
-          var isActive = d === claimableDay;
+          var isClaimed, isActive;
+          if (isNewCycle) {
+            isClaimed = false;
+            isActive = (d === 1);
+          } else {
+            isClaimed = d < s.day || (d === s.day && claimableDay !== s.day);
+            isActive = d === claimableDay;
+          }
           var cls = isClaimed ? 'claimed' : isActive ? 'active' : 'locked';
           html += '<div class="streak-day ' + cls + '">' +
             '<div class="streak-day-label">Day ' + d + '</div>' +
@@ -22013,7 +22021,7 @@
         grid.innerHTML = html;
 
         // Update progress bar
-        var claimedCount = claimableDay > 0 ? Math.max(0, s.day) : s.day;
+        var claimedCount = isNewCycle ? 0 : (claimableDay > 0 ? Math.max(0, s.day) : s.day);
         var pct = Math.round((claimedCount / 7) * 100);
         var fill = document.getElementById('streak-progress-fill');
         var lbl = document.getElementById('streak-progress-left');
@@ -22041,7 +22049,7 @@
         if (titleEl) titleEl.textContent = day + (day === 1 ? ' Day Streak!' : ' Days Streak!');
         if (subEl) {
           subEl.textContent = day >= 7
-            ? '+' + credits + ' credits — full week claimed! 🎉'
+            ? '+' + credits + ' credits — full week claimed! Streak resets to Day 1 tomorrow 🎉'
             : 'Almost a 7 day streak with Rent Nivas — +' + credits + ' credit' + (credits > 1 ? 's' : '') + ' earned';
         }
 
