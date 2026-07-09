@@ -12204,32 +12204,32 @@
             emoji: '🏆',
             title: 'PARTNER PANEL',
             items: [
-              'Earn XP by completing partner tasks and grow your rank.',
-              'Badge tiers: Bronze, Silver, Gold, Platinum, Diamond, Legendary — each with unique perks.',
-              '7-day Daily Streak system — log in every day and claim chest rewards.',
-              'Animated reward chests with coins and XP on streak completion.',
-              'Partner-only dashboard with your stats, XP bar, and task list.',
+              'Approved partners get access to the Partner Panel with their own dashboard.',
+              'Earn XP by completing partner tasks and grow your badge rank.',
+              'Badge tiers: Bronze (100 XP) → Silver (300 XP) → Gold (500 XP) → Diamond (800 XP) → Legendary (1000 XP).',
+              'Daily Reward — log in every day as a partner and claim your reward.',
+              'Partners earn +5 XP on every successful referral on top of the credit reward.',
             ]
           },
           {
             emoji: '🔗',
             title: 'REFERRAL SYSTEM',
             items: [
-              'Get your unique 8-digit referral code to share with friends.',
-              'Earn 0.50 credits every time someone lists a home using your code.',
-              'Earn credits when someone registers on Rent Nivas with your referral.',
-              'Full referral history — track every house and registration referral.',
-              'Animated referral popup with share options.',
+              'Every user gets a unique 8-digit referral code to share with friends.',
+              'Earn 0.50 credits when someone registers on Rent Nivas using your code.',
+              'Earn 0.50 credits when someone lists a house using your code.',
+              'Partners earn an extra +5 XP for every successful referral.',
+              'Full referral history — track every house and registration referral separately.',
             ]
           },
           {
             emoji: '🥇',
             title: 'LEADERBOARD',
             items: [
-              'Live leaderboard showing the top partners on Rent Nivas.',
-              'Rankings refresh every 30 seconds — always up to date.',
-              'Crown icon for the #1 ranked partner.',
-              'Animated rank entries with smooth transitions.',
+              'Open to everyone — see where you rank on Rent Nivas.',
+              'Live rankings based on credits, updated in real time.',
+              'The #1 ranked user gets a crown animation on their profile.',
+              'Rankings refresh every 30 seconds automatically.',
               'See your own position even if you\'re outside the top ranks.',
             ]
           },
@@ -12932,12 +12932,12 @@
     // "Unranked" is the true starting state — Bronze (and every tier after it)
     // has to actually be earned, it isn't handed out at 0 XP.
     var RN_PARTNER_TIERS = [
-      { key: 'unranked',  name: 'Unranked Partner',  min: 0,    img: 'badge-bronze.png', locked: true },
-      { key: 'bronze',    name: 'Bronze Partner',    min: 25,   img: 'badge-bronze.png' },
-      { key: 'silver',    name: 'Silver Partner',    min: 100,  img: 'badge-silver.png' },
-      { key: 'gold',      name: 'Gold Partner',      min: 300,  img: 'badge-gold.png' },
-      { key: 'diamond',   name: 'Diamond Partner',   min: 700,  img: 'badge-diamond.png' },
-      { key: 'legendary', name: 'Legendary Partner', min: 1500, img: 'badge-legendary.png' }
+      { key: 'unranked',  name: 'Partner Badge',     min: 0,    img: 'partner-badge.jpg', locked: true },
+      { key: 'bronze',    name: 'Bronze Partner',    min: 100,  img: 'badge-bronze.png' },
+      { key: 'silver',    name: 'Silver Partner',    min: 300,  img: 'badge-silver.png' },
+      { key: 'gold',      name: 'Gold Partner',      min: 500,  img: 'badge-gold.png' },
+      { key: 'diamond',   name: 'Diamond Partner',   min: 800,  img: 'badge-diamond.png' },
+      { key: 'legendary', name: 'Legendary Partner', min: 1000, img: 'badge-legendary.png' }
     ];
 
     function updatePartnerLevelCard(xp) {
@@ -20718,7 +20718,7 @@
             <span style="font-size:11px;color:rgba(255,255,255,.7);font-weight:600;letter-spacing:.5px;text-transform:uppercase;">Rank</span>
             <span style="font-size:14px;font-weight:900;color:#fbbf24;" id="pds-level-num">—</span>
           </div>
-          <div style="font-size:11px;color:rgba(255,255,255,.55);margin-top:8px;font-weight:600;" id="pds-badge-next">Earn 100 XP to unlock Bronze I</div>
+          <div style="font-size:11px;color:rgba(255,255,255,.55);margin-top:8px;font-weight:600;" id="pds-badge-next">Earn 100 XP to unlock Bronze</div>
         </div>
       </div>
 
@@ -21099,7 +21099,7 @@
                 </div>
                 <div class="pdn-level-bar-labels">
                   <span><span id="pd-level-xp-current">0 / 25</span> XP</span>
-                  <span id="pd-level-xp-next">25 XP to Bronze</span>
+                  <span id="pd-level-xp-next">100 XP to Bronze</span>
                 </div>
                 <div class="pdn-stat-row">
                   <div class="pdn-stat-box"><b id="pd-stat-xp">—</b><span>XP Earned</span></div>
