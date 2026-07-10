@@ -13468,7 +13468,14 @@
       return `<div id="task-${t.id}" style="border-radius:20px;overflow:hidden;margin-bottom:16px;background:var(--bg);border:1.5px solid var(--border);box-shadow:0 2px 12px rgba(0,0,0,.06);transition:opacity .5s,transform .5s;">
         <!-- Color stripe -->
         <div style="height:5px;background:linear-gradient(90deg,${accent},${accent}aa);"></div>
-        ${t.image_url ? `<img src="${esc(t.image_url)}" alt="" loading="lazy" style="width:100%;max-height:200px;object-fit:cover;">` : ''}
+        ${t.image_url ? (() => {
+          const isVid = /\.(mp4|webm|ogg|mov)(\?|$)/i.test(t.image_url);
+          const media = isVid
+            ? `<video src="${esc(t.image_url)}" controls playsinline style="width:100%;max-height:220px;display:block;background:#000;"></video>`
+            : `<img src="${esc(t.image_url)}" alt="" loading="lazy" style="width:100%;max-height:200px;object-fit:cover;">`;
+          const dlBtn = `<button onclick="rnDownloadMedia('${esc(t.image_url)}')" title="Download" style="position:absolute;top:10px;right:10px;background:rgba(0,0,0,.55);border:none;border-radius:50%;width:36px;height:36px;display:flex;align-items:center;justify-content:center;cursor:pointer;backdrop-filter:blur(4px);transition:background .15s;" onmouseover="this.style.background='rgba(0,0,0,.8)'" onmouseout="this.style.background='rgba(0,0,0,.55)'"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button>`;
+          return `<div style="position:relative;">${media}${dlBtn}</div>`;
+        })() : ''}
         <div style="padding:18px 20px;">
           <!-- Title row -->
           <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:8px;">
@@ -13498,6 +13505,53 @@
           <div class="task-translating-${t.id}" style="display:none;font-size:12px;color:var(--muted);margin-top:6px;font-style:italic;">Translating...</div>
         </div>
       </div>`;
+    }
+
+    async function rnDownloadMedia(url) {
+      const ext = url.split('?')[0].split('.').pop().toLowerCase() || 'jpg';
+      const isVid = /^(mp4|webm|ogg|mov)$/.test(ext);
+      const fileName = 'rentnivas-task-media.' + ext;
+
+      // For videos, direct fetch is the only option — try it, fallback to new tab
+      if (isVid) {
+        try {
+          const res = await fetch(url);
+          if (!res.ok) throw new Error();
+          const blob = await res.blob();
+          const a = document.createElement('a');
+          a.href = URL.createObjectURL(blob);
+          a.download = fileName;
+          document.body.appendChild(a); a.click();
+          setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(a.href); }, 1000);
+        } catch { window.open(url, '_blank'); }
+        return;
+      }
+
+      // For images: load via <img> then paint to canvas to get a blob — works cross-origin
+      // postimg.cc serves images with permissive headers on the img element level
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = img.naturalWidth;
+          canvas.height = img.naturalHeight;
+          canvas.getContext('2d').drawImage(img, 0, 0);
+          canvas.toBlob(blob => {
+            if (!blob) { window.open(url, '_blank'); return; }
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = fileName;
+            document.body.appendChild(a); a.click();
+            setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(a.href); }, 1000);
+          }, 'image/' + (ext === 'jpg' ? 'jpeg' : ext));
+        } catch {
+          // Canvas tainted (CORS blocked) — open in new tab as last resort
+          window.open(url, '_blank');
+        }
+      };
+      img.onerror = () => window.open(url, '_blank');
+      img.src = url + (url.includes('?') ? '&' : '?') + '_dl=' + Date.now(); // cache-bust
     }
 
     async function translatePartnerTask(taskId, langCode, origTitle, origDesc) {
