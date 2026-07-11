@@ -14558,10 +14558,10 @@
     function initDashUI() {
       if (!user) return;
       _checkUpdateLogDot();
-      const name = user.user_metadata?.name || user.email.split('@')[0] || 'there';
+      const name = user.user_metadata?.name || user.email?.split('@')[0] || 'there';
       applyAvatarVisual(document.getElementById('sb-av'), name, null);
       document.getElementById('sb-nm').textContent = name;
-      document.getElementById('sb-em').textContent = user.email;
+      document.getElementById('sb-em').textContent = user.email || '—';
       // Pull saved avatar (if any) without blocking the rest of the UI
       fetchProfileRow().then(prof => { applyAvatarEverywhere(name, prof?.avatar_url, 'host', prof?.verified); }).catch(() => {});
       const hr = new Date().getHours();
@@ -16705,7 +16705,7 @@
         const { data: ud } = sb.storage.from('images').getPublicUrl(storagePath);
         const avatarUrl = (uploadData && uploadData.publicUrl) ? uploadData.publicUrl : ud.publicUrl;
         await sb.from('profiles').update({ avatar_url: avatarUrl }).eq('id', user.id);
-        const name = user.user_metadata?.name || user.email.split('@')[0] || 'User';
+        const name = user.user_metadata?.name || user.email?.split('@')[0] || 'User';
         const _profAfterUpload = await fetchProfileRow().catch(() => null);
         applyAvatarEverywhere(name, avatarUrl, role, _profAfterUpload?.verified);
         toast('Profile photo updated! ✅', 'success');
@@ -16726,11 +16726,11 @@
         });
       }
       if (!user) return;
-      const name = user.user_metadata?.name || user.email.split('@')[0] || 'Host';
+      const name = user.user_metadata?.name || user.email?.split('@')[0] || 'Host';
       document.getElementById('prof-name').textContent = name;
-      document.getElementById('prof-email-txt').textContent = user.email;
+      document.getElementById('prof-email-txt').textContent = user.email || '—';
       document.getElementById('profile-pf-name').value = name;
-      document.getElementById('profile-pf-email').value = user.email;
+      document.getElementById('profile-pf-email').value = user.email || '';
       applyAvatarVisual(document.getElementById('prof-ava'), name, null); // instant initials while DB row loads
 
       const h = await fetchHouses();
@@ -16809,17 +16809,17 @@
 
     async function loadRentProfile() {
       if (!user) return;
-      const name = user.user_metadata?.name || user.email.split('@')[0] || 'User';
+      const name = user.user_metadata?.name || user.email?.split('@')[0] || 'User';
       const credits = getCredits();
       applyAvatarVisual(document.getElementById('rent-prof-ava'), name, null); // instant initials
       const nm = document.getElementById('rent-prof-name');
       if (nm) nm.textContent = name;
       const em = document.getElementById('rent-prof-email-txt');
-      if (em) em.textContent = user.email;
+      if (em) em.textContent = user.email || '—';
       const nameInput = document.getElementById('rent-pf-name');
       if (nameInput) nameInput.value = name;
       const emailInput = document.getElementById('rent-pf-email');
-      if (emailInput) emailInput.value = user.email;
+      if (emailInput) emailInput.value = user.email || '';
       const credEl = document.getElementById('rent-pst-credits');
       if (credEl) credEl.textContent = fmtCredits(credits);
 
@@ -16887,7 +16887,7 @@
     function loadSettings() {
       if (!user) return;
       document.getElementById('st-name').value = user.user_metadata?.name || '';
-      document.getElementById('st-email').value = user.email;
+      document.getElementById('st-email').value = user.email || '';
       document.getElementById('st-phone').value = user.user_metadata?.phone || '';
       updateCreditsBadges();
     }
@@ -16919,7 +16919,7 @@
     // ══ RENTER PROFILE MODAL ══
     function showRentProfile() {
       if (!user) { showPage('login-page'); return; }
-      const name = user.user_metadata?.name || user.email.split('@')[0] || 'User';
+      const name = user.user_metadata?.name || user.email?.split('@')[0] || 'User';
       const credits = getCredits();
       const box = document.getElementById('modal-box-inner');
       box.className = 'modal-box';
@@ -16927,7 +16927,7 @@
         <button class="modal-x-close" onclick="closeModal()" style="position:absolute;top:14px;right:14px;background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted);line-height:1;padding:4px;">✕</button>
         <div class="modal-em">👤</div>
         <div class="modal-t">${esc(name)}</div>
-        <div style="font-size:14px;color:var(--muted);margin-bottom:18px;">${esc(user.email)}</div>
+        <div style="font-size:14px;color:var(--muted);margin-bottom:18px;">${esc(user.email || '—')}</div>
         <div style="background:var(--amber-bg);border:1px solid rgba(217,119,6,.25);border-radius:12px;padding:16px;text-align:center;margin-bottom:20px;">
           <div style="font-size:28px;font-weight:900;color:var(--amber);">🪙 ${fmtCredits(credits)}</div>
           <div style="font-size:13px;color:var(--muted);margin-top:4px;">Credits</div>
@@ -17110,7 +17110,7 @@
         );
         updateCreditsBadges();
         if (user) {
-          const name = user.user_metadata?.name || user.email.split('@')[0] || 'User';
+          const name = user.user_metadata?.name || user.email?.split('@')[0] || 'User';
           const avEl = document.getElementById('rent-user-av');
           const nmEl = document.getElementById('rent-user-nm');
           const emEl = document.getElementById('rent-sb-em');
@@ -20301,7 +20301,7 @@
           const email = user.email || '';
           userInfo.style.display = 'flex';
           userInfo.style.cssText = 'display:flex;align-items:center;gap:12px;padding:14px 18px 10px;border-bottom:1px solid rgba(255,255,255,.08);';
-          userInfo.innerHTML = `<div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,var(--terra),var(--terra2));display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;color:#fff;flex-shrink:0;overflow:hidden;" id="mob-sb-av">${name[0].toUpperCase()}</div><div style="overflow:hidden;"><div style="font-size:15px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" id="mob-sb-nm">${name}</div><div style="font-size:12px;color:rgba(255,255,255,.5);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" id="mob-sb-em">${email}</div></div>`;
+          userInfo.innerHTML = `<div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,var(--terra),var(--terra2));display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;color:#fff;flex-shrink:0;overflow:hidden;" id="mob-sb-av">${(name[0]||'U').toUpperCase()}</div><div style="overflow:hidden;"><div style="font-size:15px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" id="mob-sb-nm">${name}</div><div style="font-size:12px;color:rgba(255,255,255,.5);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" id="mob-sb-em">${email}</div></div>`;
           if (typeof fetchProfileRow === 'function') {
             fetchProfileRow().then(prof => { applyAvatarVisual(document.getElementById('mob-sb-av'), name, prof?.avatar_url, prof?.verified); }).catch(() => {});
           }
