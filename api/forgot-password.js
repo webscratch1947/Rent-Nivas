@@ -15,11 +15,30 @@
 //     -> verifies the code against DynamoDB, then calls Cognito
 //        AdminSetUserPassword (Permanent: true) to actually change the
 //        password and clear any FORCE_CHANGE_PASSWORD / RESET_REQUIRED status.
-const { CognitoIdentityProviderClient, AdminGetUserCommand, AdminSetUserPasswordCommand } = require('@aws-sdk/client-cognito-identity-provider');
+const { CognitoIdentityProviderClient, AdminSetUserPasswordCommand, ListUsersCommand } = require('@aws-sdk/client-cognito-identity-provider');
 const { REGION, USER_POOL_ID, send, parseBody } = require('./_auth');
 const { generateCode, storeCode, getCode, markCodeUsed, deleteCode, bumpAttempts, sendCodeEmail, hashCode, MAX_ATTEMPTS } = require('./_brevo');
 
 const cognito = new CognitoIdentityProviderClient({ region: REGION });
+
+// FIX (root cause of "No account found" for real, existing users):
+// this used to call AdminGetUserCommand({ Username: email }). That only
+// finds the user if the pool's literal Username IS the email string. If the
+// pool auto-generates usernames (a common Cognito setup — see the identical
+// issue already fixed in signup-verify.js's findExistingUserByEmail), the
+// account exists but has some other internal username, so Username: email
+// matches nothing and this incorrectly reported "no account" for real users.
+// Fix: search by the email ATTRIBUTE via ListUsers instead, which works
+// regardless of how the pool's username policy is configured, and return
+// the user's real Username for any later Admin* calls that need it.
+async function findUserByEmail(email) {
+  const page = await cognito.send(new ListUsersCommand({
+    UserPoolId: USER_POOL_ID,
+    Filter: `email = "${email}"`,
+    Limit: 1
+  }));
+  return (page.Users && page.Users[0]) || null;
+}
 
 module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') return send(res, 204, {});
@@ -45,18 +64,18 @@ module.exports = async function handler(req, res) {
       // send the "Action Required" forced-reset template instead of the
       // normal voluntary password-reset template.
       let isForcedReset = false;
+      let cognitoUsername = email;
       try {
-        const userInfo = await cognito.send(new AdminGetUserCommand({ UserPoolId: USER_POOL_ID, Username: email }));
-        isForcedReset = userInfo.UserStatus === 'FORCE_CHANGE_PASSWORD' || userInfo.UserStatus === 'RESET_REQUIRED';
-        console.log(`[ForgotPassword] AdminGetUser lookup OK for ${email} — UserStatus=${userInfo.UserStatus} isForcedReset=${isForcedReset}`);
-      } catch (lookupErr) {
-        const errName = lookupErr.name || '';
-        const isNotFound = errName === 'UserNotFoundException' || errName === 'ResourceNotFoundException' || (lookupErr.message || '').toLowerCase().includes('user does not exist');
-        if (isNotFound) {
+        const user = await findUserByEmail(email);
+        if (!user) {
           console.warn(`[ForgotPassword] No account found for ${email} — returning 404 to frontend`);
           return send(res, 404, { error: { message: 'No account found with this email address.' } });
         }
-        console.warn(`[ForgotPassword] AdminGetUser lookup failed for ${email} (unexpected error):`, lookupErr.message || lookupErr);
+        cognitoUsername = user.Username;
+        isForcedReset = user.UserStatus === 'FORCE_CHANGE_PASSWORD' || user.UserStatus === 'RESET_REQUIRED';
+        console.log(`[ForgotPassword] ListUsers lookup OK for ${email} — Username=${cognitoUsername} UserStatus=${user.UserStatus} isForcedReset=${isForcedReset}`);
+      } catch (lookupErr) {
+        console.warn(`[ForgotPassword] ListUsers lookup failed for ${email} (unexpected error):`, lookupErr.message || lookupErr);
         return send(res, 500, { error: { message: 'Could not look up your account. Please try again.' } });
       }
 
@@ -113,9 +132,16 @@ module.exports = async function handler(req, res) {
         return send(res, 400, { error: { message: 'Incorrect code. Please try again.' } });
       }
 
+      // Same fix as the 'request' lookup above — resolve the real Cognito
+      // Username via ListUsers rather than assuming Username === email.
+      const user = await findUserByEmail(email);
+      if (!user) {
+        console.warn(`[ForgotPassword] ❌ confirm: no Cognito account found for ${email}`);
+        return send(res, 404, { error: { message: 'No account found with this email address.' } });
+      }
       await cognito.send(new AdminSetUserPasswordCommand({
         UserPoolId: USER_POOL_ID,
-        Username: email,
+        Username: user.Username,
         Password: newPassword,
         Permanent: true
       }));
