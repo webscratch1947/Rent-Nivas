@@ -161,30 +161,89 @@ async function bumpAttempts(purpose, email) {
   }
 }
 
-// purpose -> { subject, build(code) -> { text, html } }
-// 'signup_verify'    -> "Verify Your Rent Nivas Account"
-// 'password_reset'   -> "Rent Nivas Password Reset Code"
-// 'forced_reset'     -> "Action Required - Reset Your Rent Nivas Password"
+// purpose -> { subject, text, html }
+// 'signup_verify'  -> account registration verification code
+// 'password_reset' -> voluntary password reset
+// 'forced_reset'   -> migrated/admin-required password reset
+function _emailWrap(body) {
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f5f0eb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="padding:32px 16px;">
+    <tr><td align="center">
+      <table width="100%" style="max-width:480px;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 2px 16px rgba(0,0,0,.08);">
+        <tr><td style="background:#c07a5a;padding:24px 32px;">
+          <div style="font-size:22px;font-weight:800;color:#fff;letter-spacing:-.3px;">🏠 Rent Nivas</div>
+        </td></tr>
+        <tr><td style="padding:32px;">
+          ${body}
+          <hr style="border:none;border-top:1px solid #f0ebe6;margin:24px 0;">
+          <p style="font-size:12px;color:#999;margin:0;">This email was sent by Rent Nivas. If you have questions, reply to this email or contact us at rentnivas@gmail.com</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`;
+}
+
+function _codeBlock(code) {
+  return `<div style="background:#f5f0eb;border-radius:12px;padding:20px;text-align:center;margin:20px 0;">
+    <div style="font-size:13px;color:#999;margin-bottom:8px;text-transform:uppercase;letter-spacing:1px;">Your verification code</div>
+    <div style="font-size:36px;font-weight:900;letter-spacing:8px;color:#c07a5a;font-family:monospace;">${code}</div>
+    <div style="font-size:12px;color:#bbb;margin-top:8px;">Expires in ${CODE_TTL_MINUTES} minutes</div>
+  </div>`;
+}
+
 function buildEmail(purpose, code) {
   if (purpose === 'signup_verify') {
+    const body = `
+      <h2 style="margin:0 0 8px;font-size:22px;font-weight:800;color:#1a1a1a;">Verify your account</h2>
+      <p style="color:#666;font-size:15px;margin:0 0 4px;">Welcome to Rent Nivas! Use the code below to verify your email address and activate your account.</p>
+      ${_codeBlock(code)}
+      <p style="color:#999;font-size:13px;margin:0;">If you didn't sign up for Rent Nivas, you can safely ignore this email.</p>`;
     return {
-      subject: 'Verify Your Rent Nivas Account',
-      text: `Welcome to Rent Nivas!\n\nYour email verification code is: ${code}\n\nThis code expires in ${CODE_TTL_MINUTES} minutes.\n\nIf you didn't create a Rent Nivas account, you can ignore this email.`,
-      html: `<p>Welcome to Rent Nivas!</p><p>Your email verification code is:</p><p style="font-size:28px;font-weight:700;letter-spacing:4px;">${code}</p><p>This code expires in ${CODE_TTL_MINUTES} minutes.</p><p>If you didn't create a Rent Nivas account, you can ignore this email.</p>`
+      subject: 'Your Rent Nivas account verification code',
+      text: `Welcome to Rent Nivas!
+
+Your account verification code is: ${code}
+
+This code expires in ${CODE_TTL_MINUTES} minutes.
+
+If you didn't sign up for Rent Nivas, you can safely ignore this email.`,
+      html: _emailWrap(body)
     };
   }
   if (purpose === 'forced_reset') {
+    const body = `
+      <h2 style="margin:0 0 8px;font-size:22px;font-weight:800;color:#1a1a1a;">Password reset required</h2>
+      <p style="color:#666;font-size:15px;margin:0 0 4px;">Your Rent Nivas account requires a password reset before you can sign in. Use the code below to set a new password.</p>
+      ${_codeBlock(code)}
+      <p style="color:#999;font-size:13px;margin:0;">If you didn't request this, contact us at rentnivas@gmail.com immediately.</p>`;
     return {
-      subject: 'Action Required - Reset Your Rent Nivas Password',
-      text: `Your Rent Nivas account requires a password reset before you can sign in again.\n\nYour reset code is: ${code}\n\nThis code expires in ${CODE_TTL_MINUTES} minutes. Enter it on the password reset page to choose a new password.`,
-      html: `<p>Your Rent Nivas account requires a password reset before you can sign in again.</p><p>Your reset code is:</p><p style="font-size:28px;font-weight:700;letter-spacing:4px;">${code}</p><p>This code expires in ${CODE_TTL_MINUTES} minutes. Enter it on the password reset page to choose a new password.</p>`
+      subject: 'Action required — Reset your Rent Nivas password',
+      text: `Your Rent Nivas account requires a password reset.
+
+Your reset code is: ${code}
+
+This code expires in ${CODE_TTL_MINUTES} minutes. Enter it on the password reset page to set a new password.
+
+If you didn't request this, contact rentnivas@gmail.com immediately.`,
+      html: _emailWrap(body)
     };
   }
-  // default: password_reset
+  // default: password_reset (voluntary)
+  const body = `
+    <h2 style="margin:0 0 8px;font-size:22px;font-weight:800;color:#1a1a1a;">Reset your password</h2>
+    <p style="color:#666;font-size:15px;margin:0 0 4px;">We received a request to reset the password for your Rent Nivas account. Use the code below to set a new password.</p>
+    ${_codeBlock(code)}
+    <p style="color:#999;font-size:13px;margin:0;">If you didn't request a password reset, you can safely ignore this email — your password has not been changed.</p>`;
   return {
-    subject: 'Rent Nivas Password Reset Code',
-    text: `We received a request to reset your Rent Nivas password.\n\nYour reset code is: ${code}\n\nThis code expires in ${CODE_TTL_MINUTES} minutes. If you didn't request this, you can ignore this email.`,
-    html: `<p>We received a request to reset your Rent Nivas password.</p><p>Your reset code is:</p><p style="font-size:28px;font-weight:700;letter-spacing:4px;">${code}</p><p>This code expires in ${CODE_TTL_MINUTES} minutes. If you didn't request this, you can ignore this email.</p>`
+    subject: 'Your Rent Nivas password reset code',
+    text: `We received a request to reset your Rent Nivas password.
+
+Your reset code is: ${code}
+
+This code expires in ${CODE_TTL_MINUTES} minutes. If you didn't request this, you can safely ignore this email.`,
+    html: _emailWrap(body)
   };
 }
 
