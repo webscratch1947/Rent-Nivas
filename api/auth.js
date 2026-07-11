@@ -130,6 +130,45 @@ function resolveUsername(target, body) {
   return body.Username;
 }
 
+// FIX (root cause of "Incorrect username or password" for real, correct
+// passwords on migrated accounts): this used to pass the email the person
+// typed straight to Cognito as USERNAME for USER_PASSWORD_AUTH. That only
+// authenticates if the pool's literal username IS that email string.
+// New signups get exactly that (see signup-verify.js's
+// AdminCreateUser({ Username: email })), so login "just worked" for them —
+// but migrated/legacy accounts (imported from Supabase, or anything not
+// created through that exact path) can have a different real Cognito
+// username, so USER_PASSWORD_AUTH with USERNAME=email rejects a completely
+// correct password with a generic "incorrect username or password".
+// This is the exact same class of bug already fixed in forgot-password.js's
+// findUserByEmail() and signup-verify.js's findExistingUserByEmail().
+//
+// Fix: before attempting USER_PASSWORD_AUTH, look up the real Cognito
+// username via ListUsers on the email attribute and sign in with THAT
+// instead of the raw typed email. If no match is found (or the lookup
+// itself fails), fall back to the typed value unchanged — so this never
+// makes a working login flow fail, it only fixes the broken case.
+async function resolveRealUsernameForLogin(typedUsername) {
+  if (!typedUsername || typedUsername.indexOf('@') === -1) return typedUsername; // not an email, nothing to resolve
+  try {
+    const page = await adminClient.send(new ListUsersCommand({
+      UserPoolId: USER_POOL_ID,
+      Filter: `email = "${typedUsername}"`,
+      Limit: 10
+    }));
+    const users = page.Users || [];
+    if (!users.length) return typedUsername; // no match — let Cognito give its normal error
+    const chosen = users.find(u => u.Enabled && u.UserStatus === 'CONFIRMED') || users.find(u => u.Enabled) || users[0];
+    if (users.length > 1) {
+      console.warn(`[Auth] ⚠️ multiple Cognito accounts for ${typedUsername} at login — chose Username=${chosen.Username} (Status=${chosen.UserStatus})`);
+    }
+    return chosen.Username;
+  } catch (e) {
+    console.warn('[Auth] resolveRealUsernameForLogin lookup failed (falling back to typed value):', e.message);
+    return typedUsername;
+  }
+}
+
 module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') return send(res, 204, {});
   if (req.method !== 'POST') return send(res, 405, { error: 'Method not allowed' });
@@ -218,6 +257,20 @@ module.exports = async function handler(req, res) {
 
     const payload = Object.assign({}, body.payload || {});
     payload.ClientId = APP_CLIENT_ID;
+
+    // Resolve the real Cognito username for password sign-ins BEFORE anything
+    // else touches `payload` — see resolveRealUsernameForLogin() above.
+    // REFRESH_TOKEN_AUTH is untouched: it doesn't carry an email, and
+    // resolveRealUsernameForLogin() only ever changes actual email-looking
+    // values anyway.
+    if (target === 'InitiateAuth' && payload.AuthFlow === 'USER_PASSWORD_AUTH' && payload.AuthParameters && payload.AuthParameters.USERNAME) {
+      const typed = payload.AuthParameters.USERNAME;
+      const real = await resolveRealUsernameForLogin(typed);
+      if (real !== typed) {
+        console.log(`[Auth] login: resolved typed username "${typed}" -> real Cognito username "${real}"`);
+      }
+      payload.AuthParameters = Object.assign({}, payload.AuthParameters, { USERNAME: real });
+    }
 
     const username = resolveUsername(target, payload);
     if (!username) throw new Error('Username is required to compute SecretHash');
