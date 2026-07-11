@@ -198,6 +198,10 @@ module.exports = async function handler(req, res) {
           console.warn(`[SignupVerify] account already exists: ${email}`);
           return send(res, 400, { error: { message: 'An account with this email already exists.' } });
         }
+        if (createErr.name === 'InvalidParameterException') {
+          console.warn(`[SignupVerify] invalid parameter for ${email}:`, createErr.message);
+          return send(res, 400, { error: { message: 'Please enter a valid email address.' } });
+        }
         console.error(`[SignupVerify] AdminCreateUser FAILED for ${email}:`, createErr);
         throw createErr;
       }
