@@ -2186,6 +2186,68 @@
       white-space: nowrap;
     }
 
+    /* KEBAB (3-dot) menu for listing card — mobile only */
+    .l-kebab-wrap {
+      display: none;
+      position: relative;
+    }
+    .l-kebab-btn {
+      background: var(--bg2);
+      border: 1px solid var(--border2);
+      border-radius: 10px;
+      width: 40px;
+      height: 40px;
+      font-size: 20px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--ink);
+      flex-shrink: 0;
+    }
+    .l-kebab-menu {
+      display: none;
+      position: absolute;
+      bottom: calc(100% + 8px);
+      right: 0;
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      box-shadow: var(--sh2);
+      z-index: 200;
+      min-width: 175px;
+      overflow: hidden;
+      animation: fadeUp .15s var(--ease);
+    }
+    .l-kebab-menu.open {
+      display: block;
+    }
+    .l-kebab-menu button {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      width: 100%;
+      padding: 13px 16px;
+      background: none;
+      border: none;
+      border-bottom: 1px solid var(--border2);
+      font-family: var(--font);
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--ink);
+      cursor: pointer;
+      text-align: left;
+    }
+    .l-kebab-menu button:last-child {
+      border-bottom: none;
+    }
+    .l-kebab-menu button:active {
+      background: var(--bg2);
+    }
+    .l-kebab-menu button.danger {
+      color: #dc2626;
+    }
+
     /* ADD LISTING */
     .add-layout {
       display: grid;
@@ -6400,18 +6462,11 @@
       }
 
       .l-foot-btns {
-        display: flex;
-        gap: 6px;
-        flex: 1;
-        justify-content: flex-end;
+        display: none !important;
       }
 
-      .l-foot-btns .btn {
-        flex: 1;
-        min-height: 42px;
-        font-size: 12px;
-        padding: 8px;
-        border-radius: 10px;
+      .l-kebab-wrap {
+        display: block;
       }
 
       /* ══ ADD LISTING FORM ══ */
@@ -7603,20 +7658,11 @@
       }
 
       .l-foot-btns {
-        display: flex;
-        gap: 6px;
-        flex: 1;
-        justify-content: flex-end;
-        min-width: 0;
+        display: none !important;
       }
 
-      .l-foot-btns .btn {
-        flex: 1;
-        min-width: 0;
-        min-height: 40px !important;
-        font-size: 12px !important;
-        padding: 8px 6px !important;
-        border-radius: 9px !important;
+      .l-kebab-wrap {
+        display: block;
       }
 
       .l-card-btns-overlay {
@@ -11855,6 +11901,12 @@
         toast('Please fill in all fields.', 'error');
         return;
       }
+      const emailRx = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRx.test(email)) {
+        toast('Please enter a valid email address.', 'error');
+        emailEl && emailEl.focus();
+        return;
+      }
       if (password.length < 8) {
         toast('Password must be at least 8 characters.', 'error');
         return;
@@ -14741,6 +14793,17 @@
                 <button class="btn btn-soft btn-sm" onclick="editHouse('${h.id}')">Edit</button>
                 ${_verifyBtnHtml(h)}
               </div>
+              <div class="l-kebab-wrap" id="kebab-wrap-${h.id}">
+                <button class="l-kebab-btn" onclick="toggleKebab('${h.id}',event)" title="More options">⋯</button>
+                <div class="l-kebab-menu" id="kebab-menu-${h.id}">
+                  <button onclick="editHouse('${h.id}');closeKebab('${h.id}')">✏️ Edit</button>
+                  ${h.status === 'published'
+                    ? `<button class="danger" onclick="showSoldDeleteModal('${h.id}');closeKebab('${h.id}')">🏷️ Sold / Delete</button>`
+                    : `<button onclick="toggleStatus('${h.id}','${h.status}');closeKebab('${h.id}')">📢 Publish</button>`
+                  }
+                  ${_verifyBtnHtmlKebab(h)}
+                </div>
+              </div>
             </div>
           </div>
         </div>`;
@@ -14756,6 +14819,33 @@
       if (vs === 'pending') return `<button class="btn btn-sm btn-soft" style="color:#b45309;" onclick="openVerifyCenter('${h.id}')">⏳ Verify Pending</button>`;
       return `<button class="btn btn-sm btn-soft" onclick="openVerifyCenter('${h.id}')">🛡️ Request Verify</button>`;
     }
+
+    function _verifyBtnHtmlKebab(h) {
+      const vs = h.verify_status || (h.verified ? 'verified' : 'none');
+      if (vs === 'verified') return `<button onclick="openVerifyCenter('${h.id}');closeKebab('${h.id}')">✅ Verified</button>`;
+      if (vs === 'pending') return `<button onclick="openVerifyCenter('${h.id}');closeKebab('${h.id}')">⏳ Verify Pending</button>`;
+      return `<button onclick="openVerifyCenter('${h.id}');closeKebab('${h.id}')">🛡️ Request Verify</button>`;
+    }
+
+    function toggleKebab(id, e) {
+      e.stopPropagation();
+      const menu = document.getElementById('kebab-menu-' + id);
+      if (!menu) return;
+      const isOpen = menu.classList.contains('open');
+      // close all others first
+      document.querySelectorAll('.l-kebab-menu.open').forEach(m => m.classList.remove('open'));
+      if (!isOpen) menu.classList.add('open');
+    }
+
+    function closeKebab(id) {
+      const menu = document.getElementById('kebab-menu-' + id);
+      if (menu) menu.classList.remove('open');
+    }
+
+    // Close any open kebab when clicking outside
+    document.addEventListener('click', () => {
+      document.querySelectorAll('.l-kebab-menu.open').forEach(m => m.classList.remove('open'));
+    });
 
     function _verifyStatusMeta(vs) {
       if (vs === 'verified') return { label: '✅ Verified', color: '#2563eb', bg: '#dbeafe' };
