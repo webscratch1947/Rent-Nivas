@@ -11569,16 +11569,31 @@
         if (errEl) { errEl.textContent = 'Please enter your email address.'; errEl.classList.add('show'); }
         return;
       }
+      const emailRx = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRx.test(email)) {
+        if (errEl) { errEl.textContent = 'Please enter a valid email address.'; errEl.classList.add('show'); }
+        return;
+      }
       if (errEl) { errEl.textContent = ''; errEl.classList.remove('show'); }
       if (btn) { btn.disabled = true; btn.textContent = 'Sending…'; }
       try {
         const { error } = await sb.auth.resetPasswordForEmail(email);
-        if (error) throw error;
-        // Store email for step 2
+        if (error) {
+          // Surface "no account" message clearly
+          const msg = error.message || '';
+          const isNotFound = msg.toLowerCase().includes('no account') || msg.toLowerCase().includes('not found') || msg.toLowerCase().includes('does not exist');
+          if (errEl) {
+            errEl.textContent = isNotFound
+              ? 'No account found with this email address. Please check the email or sign up.'
+              : (msg || 'Could not send code. Please try again.');
+            errEl.classList.add('show');
+          }
+          return;
+        }
+        // Success — move to step 2
         window._fpEmail = email;
         const sentEl = document.getElementById('fp-sent-email');
         if (sentEl) sentEl.textContent = email;
-        // Clear step 2 fields
         const codeEl = document.getElementById('fp-code');
         const npEl   = document.getElementById('fp-newpass');
         const cpEl   = document.getElementById('fp-confpass');
@@ -11590,7 +11605,7 @@
         _fpShow('fp-step2');
         setTimeout(() => { if (codeEl) codeEl.focus(); }, 100);
       } catch (err) {
-        if (errEl) { errEl.textContent = err.message || 'Could not send code. Try again.'; errEl.classList.add('show'); }
+        if (errEl) { errEl.textContent = err.message || 'Could not send code. Please try again.'; errEl.classList.add('show'); }
       } finally {
         if (btn) { btn.disabled = false; btn.textContent = 'Send Verification Code →'; }
       }
