@@ -29,15 +29,37 @@ const cognito = new CognitoIdentityProviderClient({ region: REGION });
 // account exists but has some other internal username, so Username: email
 // matches nothing and this incorrectly reported "no account" for real users.
 // Fix: search by the email ATTRIBUTE via ListUsers instead, which works
-// regardless of how the pool's username policy is configured, and return
-// the user's real Username for any later Admin* calls that need it.
+// regardless of how the pool's username policy is configured.
+//
+// FIX 2: this codebase has a known duplicate-account bug (see
+// signup-verify.js) where the same email can end up on more than one
+// Cognito user record. Limit:1 on the ListUsers call meant we silently took
+// whichever duplicate Cognito happened to return first — which could be a
+// stale/ghost record, not the one the person actually logs in with. Now we
+// fetch every match, log all of them, and prefer (in order): an ENABLED +
+// CONFIRMED user, then any ENABLED user, before falling back to the first
+// result — so a reset lands on the account they actually sign in with.
 async function findUserByEmail(email) {
   const page = await cognito.send(new ListUsersCommand({
     UserPoolId: USER_POOL_ID,
     Filter: `email = "${email}"`,
-    Limit: 1
+    Limit: 10
   }));
-  return (page.Users && page.Users[0]) || null;
+  const users = page.Users || [];
+  if (users.length > 1) {
+    console.warn(`[ForgotPassword] ⚠️ DUPLICATE Cognito accounts found for ${email}: ${users.length} matches — ` +
+      users.map(u => `{Username=${u.Username}, Status=${u.UserStatus}, Enabled=${u.Enabled}}`).join(', '));
+  } else if (users.length === 1) {
+    console.log(`[ForgotPassword] ListUsers found 1 match for ${email}: Username=${users[0].Username} Status=${users[0].UserStatus} Enabled=${users[0].Enabled}`);
+  }
+  if (!users.length) return null;
+  const confirmedEnabled = users.find(u => u.Enabled && u.UserStatus === 'CONFIRMED');
+  const anyEnabled = users.find(u => u.Enabled);
+  const chosen = confirmedEnabled || anyEnabled || users[0];
+  if (users.length > 1) {
+    console.warn(`[ForgotPassword] ⚠️ chose Username=${chosen.Username} (Status=${chosen.UserStatus}) out of ${users.length} duplicates for ${email}`);
+  }
+  return chosen;
 }
 
 module.exports = async function handler(req, res) {
