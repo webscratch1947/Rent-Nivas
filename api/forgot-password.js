@@ -50,10 +50,14 @@ module.exports = async function handler(req, res) {
         isForcedReset = userInfo.UserStatus === 'FORCE_CHANGE_PASSWORD' || userInfo.UserStatus === 'RESET_REQUIRED';
         console.log(`[ForgotPassword] AdminGetUser lookup OK for ${email} — UserStatus=${userInfo.UserStatus} isForcedReset=${isForcedReset}`);
       } catch (lookupErr) {
-        console.warn(`[ForgotPassword] AdminGetUser lookup failed for ${email} (treating as "user not found"):`, lookupErr.message || lookupErr);
-        // Don't reveal account existence to the caller — but DO return 200
-        // so the frontend shows the generic "check your email" state.
-        return send(res, 200, { data: {} });
+        const errName = lookupErr.name || '';
+        const isNotFound = errName === 'UserNotFoundException' || errName === 'ResourceNotFoundException' || (lookupErr.message || '').toLowerCase().includes('user does not exist');
+        if (isNotFound) {
+          console.warn(`[ForgotPassword] No account found for ${email} — returning 404 to frontend`);
+          return send(res, 404, { error: { message: 'No account found with this email address.' } });
+        }
+        console.warn(`[ForgotPassword] AdminGetUser lookup failed for ${email} (unexpected error):`, lookupErr.message || lookupErr);
+        return send(res, 500, { error: { message: 'Could not look up your account. Please try again.' } });
       }
 
       const emailPurpose = isForcedReset ? 'forced_reset' : 'password_reset';
