@@ -9460,8 +9460,8 @@
               <div class="feat-item">
                 <div class="feat-icon">📸</div>
                 <div>
-                  <div class="feat-text-title">Up to 5 Photos</div>
-                  <p class="feat-text-p">Upload high-quality images that showcase your property.</p>
+                  <div class="feat-text-title">Unlimited Photos</div>
+                  <p class="feat-text-p">Upload as many high-quality images as you want to showcase your property.</p>
                 </div>
               </div>
               <div class="feat-item">
@@ -10671,7 +10671,7 @@
                   <input type="file" id="h-files" multiple accept="image/*" onchange="handleFiles(this.files)">
                   <div class="upload-zone-em">📷</div>
                   <div class="upload-zone-t" id="add-photos-tap">Tap to add photos</div>
-                  <div class="upload-zone-s" id="add-photos-hint">Up to 5 images · JPG, PNG, WebP · Max 5MB each</div>
+                  <div class="upload-zone-s" id="add-photos-hint">JPG, PNG, WebP · Max 5MB each · Auto-compressed</div>
                 </div>
                 <div class="img-previews" id="h-previews"></div>
                 <div id="img-lbl" style="font-size:13px;color:var(--muted);margin-top:10px;"></div>
@@ -15894,14 +15894,65 @@
       renderExistingImages();
     }
 
+    // ══ IMAGE COMPRESSION ══
+    // WhatsApp-style: resize to max 1600px on longest side, JPEG quality 0.82
+    // Result is always well under 300–500 KB while keeping the photo looking great.
+    async function compressImageFile(file) {
+      return new Promise((resolve) => {
+        const MAX_SIDE = 1600;   // max width or height in pixels
+        const QUALITY  = 0.82;   // JPEG quality (0.82 ≈ WhatsApp level — visually lossless)
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const img = new Image();
+          img.onload = () => {
+            let { naturalWidth: w, naturalHeight: h } = img;
+
+            // Scale down only if needed
+            if (w > MAX_SIDE || h > MAX_SIDE) {
+              if (w >= h) { h = Math.round(h * MAX_SIDE / w); w = MAX_SIDE; }
+              else        { w = Math.round(w * MAX_SIDE / h); h = MAX_SIDE; }
+            }
+
+            const canvas = document.createElement('canvas');
+            canvas.width  = w;
+            canvas.height = h;
+            canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+
+            canvas.toBlob(
+              (blob) => {
+                if (!blob) { resolve(file); return; }  // fallback: use original
+                // Only use compressed version if it's actually smaller
+                const compressed = blob.size < file.size ? blob : file;
+                // Give it a clean .jpg name so S3 gets the right content type
+                const name = file.name.replace(/\.[^.]+$/, '') + '.jpg';
+                resolve(new File([compressed], name, { type: 'image/jpeg' }));
+              },
+              'image/jpeg',
+              QUALITY
+            );
+          };
+          img.onerror = () => resolve(file); // fallback
+          img.src = e.target.result;
+        };
+        reader.onerror = () => resolve(file); // fallback
+        reader.readAsDataURL(file);
+      });
+    }
+
     // ══ IMAGE HANDLING ══
-    function handleFiles(files) {
-      const remaining = 5 - selectedFiles.length;
-      if (remaining <= 0) return toast('Maximum 5 images allowed', 'error');
-      const toAdd = Array.from(files).slice(0, remaining);
+    async function handleFiles(files) {
+      const toAdd = Array.from(files);
+      if (!toAdd.length) return;
+
+      // Show a quick "compressing…" indicator on the label
+      const lbl = document.getElementById('img-lbl');
+      if (lbl) lbl.textContent = 'Compressing…';
+
       for (const f of toAdd) {
-        if (f.size > 5 * 1024 * 1024) { toast(`"${f.name}" exceeds 5MB limit`, 'error'); continue; }
-        selectedFiles.push(f);
+        if (f.size > 50 * 1024 * 1024) { toast(`"${f.name}" is too large (max 50MB)`, 'error'); continue; }
+        const compressed = await compressImageFile(f);
+        selectedFiles.push(compressed);
       }
       renderPreviews();
       // FIX 3: Always clear input value after reading — prevents browser from reusing old selection
@@ -15963,7 +16014,7 @@
       });
 
       document.getElementById('img-lbl').textContent = selectedFiles.length
-        ? `${selectedFiles.length}/5 image${selectedFiles.length > 1 ? 's' : ''} selected`
+        ? `${selectedFiles.length} image${selectedFiles.length > 1 ? 's' : ''} selected`
         : '';
     }
     function removeFile(i) { selectedFiles.splice(i, 1); renderPreviews(); }
@@ -16180,7 +16231,7 @@
     async function doSaveHouse(status, title, desc, price, phone, addr, area, city, state, beds, baths, v, questions) {
       const condArr = [...selectedConditions, ...customConditions];
 
-      const loaderMs = selectedFiles.length ? Math.min(300000, 45000 + selectedFiles.length * HOUSE_IMG_UPLOAD_MS) : 90000;
+      const loaderMs = selectedFiles.length ? Math.min(1800000, 45000 + selectedFiles.length * HOUSE_IMG_UPLOAD_MS) : 90000;
       setLoader(true, selectedFiles.length ? 'Uploading images...' : 'Saving...', loaderMs);
       try {
         const { data: { user: cu } } = await withTimeout(
