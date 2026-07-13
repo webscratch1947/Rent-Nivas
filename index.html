@@ -11626,7 +11626,7 @@
       if (errEl) { errEl.textContent = ''; errEl.classList.remove('show'); }
       if (!code)  return showErr('Please enter the verification code from your email.');
       if (!np)    return showErr('Please enter a new password.');
-      if (np.length < 6) return showErr('Password must be at least 6 characters.');
+      if (np.length < 8) return showErr('Password must be at least 8 characters.');
       if (np !== cp)     return showErr('Passwords do not match. Try again.');
       if (!email) return showErr('Session expired — please close and start over.');
 
@@ -11675,7 +11675,7 @@
       const errEl = document.getElementById('rp-err');
       const btn = document.getElementById('rp-update-btn');
       if (errEl) { errEl.style.display = 'none'; errEl.textContent = ''; }
-      if (newPass.length < 6) { if (errEl) { errEl.textContent = 'Password must be at least 6 characters.'; errEl.style.display = 'block'; } return; }
+      if (newPass.length < 8) { if (errEl) { errEl.textContent = 'Password must be at least 8 characters.'; errEl.style.display = 'block'; } return; }
       if (newPass !== confirmPass) { if (errEl) { errEl.textContent = 'Passwords do not match.'; errEl.style.display = 'block'; } return; }
       if (btn) { btn.disabled = true; btn.textContent = 'Updating…'; }
       try {
