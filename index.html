@@ -10964,6 +10964,7 @@
             <button class="admin-tab" onclick="adminTab(this,'adm-partners');loadAdminPartners()">🤝 Partner Requests</button>
             <button class="admin-tab" onclick="adminTab(this,'adm-announce');loadAdminAnnouncements()">📢 Announcements</button>
             <button class="admin-tab" onclick="adminTab(this,'adm-tasks');loadAdminTasksTab()">📋 Tasks</button>
+            <button class="admin-tab" onclick="adminTab(this,'adm-reports');loadAdminReports()">🚩 Reports <span id="adm-reports-count" style="display:none;background:#dc2626;color:#fff;font-size:10px;font-weight:800;padding:1px 7px;border-radius:20px;margin-left:4px;"></span></button>
             <button class="admin-tab" onclick="adminTab(this,'adm-settings');loadAdminSettings()">⚙️ Settings</button>
           </div>
 
@@ -11154,6 +11155,17 @@
             </div>
             <div id="adm-sold-list">
               <div style="text-align:center;padding:32px;color:var(--muted);">Loading sold houses...</div>
+            </div>
+          </div>
+
+          <!-- REPORTS TAB -->
+          <div class="admin-sub" id="adm-reports">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px;">
+              <div style="font-size:15px;font-weight:700;color:var(--ink);">🚩 User-submitted listing reports</div>
+              <button class="btn btn-sm" style="background:var(--bg2);color:var(--ink);" onclick="loadAdminReports()">🔄 Refresh</button>
+            </div>
+            <div id="adm-reports-list">
+              <div style="text-align:center;padding:32px;color:var(--muted);">Loading reports...</div>
             </div>
           </div>
 
@@ -17448,6 +17460,7 @@
             <img src="${img}" alt="${esc(h.title)}" onerror="this.src='https://images.unsplash.com/photo-1568605114967-8130f3a36994?w=500'" loading="lazy">
             ${h.verified ? '<div class="verified-chip" style="position:absolute;top:10px;left:10px;z-index:2;">✓ Verified</div>' : ''}
             <div class="browse-card-actions" onclick="event.stopPropagation()">
+              <button class="browse-report-btn" title="Report this listing" onclick="event.stopPropagation();openReportModal('${h.id}','${esc(h.title||'Listing')}')">🚩</button>
             </div>
           </div>
           <div class="browse-card-body">
@@ -18880,31 +18893,159 @@
     }
 
     // ══ ADMIN HOUSES TAB ══
+    var _adminReportSummary = {}; // houseId → count, loaded alongside houses
+
     async function loadAdminHouses() {
       const el = document.getElementById('adm-house-list');
       if (!el) return;
       el.innerHTML = '<div style="text-align:center;padding:32px;color:var(--muted);">Loading listings...</div>';
       try {
-        const { data, error } = await withTimeout(
-          sb.from('houses').select('id,title,city,area,price,status,created_at,owner_id,verified,verify_status').order('created_at', { ascending: false }).limit(200),
-          8000, 'Listings load timed out'
-        );
-        if (error) throw error;
+        // Fetch houses + report summary in parallel
+        const [houseRes, rptRes] = await Promise.all([
+          withTimeout(
+            sb.from('houses').select('id,title,city,area,price,status,created_at,owner_id,verified,verify_status').order('created_at', { ascending: false }).limit(200),
+            8000, 'Listings load timed out'
+          ),
+          withTimeout(
+            sb.rpc('get_reports_summary', {}),
+            8000, 'Reports summary timed out'
+          ).catch(() => ({ data: {}, error: null }))
+        ]);
+        if (houseRes.error) throw houseRes.error;
+        const data = houseRes.data;
+        _adminReportSummary = rptRes.data || {};
         if (!data?.length) { el.innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted);">No listings found.</div>'; return; }
-        el.innerHTML = data.map(h => `
-          <div style="border:1px solid ${h.verify_status==='pending' ? '#fbbf24' : 'var(--border2)'};border-radius:var(--r);margin-bottom:10px;background:var(--bg2);padding:12px 14px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+        el.innerHTML = data.map(h => {
+          const rptCount = _adminReportSummary[h.id] || 0;
+          const rptBadge = rptCount > 0
+            ? `<span title="Reports" style="padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;background:#fee2e2;color:#dc2626;cursor:pointer;" onclick="adminTab(document.querySelector('.admin-tab:nth-last-child(2)'),'adm-reports');loadAdminReports('${esc(h.id)}')">🚩 ${rptCount} report${rptCount>1?'s':''}</span>`
+            : '';
+          return `
+          <div style="border:1px solid ${h.verify_status==='pending' ? '#fbbf24' : (rptCount>0?'#fca5a5':'var(--border2)')};border-radius:var(--r);margin-bottom:10px;background:var(--bg2);padding:12px 14px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
             <div style="min-width:0;">
               <div style="font-size:14px;font-weight:700;color:var(--ink);margin-bottom:2px;">${esc(h.title||'Untitled')}${h.verified ? ' <span class="verified-chip">✓ Verified</span>' : ''}${h.verify_status==='pending' ? ' <span style="font-size:11px;font-weight:700;color:#b45309;background:#fef3c7;padding:2px 9px;border-radius:20px;">🔔 Verify Requested</span>' : ''}</div>
               <div style="font-size:12px;color:var(--muted);">${esc(h.city||h.area||'—')} &nbsp;·&nbsp; ₹${parseInt(h.price||0).toLocaleString('en-IN')}/mo &nbsp;·&nbsp; ${new Date(h.created_at).toLocaleDateString('en-IN')}</div>
             </div>
             <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;flex-wrap:wrap;">
+              ${rptBadge}
               <span style="padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;background:${h.status==='published'?'var(--green-bg)':'var(--amber-bg)'};color:${h.status==='published'?'var(--green)':'var(--amber)'};">${esc(h.status||'draft')}</span>
               <button class="btn btn-sm" style="background:${h.verified ? '#dbeafe' : 'var(--blue-bg)'};color:#2563eb;font-size:12px;" onclick="adminToggleListingVerified('${esc(h.id)}','${esc(h.title||'listing')}',${h.verified ? 'true' : 'false'})">${h.verified ? '✓ Unverify' : '☑️ Verify'}</button>
               <button class="btn btn-sm" style="background:var(--red-bg);color:var(--red);font-size:12px;" onclick="adminRemoveListing('${esc(h.id)}','${esc(h.title||'listing')}')">🗑️ Delete</button>
             </div>
-          </div>`).join('');
+          </div>`;
+        }).join('');
       } catch(e) {
         el.innerHTML = `<div style="padding:24px;text-align:center;color:var(--muted);">Failed to load: ${esc(e.message)}</div>`;
+      }
+    }
+
+    var _adminReportsAllCache = []; // full report list cache
+
+    async function loadAdminReports(filterHouseId) {
+      const el = document.getElementById('adm-reports-list');
+      if (!el) return;
+      el.innerHTML = '<div style="text-align:center;padding:32px;color:var(--muted);">Loading reports...</div>';
+      try {
+        const { data, error } = await withTimeout(
+          sb.from('property_reports').select('*').order('created_at', { ascending: false }).limit(500),
+          8000, 'Reports load timed out'
+        );
+        if (error) throw error;
+        _adminReportsAllCache = data || [];
+
+        // Update badge count
+        const badge = document.getElementById('adm-reports-count');
+        if (badge) {
+          if (_adminReportsAllCache.length) { badge.textContent = _adminReportsAllCache.length; badge.style.display = 'inline-block'; }
+          else badge.style.display = 'none';
+        }
+
+        if (!_adminReportsAllCache.length) {
+          el.innerHTML = '<div style="padding:32px;text-align:center;color:var(--muted);">No reports yet. 🎉</div>';
+          return;
+        }
+
+        // Group by house
+        const grouped = {};
+        _adminReportsAllCache.forEach(r => {
+          const hid = r.house_id || 'unknown';
+          if (!grouped[hid]) grouped[hid] = [];
+          grouped[hid].push(r);
+        });
+
+        // Sort houses by most reports first
+        const sortedHouses = Object.entries(grouped).sort((a,b) => b[1].length - a[1].length);
+
+        el.innerHTML = sortedHouses.map(([hid, reports]) => {
+          // Try to find listing title from rentAllHouses cache
+          const listing = (rentAllHouses||[]).find(h=>h.id===hid) || (allHouses||[]).find(h=>h.id===hid);
+          const listingTitle = listing ? esc(listing.title||'Untitled') : `<span style="color:var(--muted);font-style:italic;">ID: ${esc(hid)}</span>`;
+          const highlighted = filterHouseId && hid === filterHouseId ? 'border-color:#dc2626;background:#fff5f5;' : '';
+          return `
+          <div style="border:1.5px solid var(--border2);${highlighted}border-radius:var(--r);margin-bottom:16px;overflow:hidden;">
+            <div style="background:var(--bg2);padding:12px 16px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+              <div>
+                <div style="font-size:14px;font-weight:700;color:var(--ink);">🏠 ${listingTitle}</div>
+                <div style="font-size:12px;color:var(--muted);margin-top:2px;">House ID: ${esc(hid)}</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;">
+                <span style="padding:4px 12px;border-radius:20px;font-size:12px;font-weight:800;background:#fee2e2;color:#dc2626;">🚩 ${reports.length} report${reports.length>1?'s':''}</span>
+                <button class="btn btn-sm" style="background:#dc2626;color:#fff;font-size:12px;" onclick="adminDeleteListingFromReport('${esc(hid)}','${listingTitle}')">🗑️ Delete Listing</button>
+              </div>
+            </div>
+            <div style="padding:0 16px 12px;">
+              ${reports.map(r => `
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);flex-wrap:wrap;">
+                <div style="min-width:0;">
+                  <div style="font-size:13px;font-weight:600;color:var(--ink);">${esc(r.reason||'—')}</div>
+                  ${r.details ? `<div style="font-size:12px;color:var(--muted);margin-top:2px;">${esc(r.details)}</div>` : ''}
+                  <div style="font-size:11px;color:var(--muted);margin-top:4px;">By: ${esc(r.reporter_email||r.reporter_id||'Anonymous')} &nbsp;·&nbsp; ${r.created_at ? new Date(r.created_at).toLocaleString('en-IN') : '—'}</div>
+                </div>
+                <button class="btn btn-sm" style="background:var(--red-bg);color:var(--red);font-size:11px;flex-shrink:0;" onclick="adminDismissReport('${esc(r.report_id||r.id||'')}')">✕ Dismiss</button>
+              </div>`).join('')}
+            </div>
+          </div>`;
+        }).join('');
+
+        // Scroll to filtered house if requested
+        if (filterHouseId) {
+          setTimeout(() => {
+            const activeEl = document.querySelector('#adm-reports-list [style*="border-color:#dc2626"]');
+            if (activeEl) activeEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }, 100);
+        }
+      } catch(e) {
+        el.innerHTML = `<div style="padding:24px;text-align:center;color:var(--muted);">Failed: ${esc(e.message)}</div>`;
+      }
+    }
+
+    async function adminDismissReport(reportId) {
+      if (!reportId) return;
+      try {
+        const { error } = await sb.rpc('delete_report', { reportId });
+        if (error) throw error;
+        toast('Report dismissed', 'success');
+        loadAdminReports();
+      } catch(e) {
+        toast('Failed: ' + (e.message || 'error'), 'error');
+      }
+    }
+
+    async function adminDeleteListingFromReport(houseId, titleHtml) {
+      const plainTitle = titleHtml.replace(/<[^>]+>/g, '');
+      if (!confirm(`Delete listing "${plainTitle}" and all its reports?`)) return;
+      try {
+        // Delete listing
+        const { error } = await sb.from('houses').delete().eq('id', houseId);
+        if (error) throw error;
+        // Dismiss all reports for it (best effort)
+        const reports = _adminReportsAllCache.filter(r => r.house_id === houseId);
+        await Promise.all(reports.map(r => sb.rpc('delete_report', { reportId: r.report_id || r.id }).catch(()=>{})));
+        toast('Listing and reports deleted', 'success');
+        loadAdminReports();
+        if (document.getElementById('adm-houses')?.classList.contains('active')) loadAdminHouses();
+      } catch(e) {
+        toast('Failed: ' + (e.message || 'error'), 'error');
       }
     }
 
@@ -22095,6 +22236,126 @@
       }, 300);
     }
 
+  </script>
+
+  <!-- ══ REPORT LISTING MODAL ══ -->
+  <div id="report-modal-bg"
+    style="display:none;position:fixed;inset:0;z-index:99998;background:rgba(0,0,0,.55);backdrop-filter:blur(4px);align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .25s;"
+    onclick="if(event.target===this)closeReportModal()">
+    <div style="background:var(--white);border-radius:var(--rxl);max-width:440px;width:92%;box-shadow:var(--sh3);overflow:hidden;animation:fadeUp .3s var(--ease);">
+      <div style="background:linear-gradient(135deg,#7f1d1d,#dc2626);padding:22px 24px 18px;">
+        <div style="font-size:22px;font-weight:800;color:#fff;">🚩 Report Listing</div>
+        <div style="font-size:13px;color:rgba(255,255,255,.7);margin-top:4px;" id="report-modal-title-sub">Help us keep Rent Nivas safe</div>
+      </div>
+      <div style="padding:22px 24px 24px;">
+        <div style="margin-bottom:14px;">
+          <label style="font-size:13px;font-weight:600;color:var(--ink);display:block;margin-bottom:8px;">Reason for report <span style="color:#dc2626;">*</span></label>
+          <div style="display:flex;flex-direction:column;gap:8px;" id="report-reason-btns">
+            <label class="report-reason-opt"><input type="radio" name="report-reason" value="Fake / Scam listing"> <span>🤥 Fake / Scam listing</span></label>
+            <label class="report-reason-opt"><input type="radio" name="report-reason" value="Wrong price or details"> <span>💸 Wrong price or details</span></label>
+            <label class="report-reason-opt"><input type="radio" name="report-reason" value="Already rented / unavailable"> <span>🔒 Already rented / unavailable</span></label>
+            <label class="report-reason-opt"><input type="radio" name="report-reason" value="Inappropriate content"> <span>⚠️ Inappropriate content</span></label>
+            <label class="report-reason-opt"><input type="radio" name="report-reason" value="Other"> <span>📝 Other</span></label>
+          </div>
+        </div>
+        <div style="margin-bottom:18px;">
+          <label style="font-size:13px;font-weight:600;color:var(--ink);display:block;margin-bottom:6px;">Additional details <span style="font-size:11px;font-weight:400;color:var(--muted);">(optional)</span></label>
+          <textarea id="report-detail-text" placeholder="Tell us more..." style="width:100%;box-sizing:border-box;padding:10px 12px;border:1.5px solid var(--border2);border-radius:var(--r);font-size:14px;font-family:var(--font);background:var(--bg);color:var(--ink);resize:vertical;min-height:80px;"></textarea>
+        </div>
+        <div style="display:flex;gap:10px;">
+          <button class="btn btn-soft btn-sm" style="flex:1;" onclick="closeReportModal()">Cancel</button>
+          <button class="btn btn-sm" id="report-submit-btn" style="flex:2;background:#dc2626;color:#fff;font-weight:700;" onclick="submitReport()">🚩 Submit Report</button>
+        </div>
+        <div id="report-status" style="margin-top:10px;font-size:13px;text-align:center;min-height:18px;"></div>
+      </div>
+    </div>
+  </div>
+  <style>
+    .browse-report-btn {
+      position: absolute;
+      top: 8px; right: 8px;
+      background: rgba(0,0,0,.45);
+      border: none;
+      border-radius: 50%;
+      width: 32px; height: 32px;
+      font-size: 15px;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0;
+      transition: opacity .2s, background .2s;
+      z-index: 3;
+    }
+    .browse-card:hover .browse-report-btn { opacity: 1; }
+    .browse-card-img { position: relative; }
+    .report-reason-opt {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 14px;
+      border: 1.5px solid var(--border2);
+      border-radius: var(--r);
+      cursor: pointer;
+      font-size: 14px;
+      color: var(--ink);
+      transition: border-color .15s, background .15s;
+    }
+    .report-reason-opt:has(input:checked) {
+      border-color: #dc2626;
+      background: #fef2f2;
+    }
+    .report-reason-opt input { accent-color: #dc2626; flex-shrink: 0; }
+  </style>
+  <script>
+    var _reportHouseId = null;
+    function openReportModal(houseId, title) {
+      if (!user) { toast('Please log in to report a listing.', 'error'); return; }
+      _reportHouseId = houseId;
+      var sub = document.getElementById('report-modal-title-sub');
+      if (sub) sub.textContent = 'Reporting: ' + (title || 'listing');
+      // Reset state
+      document.querySelectorAll('input[name="report-reason"]').forEach(r => r.checked = false);
+      var txt = document.getElementById('report-detail-text');
+      if (txt) txt.value = '';
+      var st = document.getElementById('report-status');
+      if (st) st.textContent = '';
+      var btn = document.getElementById('report-submit-btn');
+      if (btn) { btn.disabled = false; btn.textContent = '🚩 Submit Report'; }
+      var bg = document.getElementById('report-modal-bg');
+      if (!bg) return;
+      bg.style.display = 'flex'; bg.style.pointerEvents = 'all';
+      _lockScroll();
+      requestAnimationFrame(function() { bg.style.opacity = '1'; });
+    }
+    function closeReportModal() {
+      var bg = document.getElementById('report-modal-bg');
+      if (!bg) return;
+      bg.style.opacity = '0'; bg.style.pointerEvents = 'none';
+      _unlockScroll();
+      setTimeout(function() { bg.style.display = 'none'; }, 250);
+    }
+    async function submitReport() {
+      var reason = (document.querySelector('input[name="report-reason"]:checked') || {}).value;
+      if (!reason) { document.getElementById('report-status').textContent = 'Please select a reason.'; return; }
+      var details = (document.getElementById('report-detail-text') || {}).value || '';
+      var btn = document.getElementById('report-submit-btn');
+      var st = document.getElementById('report-status');
+      if (btn) { btn.disabled = true; btn.textContent = 'Submitting...'; }
+      try {
+        const { error } = await sb.from('property_reports').insert({
+          report_id: 'rpt_' + Date.now() + '_' + Math.random().toString(36).slice(2,7),
+          house_id: _reportHouseId,
+          reporter_id: user?.id || user?.sub || '',
+          reporter_email: user?.email || '',
+          reason: reason,
+          details: details,
+          created_at: new Date().toISOString()
+        });
+        if (error) throw error;
+        if (st) st.innerHTML = '<span style="color:#16a34a;">✅ Report submitted. Thank you!</span>';
+        setTimeout(closeReportModal, 1400);
+      } catch(e) {
+        if (btn) { btn.disabled = false; btn.textContent = '🚩 Submit Report'; }
+        if (st) st.innerHTML = '<span style="color:#dc2626;">Failed: ' + esc(e.message || 'Try again.') + '</span>';
+      }
+    }
   </script>
 
   <!-- ══ TERMS & CONDITIONS POPUP ══ -->
