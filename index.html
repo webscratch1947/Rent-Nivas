@@ -10028,6 +10028,10 @@
           <div style="margin-top:16px;">
             <button class="btn btn-danger-soft btn-full" onclick="doLogout()" style="width:100%;padding:13px;font-size:15px;font-weight:700;border-radius:12px;">🚪 Log Out</button>
           </div>
+          <!-- DELETE ACCOUNT -->
+          <div style="margin-top:10px;">
+            <button class="btn btn-full" onclick="openDeleteAccountModal()" style="width:100%;padding:13px;font-size:15px;font-weight:700;border-radius:12px;background:#dc2626;color:#fff;">🗑️ Delete My Account Permanently</button>
+          </div>
 
         </div>
       </main>
@@ -10875,6 +10879,10 @@
           <div style="margin-top:16px;">
             <button class="btn btn-danger-soft btn-full" onclick="doLogout()" style="width:100%;padding:13px;font-size:15px;font-weight:700;border-radius:12px;">🚪 Log Out</button>
           </div>
+          <!-- DELETE ACCOUNT -->
+          <div style="margin-top:10px;">
+            <button class="btn btn-full" onclick="openDeleteAccountModal()" style="width:100%;padding:13px;font-size:15px;font-weight:700;border-radius:12px;background:#dc2626;color:#fff;">🗑️ Delete My Account Permanently</button>
+          </div>
         </div>
         <div class="ds-section" id="section-settings">
           <div style="margin-bottom:24px;">
@@ -10911,6 +10919,7 @@
               <button class="btn btn-outline-dark btn-full btn-sm" id="sett-change-pw-btn" onclick="openForgotPasswordModal(true)"
                 style="margin-bottom:10px;">🔑 Change Password</button>
               <button class="btn btn-danger-soft btn-full" id="sett-signout-all-btn" onclick="doLogout()">Sign Out of All Devices</button>
+              <button class="btn btn-full" onclick="openDeleteAccountModal()" style="margin-top:10px;background:#dc2626;color:#fff;font-weight:700;">🗑️ Delete My Account Permanently</button>
             </div>
           </div>
         </div>
@@ -22358,6 +22367,99 @@
         setTimeout(closeReportModal, 1400);
       } catch(e) {
         if (btn) { btn.disabled = false; btn.textContent = '🚩 Submit Report'; }
+        if (st) st.innerHTML = '<span style="color:#dc2626;">Failed: ' + esc(e.message || 'Try again.') + '</span>';
+      }
+    }
+  </script>
+
+  <!-- ══ DELETE ACCOUNT MODAL ══ -->
+  <div id="delacc-modal-bg"
+    style="display:none;position:fixed;inset:0;z-index:100000;background:rgba(0,0,0,.7);backdrop-filter:blur(6px);align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .3s;"
+    onclick="if(event.target===this)closeDeleteAccountModal()">
+    <div style="background:var(--white);border-radius:var(--rxl);max-width:440px;width:92%;box-shadow:var(--sh3);overflow:hidden;animation:fadeUp .35s var(--ease);">
+      <div style="background:linear-gradient(135deg,#7f1d1d 0%,#dc2626 100%);padding:26px 28px 20px;text-align:center;">
+        <div style="font-size:32px;margin-bottom:6px;">⚠️</div>
+        <div style="font-size:20px;font-weight:800;color:#fff;">Delete Account Permanently</div>
+        <div style="font-size:13px;color:rgba(255,255,255,.8);margin-top:6px;">This cannot be undone</div>
+      </div>
+      <div style="padding:24px 28px;">
+        <p style="font-size:13.5px;color:var(--muted);line-height:1.6;margin-bottom:16px;">
+          This will permanently erase, right now:
+        </p>
+        <ul style="font-size:13px;color:var(--soft);line-height:1.9;margin:0 0 18px;padding-left:18px;">
+          <li>All properties you've listed, and every photo in storage</li>
+          <li>Your profile, credits, XP, and streak history</li>
+          <li>Reports you've filed or that were filed against your listings</li>
+          <li>Referral, partner, and unlock records tied to your account</li>
+          <li>Your login itself — you won't be able to sign back in</li>
+        </ul>
+        <label style="display:flex;align-items:flex-start;gap:8px;font-size:13px;color:var(--ink);margin-bottom:18px;cursor:pointer;">
+          <input type="checkbox" id="delacc-confirm-chk" style="margin-top:2px;accent-color:#dc2626;">
+          <span>I understand this is permanent and cannot be reversed.</span>
+        </label>
+        <div style="display:flex;gap:10px;">
+          <button class="btn btn-soft btn-sm" style="flex:1;" onclick="closeDeleteAccountModal()">Cancel</button>
+          <button class="btn btn-sm" id="delacc-submit-btn" style="flex:2;background:#dc2626;color:#fff;font-weight:700;" onclick="submitDeleteAccount()" disabled>🗑️ Delete Forever</button>
+        </div>
+        <div id="delacc-status" style="margin-top:10px;font-size:13px;text-align:center;min-height:18px;"></div>
+      </div>
+    </div>
+  </div>
+  <script>
+    function openDeleteAccountModal() {
+      if (!user) { toast('Please log in first.', 'error'); return; }
+      var bg = document.getElementById('delacc-modal-bg');
+      if (!bg) return;
+      var chk = document.getElementById('delacc-confirm-chk');
+      var btn = document.getElementById('delacc-submit-btn');
+      var st = document.getElementById('delacc-status');
+      if (chk) chk.checked = false;
+      if (btn) { btn.disabled = true; btn.textContent = '🗑️ Delete Forever'; }
+      if (st) st.textContent = '';
+      bg.style.display = 'flex';
+      bg.style.pointerEvents = 'all';
+      if (window._lockScroll) window._lockScroll();
+      requestAnimationFrame(function () { bg.style.opacity = '1'; });
+    }
+    function closeDeleteAccountModal() {
+      var bg = document.getElementById('delacc-modal-bg');
+      if (!bg) return;
+      bg.style.opacity = '0';
+      bg.style.pointerEvents = 'none';
+      if (window._unlockScroll) window._unlockScroll();
+      setTimeout(function () { bg.style.display = 'none'; }, 300);
+    }
+    document.addEventListener('change', function (e) {
+      if (e.target && e.target.id === 'delacc-confirm-chk') {
+        var btn = document.getElementById('delacc-submit-btn');
+        if (btn) btn.disabled = !e.target.checked;
+      }
+    });
+    async function submitDeleteAccount() {
+      var btn = document.getElementById('delacc-submit-btn');
+      var st = document.getElementById('delacc-status');
+      var chk = document.getElementById('delacc-confirm-chk');
+      if (!chk || !chk.checked) return;
+      if (btn) { btn.disabled = true; btn.textContent = '⏳ Deleting...'; }
+      if (st) st.textContent = '';
+      try {
+        const { data, error } = await sb.rpc('delete_my_account', {});
+        if (error) throw error;
+        if (st) st.innerHTML = '<span style="color:#16a34a;">✅ Account deleted. Signing you out…</span>';
+        // Wipe every local trace of this account, then force sign-out.
+        try {
+          Object.keys(localStorage).forEach(function (k) {
+            if (k.indexOf('rn-') === 0 || k.indexOf('nestly-') === 0 || k === 'rentnivas-auth' || k === 'paidUser') {
+              localStorage.removeItem(k);
+            }
+          });
+        } catch (e) {}
+        setTimeout(function () {
+          closeDeleteAccountModal();
+          if (window.doLogout) window.doLogout(); else location.reload();
+        }, 1200);
+      } catch (e) {
+        if (btn) { btn.disabled = false; btn.textContent = '🗑️ Delete Forever'; }
         if (st) st.innerHTML = '<span style="color:#dc2626;">Failed: ' + esc(e.message || 'Try again.') + '</span>';
       }
     }
