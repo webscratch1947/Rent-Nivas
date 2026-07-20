@@ -18922,7 +18922,7 @@
           const rptCount = _adminReportSummary[h.id] || 0;
           const rptBadge = rptCount > 0
             ? `<span title="Reports" style="padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;background:#fee2e2;color:#dc2626;cursor:pointer;" onclick="adminTab(document.querySelector('.admin-tab:nth-last-child(2)'),'adm-reports');loadAdminReports('${esc(h.id)}')">🚩 ${rptCount} report${rptCount>1?'s':''}</span>`
-            : '';
+            : `<span title="Reports" style="padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;background:var(--bg2);color:var(--muted);">🚩 0 reports</span>`;
           return `
           <div style="border:1px solid ${h.verify_status==='pending' ? '#fbbf24' : (rptCount>0?'#fca5a5':'var(--border2)')};border-radius:var(--r);margin-bottom:10px;background:var(--bg2);padding:12px 14px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
             <div style="min-width:0;">
