@@ -17461,9 +17461,6 @@
             ${h.verified ? '<div class="verified-chip" style="position:absolute;top:10px;left:10px;z-index:2;">✓ Verified</div>' : ''}
           </div>
           <div class="browse-card-body">
-            <div class="browse-card-actions" onclick="event.stopPropagation()">
-              <button class="browse-report-btn" title="Report this listing" onclick="event.stopPropagation();openReportModal('${h.id}','${esc(h.title||'Listing')}')">🚩 Report</button>
-            </div>
             ${ptLabel}
             <div class="browse-card-title">${esc(h.title)}</div>
             <div class="browse-card-loc">📍 ${esc(loc)}</div>
@@ -17472,7 +17469,10 @@
             ${customRoomsHTML}
             <div class="browse-price-row">
               <div class="browse-price">₹${parseInt(h.price || 0).toLocaleString('en-IN')}<span>/mo</span></div>
-              <button class="btn btn-terra btn-sm" onclick="event.stopPropagation();openPropertyDetail('${h.id}')">View →</button>
+              <div style="display:flex;align-items:center;gap:8px;" onclick="event.stopPropagation()">
+                <button class="browse-report-btn" title="Report this listing" onclick="event.stopPropagation();openReportModal('${h.id}','${esc(h.title||'Listing')}')">🚩 Report</button>
+                <button class="btn btn-terra btn-sm" onclick="event.stopPropagation();openPropertyDetail('${h.id}')">View →</button>
+              </div>
             </div>
           </div>
         </div>`;
@@ -17865,7 +17865,10 @@
             </div>
             <div class="browse-price-row" style="margin-top:12px;">
               <div class="browse-price">₹${parseInt(h.price || 0).toLocaleString('en-IN')}<span>/mo</span></div>
-              <button class="btn btn-terra btn-sm" onclick="event.stopPropagation();openPropertyDetail('${h.id}')">View →</button>
+              <div style="display:flex;align-items:center;gap:8px;" onclick="event.stopPropagation()">
+                <button class="browse-report-btn" title="Report this listing" onclick="event.stopPropagation();openReportModal('${h.id}','${esc(h.title||'Listing')}')">🚩 Report</button>
+                <button class="btn btn-terra btn-sm" onclick="event.stopPropagation();openPropertyDetail('${h.id}')">View →</button>
+              </div>
             </div>
           </div>
         </div>`;
@@ -22271,17 +22274,12 @@
     </div>
   </div>
   <style>
-    .browse-card-actions {
-      display: flex;
-      justify-content: flex-end;
-      margin-bottom: 8px;
-    }
     .browse-report-btn {
       background: #e02424;
       color: #fff;
       border: none;
       border-radius: 99px;
-      padding: 6px 14px;
+      padding: 6px 12px;
       font-size: 12px;
       font-weight: 700;
       letter-spacing: .2px;
@@ -22289,6 +22287,7 @@
       display: inline-flex; align-items: center; gap: 4px;
       box-shadow: 0 2px 6px rgba(0,0,0,.15);
       transition: background .2s, transform .15s;
+      flex-shrink: 0;
     }
     .browse-report-btn:hover { background: #b91c1c; }
     .browse-report-btn:active { transform: scale(.95); }
