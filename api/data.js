@@ -49,6 +49,8 @@ const TABLES = {
   Contacts: process.env.TABLE_CONTACTS || 'Contacts',
   verification_codes: process.env.TABLE_VERIFICATION_CODES || 'VerificationCodes',
   VerificationCodes: process.env.TABLE_VERIFICATION_CODES || 'VerificationCodes',
+  property_reports: process.env.TABLE_PROPERTY_REPORTS || 'PropertyReports',
+  PropertyReports: process.env.TABLE_PROPERTY_REPORTS || 'PropertyReports',
 };
 
 // ── NEW Referrals table ────────────────────────────────────────────────────────
@@ -2263,6 +2265,37 @@ async function handleRpc(spec, claims) {
   // Auth note: partner_task_progress/profiles are keyed by claims.sub (the
   // caller's own Cognito id), never by a client-supplied user id — a user
   // can only ever award/penalize their own row.
+  // ── Property Reports RPCs ──────────────────────────────────────────────────
+  if (spec.name === 'delete_report') {
+    // Admin-only: delete a single report by reportId
+    const { reportId } = spec.params || {};
+    if (!reportId) throw new Error('delete_report: reportId required');
+    const payload = verifyToken ? await verifyToken(req) : null;
+    const isAdmin = (process.env.ADMIN_EMAILS || '').split(',').map(e => e.trim()).includes(payload?.email || payload?.['cognito:username'] || '');
+    if (!isAdmin) throw new Error('Admin only');
+    const TBL = tableName('property_reports');
+    await runDdb('delete', 'property_reports', () => ddb.send(new DeleteItemCommand({
+      TableName: TBL,
+      Key: marshall({ reportId })
+    })));
+    return { data: { ok: true }, error: null };
+  }
+
+  if (spec.name === 'get_reports_summary') {
+    // Admin-only: returns { houseId → reportCount } map
+    const payload = verifyToken ? await verifyToken(req) : null;
+    const isAdmin = (process.env.ADMIN_EMAILS || '').split(',').map(e => e.trim()).includes(payload?.email || payload?.['cognito:username'] || '');
+    if (!isAdmin) throw new Error('Admin only');
+    const TBL = tableName('property_reports');
+    const scanned = await runDdb('read', 'property_reports', () => ddb.send(new ScanCommand({ TableName: TBL })));
+    const items = (scanned?.Items || []).map(i => unmarshall(i));
+    const summary = {};
+    items.forEach(r => {
+      if (r.house_id) summary[r.house_id] = (summary[r.house_id] || 0) + 1;
+    });
+    return { data: summary, error: null };
+  }
+
   if (spec.name === 'complete_partner_task') {
     const taskId = String((spec.params && spec.params.p_task_id) || '').trim();
     return await completePartnerTaskCore(claims.sub, taskId);
