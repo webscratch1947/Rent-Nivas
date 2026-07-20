@@ -4,6 +4,7 @@ const { marshall, unmarshall } = require('@aws-sdk/util-dynamodb');
 // Used only by admin_merge_duplicate_accounts, to remove the loser
 // account's Cognito login once its data has been moved to the keeper.
 const { CognitoIdentityProviderClient, ListUsersCommand, AdminDeleteUserCommand } = require('@aws-sdk/client-cognito-identity-provider');
+const { S3Client, DeleteObjectsCommand, ListObjectsV2Command } = require('@aws-sdk/client-s3');
 
 const REGION = process.env.AWS_REGION || process.env.RENT_NIVAS_AWS_REGION || 'eu-north-1';
 const USER_POOL_ID = process.env.COGNITO_USER_POOL_ID;
@@ -13,6 +14,8 @@ const JWKS_URL = `${ISSUER}/.well-known/jwks.json`;
 
 const ddb = new DynamoDBClient({ region: REGION });
 const cognitoAdmin = new CognitoIdentityProviderClient({ region: REGION });
+const s3 = new S3Client({ region: REGION });
+const S3_BUCKET = process.env.S3_BUCKET || process.env.RENT_NIVAS_S3_BUCKET;
 let jwksCache = null;
 let jwksFetchedAt = 0;
 
@@ -2298,6 +2301,193 @@ async function handleRpc(spec, claims) {
       if (r.house_id) summary[r.house_id] = (summary[r.house_id] || 0) + 1;
     });
     return { data: summary, error: null };
+  }
+
+  // ── delete_my_account ────────────────────────────────────────────────────
+  // Self-service, permanent account deletion. Caller can only ever delete
+  // their OWN account (userId comes from claims.sub, never a client param) —
+  // this is not an admin tool. Wipes, in order:
+  //   1. Every listing the user owns, and every S3 image object under
+  //      houses/{propertyId}/ for each of those listings.
+  //   2. Every property report — both ones this user filed, and ones filed
+  //      against their listings.
+  //   3. Purchases, favorites, unlocks, partner applications/progress,
+  //      notifications, warning/announcement view receipts, bans and
+  //      warnings tied to this user.
+  //   4. Their Referrals record (their own code), and referred_by_code is
+  //      cleared on anyone who was using that code (so it doesn't dangle).
+  //   5. Their pending-signup VerificationCodes row.
+  //   6. Every profile row under any key shape this account may have used.
+  //   7. Their Cognito login itself — they cannot sign back in afterward.
+  // Every step is best-effort (failures are logged, not thrown) so a single
+  // missing table/permission never blocks the rest of the wipe.
+  if (spec.name === 'delete_my_account') {
+    const userId = claims.sub;
+    if (!userId) throw new Error('Not authenticated');
+
+    const profile = await readItems({
+      table: 'profiles', op: 'select', select: '*',
+      filters: [{ op: 'eq', column: 'id', value: userId }], maybeSingle: true,
+    }).catch(() => null);
+    const email = (profile && profile.email) ? String(profile.email).trim().toLowerCase() : null;
+
+    const summary = { houses_deleted: 0, images_deleted: 0, reports_deleted: 0, rows_deleted: {} };
+
+    // ── 1. Houses + their S3 images ──────────────────────────────────────
+    try {
+      const TableNameHouses = tableName('houses');
+      const scannedHouses = await runDdb('read', 'houses', () => ddb.send(new ScanCommand({ TableName: TableNameHouses })));
+      const myHouses = (scannedHouses.Items || [])
+        .map(item => fromDbItem('houses', unmarshall(item)))
+        .filter(h => String(h.owner_id) === String(userId));
+
+      for (const house of myHouses) {
+        if (S3_BUCKET && house.id) {
+          try {
+            const prefix = `houses/${house.id}/`;
+            const listed = await s3.send(new ListObjectsV2Command({ Bucket: S3_BUCKET, Prefix: prefix }));
+            const objects = (listed.Contents || []).map(o => ({ Key: o.Key }));
+            if (objects.length) {
+              await s3.send(new DeleteObjectsCommand({ Bucket: S3_BUCKET, Delete: { Objects: objects } }));
+              summary.images_deleted += objects.length;
+            }
+          } catch (e) {
+            console.warn('[DeleteAccount] S3 cleanup failed for house', house.id, ':', e.message);
+          }
+        }
+        await deleteRows({ table: 'houses', filters: [{ op: 'eq', column: 'id', value: house.id }] }).catch(e => {
+          console.warn('[DeleteAccount] failed deleting house', house.id, ':', e.message);
+        });
+        summary.houses_deleted++;
+      }
+
+      // ── 2. Property reports: ones this user filed + ones on their listings ──
+      const myHouseIds = new Set(myHouses.map(h => String(h.id)));
+      const TBLReports = tableName('property_reports');
+      const scannedReports = await runDdb('read', 'property_reports', () => ddb.send(new ScanCommand({ TableName: TBLReports })));
+      const reportItems = (scannedReports.Items || []).map(i => unmarshall(i));
+      for (const r of reportItems) {
+        const isMine = String(r.reporter_id) === String(userId) || myHouseIds.has(String(r.house_id));
+        if (!isMine) continue;
+        const reportKey = r.reportId || r.report_id;
+        if (!reportKey) continue;
+        try {
+          await ddb.send(new DeleteItemCommand({ TableName: TBLReports, Key: marshall({ reportId: reportKey }) }));
+          summary.reports_deleted++;
+        } catch (e) {
+          console.warn('[DeleteAccount] failed deleting report', reportKey, ':', e.message);
+        }
+      }
+    } catch (e) {
+      console.warn('[DeleteAccount] houses/reports cleanup failed:', e.message);
+    }
+
+    // ── 3. Every other table that references this user ──────────────────
+    const COMPOSITE_USER_TABLES = { user_house_unlocks: 'property_id', favorites: 'property_id', notifications: 'notification_id' };
+    const purgeTables = [
+      { table: 'purchases', column: 'user_id' },
+      { table: 'favorites', column: 'user_id' },
+      { table: 'user_house_unlocks', column: 'user_id' },
+      { table: 'partner_requests', column: 'user_id' },
+      { table: 'notifications', column: 'user_id' },
+      { table: 'admin_bans', column: 'user_id' },
+      { table: 'admin_warnings', column: 'user_id' },
+    ];
+    for (const { table, column } of purgeTables) {
+      try {
+        const TableNameX = tableName(table);
+        const scannedX = await runDdb('read', table, () => ddb.send(new ScanCommand({ TableName: TableNameX })));
+        const rowsX = (scannedX.Items || []).map(item => fromDbItem(table, unmarshall(item)));
+        const toDelete = rowsX.filter(r => String(r[column]) === String(userId));
+        const secondKeyField = COMPOSITE_USER_TABLES[table];
+        let deletedCount = 0;
+        for (const row of toDelete) {
+          try {
+            if (secondKeyField) {
+              await deleteRows({ table, filters: [{ op: 'eq', column: 'user_id', value: userId }, { op: 'eq', column: secondKeyField, value: row[secondKeyField] }] });
+            } else {
+              await deleteRows({ table, filters: [{ op: 'eq', column: 'id', value: row.id }] });
+            }
+            deletedCount++;
+          } catch (e) {
+            console.warn(`[DeleteAccount] failed deleting ${table} row:`, e.message);
+          }
+        }
+        summary.rows_deleted[table] = deletedCount;
+      } catch (e) {
+        console.warn(`[DeleteAccount] skipping table "${table}":`, e.message);
+        summary.rows_deleted[table] = 0;
+      }
+    }
+
+    // partner_task_progress is composite-keyed on (user_id, task_id) — handle separately
+    try {
+      const TBLProg = tableName('partner_task_progress');
+      const scannedProg = await runDdb('read', 'partner_task_progress', () => ddb.send(new ScanCommand({ TableName: TBLProg })));
+      const rowsProg = (scannedProg.Items || []).map(item => fromDbItem('partner_task_progress', unmarshall(item)));
+      const mine = rowsProg.filter(r => String(r.user_id) === String(userId));
+      for (const row of mine) {
+        await deleteRows({ table: 'partner_task_progress', filters: [{ op: 'eq', column: 'user_id', value: userId }, { op: 'eq', column: 'task_id', value: row.task_id }] }).catch(() => {});
+      }
+      summary.rows_deleted.partner_task_progress = mine.length;
+    } catch (e) { console.warn('[DeleteAccount] partner_task_progress cleanup failed:', e.message); }
+
+    // ── 4. Referrals: delete own code, clear referred_by_code on others ──
+    try {
+      if (profile && profile.referral_code) {
+        await ddb.send(new DeleteItemCommand({ TableName: TABLE_REFERRALS, Key: marshall({ referralId: profile.referral_code }) })).catch(() => {});
+        const TBLUsers = tableName('profiles');
+        const scanUsers = await ddb.send(new ScanCommand({ TableName: TBLUsers }));
+        for (const raw of (scanUsers.Items || [])) {
+          const row = unmarshall(raw);
+          if (row.referred_by_code && String(row.referred_by_code) === String(profile.referral_code)) {
+            try {
+              await ddb.send(new UpdateItemCommand({
+                TableName: TBLUsers,
+                Key: marshall({ userId: row.userId }),
+                UpdateExpression: 'REMOVE referred_by_code',
+                ConditionExpression: 'attribute_exists(userId)',
+              }));
+            } catch (e2) { console.warn('[DeleteAccount] could not clear referred_by_code:', e2.message); }
+          }
+        }
+      }
+    } catch (e) { console.warn('[DeleteAccount] referral cleanup failed:', e.message); }
+
+    // ── 5. VerificationCodes row for this email ──────────────────────────
+    if (email) {
+      try {
+        const TBLVerify = tableName('verification_codes');
+        await ddb.send(new DeleteItemCommand({ TableName: TBLVerify, Key: marshall({ pk: `signup_verify#${email}` }) }));
+      } catch (e) { console.warn('[DeleteAccount] verification code cleanup failed:', e.message); }
+    }
+
+    // ── 6. Profile row(s) under every key shape ──────────────────────────
+    try {
+      const TBLUsers = tableName('profiles');
+      await ddb.send(new DeleteItemCommand({ TableName: TBLUsers, Key: marshall({ userId }) })).catch(() => {});
+      await ddb.send(new DeleteItemCommand({ TableName: TBLUsers, Key: marshall({ id: userId }) })).catch(() => {});
+      if (email) {
+        await ddb.send(new DeleteItemCommand({ TableName: TBLUsers, Key: marshall({ userId: email }) })).catch(() => {});
+        await ddb.send(new DeleteItemCommand({ TableName: TBLUsers, Key: marshall({ id: email }) })).catch(() => {});
+      }
+    } catch (e) { console.warn('[DeleteAccount] profile row cleanup failed:', e.message); }
+
+    // ── 7. Cognito login itself — last step, so a mid-way failure above ──
+    // still leaves the user able to sign in and see what's left/retry.
+    try {
+      const page = await cognitoAdmin.send(new ListUsersCommand({ UserPoolId: USER_POOL_ID, Filter: `sub = "${userId}"`, Limit: 1 }));
+      const cognitoUser = page.Users && page.Users[0];
+      if (cognitoUser) {
+        await cognitoAdmin.send(new AdminDeleteUserCommand({ UserPoolId: USER_POOL_ID, Username: cognitoUser.Username }));
+      }
+    } catch (e) {
+      console.warn('[DeleteAccount] Cognito user deletion failed:', e.message);
+      throw new Error('Your data was deleted, but we could not remove your login — please contact support to finish closing your account.');
+    }
+
+    console.log('[DeleteAccount] Account permanently deleted:', userId, JSON.stringify(summary));
+    return { data: { ok: true, summary }, error: null };
   }
 
   if (spec.name === 'complete_partner_task') {
