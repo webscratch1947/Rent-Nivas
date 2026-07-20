@@ -1386,7 +1386,11 @@ async function handleRpc(spec, claims) {
       return { claimed: false, reason: 'too_soon', ms_until_next: DAY_MS - (now - lastClaimedAt), current_day: streakDay };
     }
 
-    const nextDay = streakDay >= 7 ? 1 : streakDay + 1;
+    // If more than 48h have passed since the last claim, the user missed
+    // their claim window for the previous day entirely — the streak breaks
+    // and restarts at Day 1 (not just "resume where you left off").
+    const missedWindow = lastClaimedAt > 0 && (now - lastClaimedAt) >= (2 * DAY_MS);
+    const nextDay = (streakDay >= 7 || missedWindow) ? 1 : streakDay + 1;
     const CREDITS_PER_DAY = [1, 2, 3, 4, 5, 6, 7];
     const creditsToAdd = CREDITS_PER_DAY[nextDay - 1];
     const currentCredits = parseFloat(profile.credits || '0');
