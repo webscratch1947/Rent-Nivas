@@ -17459,11 +17459,11 @@
           <div class="browse-card-img">
             <img src="${img}" alt="${esc(h.title)}" onerror="this.src='https://images.unsplash.com/photo-1568605114967-8130f3a36994?w=500'" loading="lazy">
             ${h.verified ? '<div class="verified-chip" style="position:absolute;top:10px;left:10px;z-index:2;">✓ Verified</div>' : ''}
-            <div class="browse-card-actions" onclick="event.stopPropagation()">
-              <button class="browse-report-btn" title="Report this listing" onclick="event.stopPropagation();openReportModal('${h.id}','${esc(h.title||'Listing')}')">Report</button>
-            </div>
           </div>
           <div class="browse-card-body">
+            <div class="browse-card-actions" onclick="event.stopPropagation()">
+              <button class="browse-report-btn" title="Report this listing" onclick="event.stopPropagation();openReportModal('${h.id}','${esc(h.title||'Listing')}')">🚩 Report</button>
+            </div>
             ${ptLabel}
             <div class="browse-card-title">${esc(h.title)}</div>
             <div class="browse-card-loc">📍 ${esc(loc)}</div>
@@ -22271,23 +22271,24 @@
     </div>
   </div>
   <style>
+    .browse-card-actions {
+      display: flex;
+      justify-content: flex-end;
+      margin-bottom: 8px;
+    }
     .browse-report-btn {
-      position: absolute;
-      top: 8px; right: 8px;
       background: #e02424;
       color: #fff;
       border: none;
       border-radius: 99px;
-      padding: 6px 12px;
+      padding: 6px 14px;
       font-size: 12px;
       font-weight: 700;
       letter-spacing: .2px;
       cursor: pointer;
-      display: flex; align-items: center; gap: 4px;
-      opacity: 1;
-      box-shadow: 0 2px 6px rgba(0,0,0,.25);
+      display: inline-flex; align-items: center; gap: 4px;
+      box-shadow: 0 2px 6px rgba(0,0,0,.15);
       transition: background .2s, transform .15s;
-      z-index: 3;
     }
     .browse-report-btn:hover { background: #b91c1c; }
     .browse-report-btn:active { transform: scale(.95); }
@@ -22563,6 +22564,9 @@
         var nextDay = s.lastClaimed + DAY_MS;
         // Day 0 means never claimed — day 1 is always available
         if (s.day === 0 || s.lastClaimed === 0) return 1;
+        // Missed the claim window entirely (didn't claim within 48h of last
+        // claim) — the streak breaks and restarts at Day 1.
+        if (now >= s.lastClaimed + (2 * DAY_MS)) return 1;
         // If 7 days have passed since cycle start and all days claimed, reset
         if (s.day >= 7 && now > s.lastClaimed + DAY_MS) return 1; // next cycle
         // If 24h have passed since last claim and not yet day 7 complete
@@ -22877,10 +22881,14 @@
         var bg = document.getElementById('streak-popup-bg');
         // Don't double-open if it's already visible
         if (bg && bg.style.display === 'flex' && parseFloat(bg.style.opacity) > 0) return;
-        // No session-storage gate here on purpose — the caller sites (initial
-        // load, welcome-popup close, fresh sign-in) already fire this only
-        // once per real site open, and the request is for it to reappear
-        // every time the site is opened, not just once per browser session.
+        // Only auto-show once per calendar day (per user), so reopening the
+        // app/tab repeatedly within the same day doesn't keep popping this
+        // back up after it's already been seen/claimed.
+        var todayKey = new Date().toISOString().slice(0, 10);
+        var uid = (window.user && window.user.id) || 'anon';
+        var gateKey = 'rn-streak-popup-shown-' + uid + '-' + todayKey;
+        if (localStorage.getItem(gateKey)) return;
+        localStorage.setItem(gateKey, '1');
         if (window.openStreakPopup) window.openStreakPopup();
       };
     })();
