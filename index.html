@@ -17460,7 +17460,7 @@
             <img src="${img}" alt="${esc(h.title)}" onerror="this.src='https://images.unsplash.com/photo-1568605114967-8130f3a36994?w=500'" loading="lazy">
             ${h.verified ? '<div class="verified-chip" style="position:absolute;top:10px;left:10px;z-index:2;">✓ Verified</div>' : ''}
             <div class="browse-card-actions" onclick="event.stopPropagation()">
-              <button class="browse-report-btn" title="Report this listing" onclick="event.stopPropagation();openReportModal('${h.id}','${esc(h.title||'Listing')}')">🚩</button>
+              <button class="browse-report-btn" title="Report this listing" onclick="event.stopPropagation();openReportModal('${h.id}','${esc(h.title||'Listing')}')">Report</button>
             </div>
           </div>
           <div class="browse-card-body">
@@ -22274,24 +22274,23 @@
     .browse-report-btn {
       position: absolute;
       top: 8px; right: 8px;
-      background: rgba(0,0,0,.45);
+      background: #e02424;
+      color: #fff;
       border: none;
-      border-radius: 50%;
-      width: 32px; height: 32px;
-      font-size: 15px;
+      border-radius: 99px;
+      padding: 6px 12px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: .2px;
       cursor: pointer;
-      display: flex; align-items: center; justify-content: center;
-      opacity: 0;
-      transition: opacity .2s, background .2s;
+      display: flex; align-items: center; gap: 4px;
+      opacity: 1;
+      box-shadow: 0 2px 6px rgba(0,0,0,.25);
+      transition: background .2s, transform .15s;
       z-index: 3;
     }
-    .browse-card:hover .browse-report-btn { opacity: 1; }
-    @media (hover: none) {
-      .browse-report-btn { opacity: 1; }
-    }
-    @media (max-width: 768px) {
-      .browse-report-btn { opacity: 1; }
-    }
+    .browse-report-btn:hover { background: #b91c1c; }
+    .browse-report-btn:active { transform: scale(.95); }
     .browse-card-img { position: relative; }
     .report-reason-opt {
       display: flex; align-items: center; gap: 10px;
