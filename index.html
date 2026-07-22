@@ -13278,29 +13278,14 @@
       var ref   = (document.getElementById('vc-ref')?.value || '').trim();
 
       ctx.textBaseline = 'middle';
-      ctx.fillStyle = '#1a1a1a';
+      ctx.fillStyle = '#4a3826';
 
-      // Name — left box, y 517-596 (of 943 tall image)
-      var nameSize = _vcFitText(ctx, name || 'Your Name', W * 0.36, H * 0.062, H * 0.03, '700');
-      ctx.font = '700 ' + nameSize + 'px Inter, system-ui, sans-serif';
-      ctx.fillText(name || 'Your Name', W * 0.057, H * 0.585);
-
-      // Referral code — right of divider, same row
+      // Referral code only — right of divider, same row
       if (ref && ref !== 'Loading…') {
-        var refSize = _vcFitText(ctx, ref, W * 0.13, H * 0.05, H * 0.026, '800');
+        var refSize = _vcFitText(ctx, ref, W * 0.12, H * 0.03, H * 0.016, '800');
         ctx.font = '800 ' + refSize + 'px Inter, system-ui, sans-serif';
         ctx.fillText(ref, W * 0.315, H * 0.585);
       }
-
-      // Phone number — bottom-left box, y 650-753
-      var phoneSize = _vcFitText(ctx, phone || 'Phone Number', W * 0.17, H * 0.052, H * 0.028, '700');
-      ctx.font = '700 ' + phoneSize + 'px Inter, system-ui, sans-serif';
-      ctx.fillText(phone || 'Phone Number', W * 0.098, H * 0.744);
-
-      // City — bottom-right box, same row
-      var citySize = _vcFitText(ctx, city || 'City', W * 0.17, H * 0.052, H * 0.028, '700');
-      ctx.font = '700 ' + citySize + 'px Inter, system-ui, sans-serif';
-      ctx.fillText(city || 'City', W * 0.305, H * 0.744);
     }
 
     function saveVisitingCard() {
@@ -23194,14 +23179,6 @@
         var bg = document.getElementById('streak-popup-bg');
         // Don't double-open if it's already visible
         if (bg && bg.style.display === 'flex' && parseFloat(bg.style.opacity) > 0) return;
-        // Only auto-show once per calendar day (per user), so reopening the
-        // app/tab repeatedly within the same day doesn't keep popping this
-        // back up after it's already been seen/claimed.
-        var todayKey = new Date().toISOString().slice(0, 10);
-        var uid = (window.user && window.user.id) || 'anon';
-        var gateKey = 'rn-streak-popup-shown-' + uid + '-' + todayKey;
-        if (localStorage.getItem(gateKey)) return;
-        localStorage.setItem(gateKey, '1');
         if (window.openStreakPopup) window.openStreakPopup();
       };
     })();
