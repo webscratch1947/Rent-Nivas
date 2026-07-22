@@ -13198,6 +13198,145 @@
       });
     }
 
+    // ══════════ VISITING CARD ══════════
+    var _vcImg = null;
+    var _vcImgLoading = null;
+
+    function _vcStorageKey() {
+      var uid = (window.user && window.user.id) || (user && user.id) || 'guest';
+      return 'rn-visiting-card-' + uid;
+    }
+
+    function _vcLoadImage() {
+      if (_vcImg) return Promise.resolve(_vcImg);
+      if (_vcImgLoading) return _vcImgLoading;
+      _vcImgLoading = new Promise(function(resolve, reject) {
+        var img = new Image();
+        img.onload = function() { _vcImg = img; resolve(img); };
+        img.onerror = reject;
+        img.src = 'card.png';
+      });
+      return _vcImgLoading;
+    }
+
+    async function openVisitingCardPage() {
+      showPage('pd-visiting-card');
+      var saved = {};
+      try { saved = JSON.parse(localStorage.getItem(_vcStorageKey()) || '{}') || {}; } catch(e) {}
+
+      var nameEl  = document.getElementById('vc-name');
+      var phoneEl = document.getElementById('vc-phone');
+      var cityEl  = document.getElementById('vc-city');
+      var refEl   = document.getElementById('vc-ref');
+
+      nameEl.value  = saved.name  || (user && user.user_metadata?.name) || '';
+      phoneEl.value = saved.phone || (user && user.user_metadata?.phone) || '';
+      cityEl.value  = saved.city  || '';
+
+      // Referral code: use sidebar value if already loaded, else fetch it
+      var sidebarCode = (document.getElementById('pd-ref-code-display')?.textContent || '').replace(/—/g, '').trim();
+      if (sidebarCode) {
+        refEl.value = sidebarCode;
+      } else {
+        refEl.value = 'Loading…';
+        try {
+          var res = await _rnReferralApi('stats');
+          refEl.value = (res && res.data && res.data.referralCode) || '';
+        } catch(e) { refEl.value = ''; }
+      }
+
+      document.getElementById('vc-saved-pill').style.display = 'none';
+      drawVisitingCard();
+    }
+
+    function _vcFitText(ctx, text, maxWidth, startSize, minSize, weight) {
+      var size = startSize;
+      while (size > minSize) {
+        ctx.font = weight + ' ' + size + 'px Inter, system-ui, sans-serif';
+        if (ctx.measureText(text).width <= maxWidth) break;
+        size -= 2;
+      }
+      return size;
+    }
+
+    async function drawVisitingCard() {
+      var canvas = document.getElementById('vc-canvas');
+      if (!canvas) return;
+      var img;
+      try { img = await _vcLoadImage(); } catch(e) { return; }
+
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      var ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+      var W = img.naturalWidth, H = img.naturalHeight;
+      var name  = (document.getElementById('vc-name')?.value || '').trim();
+      var phone = (document.getElementById('vc-phone')?.value || '').trim();
+      var city  = (document.getElementById('vc-city')?.value || '').trim();
+      var ref   = (document.getElementById('vc-ref')?.value || '').trim();
+
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#1a1a1a';
+
+      // Name — left box, y 517-596 (of 943 tall image)
+      var nameSize = _vcFitText(ctx, name || 'Your Name', W * 0.36, H * 0.062, H * 0.03, '700');
+      ctx.font = '700 ' + nameSize + 'px Inter, system-ui, sans-serif';
+      ctx.fillText(name || 'Your Name', W * 0.057, H * 0.585);
+
+      // Referral code — right of divider, same row
+      if (ref && ref !== 'Loading…') {
+        var refSize = _vcFitText(ctx, ref, W * 0.13, H * 0.05, H * 0.026, '800');
+        ctx.font = '800 ' + refSize + 'px Inter, system-ui, sans-serif';
+        ctx.fillText(ref, W * 0.315, H * 0.585);
+      }
+
+      // Phone number — bottom-left box, y 650-753
+      var phoneSize = _vcFitText(ctx, phone || 'Phone Number', W * 0.17, H * 0.052, H * 0.028, '700');
+      ctx.font = '700 ' + phoneSize + 'px Inter, system-ui, sans-serif';
+      ctx.fillText(phone || 'Phone Number', W * 0.098, H * 0.744);
+
+      // City — bottom-right box, same row
+      var citySize = _vcFitText(ctx, city || 'City', W * 0.17, H * 0.052, H * 0.028, '700');
+      ctx.font = '700 ' + citySize + 'px Inter, system-ui, sans-serif';
+      ctx.fillText(city || 'City', W * 0.305, H * 0.744);
+    }
+
+    function saveVisitingCard() {
+      var data = {
+        name:  document.getElementById('vc-name').value.trim(),
+        phone: document.getElementById('vc-phone').value.trim(),
+        city:  document.getElementById('vc-city').value.trim()
+      };
+      try {
+        localStorage.setItem(_vcStorageKey(), JSON.stringify(data));
+        var pill = document.getElementById('vc-saved-pill');
+        pill.style.display = 'inline-flex';
+        if (typeof toast === 'function') toast('Visiting card saved on this device', 'success');
+      } catch(e) {
+        if (typeof toast === 'function') toast('Could not save — storage unavailable', 'warn');
+      }
+    }
+
+    async function downloadVisitingCard() {
+      var canvas = document.getElementById('vc-canvas');
+      if (!canvas) return;
+      await drawVisitingCard();
+      canvas.toBlob(function(blob) {
+        if (!blob) return;
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        var name = (document.getElementById('vc-name')?.value || 'my').trim().replace(/[^a-z0-9]/gi, '-').toLowerCase() || 'my';
+        a.href = url;
+        a.download = 'rentnivas-visiting-card-' + name + '.png';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(function() { URL.revokeObjectURL(url); }, 4000);
+      }, 'image/png');
+    }
+
     // Returns true if the referrer is an approved partner (checks PartnerApplications)
     async function _pdIsPartner(userId) {
       try {
@@ -21412,6 +21551,20 @@
         <div class="pdn-greeting-sub">Here's how your network is growing today.</div>
       </div>
 
+      <!-- VISITING CARD ENTRY -->
+      <div class="pdn-card" id="pdn-sec-card" style="margin-bottom:16px;">
+        <div class="pdn-card-body" style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;justify-content:space-between;padding:18px 20px;">
+          <div style="display:flex;align-items:center;gap:14px;">
+            <div style="width:46px;height:46px;border-radius:12px;background:linear-gradient(135deg,#6366f1,#4f46e5);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;">🪪</div>
+            <div>
+              <div style="font-size:14.5px;font-weight:800;color:var(--ink);">Your Visiting Card</div>
+              <div style="font-size:12.5px;color:var(--muted);margin-top:2px;">Add your name, phone &amp; city — your referral code fills in automatically.</div>
+            </div>
+          </div>
+          <button class="pdn-inline-ref-copy" style="padding:9px 18px;font-size:13px;flex-shrink:0;" onclick="openVisitingCardPage()">Create / Edit Card</button>
+        </div>
+      </div>
+
       <!-- KPI ROW -->
       <div id="pdn-sec-kpi">
         <div class="pdn-kpi-row">
@@ -21617,6 +21770,65 @@
     <button class="pdn-mob-nav-btn" id="pdmn-perf" onclick="pdnScrollTo('pdn-sec-perf');pdnMobNavActive('pdmn-perf')">
       <span>📈</span><span>Stats</span>
     </button>
+  </div>
+
+  <!-- ══ VISITING CARD PAGE ══ -->
+  <div class="page" id="pd-visiting-card">
+    <style>
+      #pd-visiting-card { background:#f4f5f7; }
+      #pd-visiting-card.active { display:flex !important; flex-direction:column; overflow-y:auto; min-height:100vh; }
+      #pd-visiting-card, #pd-visiting-card * { font-family:'Inter', system-ui, sans-serif; }
+      .vc-topbar { position:sticky; top:0; z-index:10; background:#fff; border-bottom:1px solid #e4e4ec; padding:13px 20px; display:flex; align-items:center; gap:12px; }
+      .vc-wrap { max-width:640px; margin:0 auto; padding:20px 16px 100px; width:100%; box-sizing:border-box; }
+      .vc-canvas-shell { background:#fff; border:1.5px solid #eeeef4; border-radius:16px; padding:14px; box-shadow:0 2px 10px rgba(0,0,0,.04); }
+      #vc-canvas { width:100%; height:auto; display:block; border-radius:10px; background:#f4f5f7; }
+      .vc-field { margin-top:16px; }
+      .vc-field label { display:block; font-size:12px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.4px; margin-bottom:6px; }
+      .vc-field input { width:100%; box-sizing:border-box; padding:12px 14px; border:1.5px solid #e4e4ec; border-radius:10px; font-size:14.5px; font-weight:600; color:var(--ink); background:#fff; }
+      .vc-field input:focus { outline:none; border-color:var(--terra); }
+      .vc-field input[disabled] { background:#f4f5f7; color:var(--muted); }
+      .vc-btn-row { display:flex; gap:10px; margin-top:22px; flex-wrap:wrap; }
+      .vc-btn { flex:1; min-width:140px; padding:13px 16px; border-radius:10px; font-size:14px; font-weight:800; cursor:pointer; border:none; text-align:center; }
+      .vc-btn-save { background:#f4f5f7; border:1.5px solid #e4e4ec !important; color:var(--ink); }
+      .vc-btn-save:hover { border-color:var(--terra) !important; color:var(--terra); }
+      .vc-btn-download { background:var(--terra); color:#fff; }
+      .vc-btn-download:hover { opacity:.9; }
+      .vc-note { font-size:11.5px; color:var(--muted); margin-top:10px; line-height:1.6; }
+      .vc-saved-pill { display:none; align-items:center; gap:6px; font-size:11.5px; font-weight:700; color:#15803d; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:20px; padding:4px 12px; margin-top:12px; }
+    </style>
+    <div class="vc-topbar">
+      <button class="pdn-back-arrow-btn" onclick="showPage('partner-dashboard')" title="Back">&#8592;</button>
+      <div class="pdn-topbar-title">Visiting Card</div>
+    </div>
+    <div class="vc-wrap">
+      <div class="vc-canvas-shell">
+        <canvas id="vc-canvas"></canvas>
+      </div>
+
+      <div class="vc-field">
+        <label for="vc-name">Name</label>
+        <input type="text" id="vc-name" placeholder="Your name" oninput="drawVisitingCard()" maxlength="40">
+      </div>
+      <div class="vc-field">
+        <label for="vc-phone">Phone Number</label>
+        <input type="tel" id="vc-phone" placeholder="Your phone number" oninput="this.value=this.value.replace(/[^0-9+,\- ]/g,'');drawVisitingCard()" maxlength="20">
+      </div>
+      <div class="vc-field">
+        <label for="vc-city">City</label>
+        <input type="text" id="vc-city" placeholder="Your city" oninput="drawVisitingCard()" maxlength="30">
+      </div>
+      <div class="vc-field">
+        <label for="vc-ref">Referral Code</label>
+        <input type="text" id="vc-ref" disabled>
+      </div>
+
+      <div class="vc-btn-row">
+        <button class="vc-btn vc-btn-save" onclick="saveVisitingCard()">💾 Save</button>
+        <button class="vc-btn vc-btn-download" onclick="downloadVisitingCard()">⬇️ Download</button>
+      </div>
+      <div class="vc-saved-pill" id="vc-saved-pill">✅ Saved on this device</div>
+      <div class="vc-note">Your card details and image are saved only on this device, not on our servers. Each partner's card is private to their own phone/browser.</div>
+    </div>
   </div>
 
   <!-- ══ MOBILE BOTTOM NAV BAR (Airbnb-style) ══ -->
