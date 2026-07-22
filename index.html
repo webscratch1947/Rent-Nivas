@@ -13280,11 +13280,33 @@
       ctx.textBaseline = 'middle';
       ctx.fillStyle = '#4a3826';
 
-      // Referral code only — right of divider, same row
+      // Referral code — inside the REF box on the card
       if (ref && ref !== 'Loading…') {
-        var refSize = _vcFitText(ctx, ref, W * 0.12, H * 0.03, H * 0.016, '800');
+        var refSize = _vcFitText(ctx, ref, W * 0.14, H * 0.038, H * 0.018, '800');
         ctx.font = '800 ' + refSize + 'px Inter, system-ui, sans-serif';
-        ctx.fillText(ref, W * 0.315, H * 0.585);
+        ctx.fillText(ref, W * 0.335, H * 0.352);
+      }
+
+      // Phone number — inside the phone input box at bottom-left
+      if (phone) {
+        var phoneSize = _vcFitText(ctx, phone, W * 0.155, H * 0.034, H * 0.016, '600');
+        ctx.font = '600 ' + phoneSize + 'px Inter, system-ui, sans-serif';
+        ctx.fillText(phone, W * 0.172, H * 0.80);
+      }
+
+      // City — inside the city/location input box at bottom
+      if (city) {
+        var citySize = _vcFitText(ctx, city, W * 0.155, H * 0.034, H * 0.016, '600');
+        ctx.font = '600 ' + citySize + 'px Inter, system-ui, sans-serif';
+        ctx.fillText(city, W * 0.30, H * 0.80);
+      }
+
+      // Name — shown above the phone/city row, inside the name area
+      if (name) {
+        ctx.fillStyle = '#2c1a0e';
+        var nameSize = _vcFitText(ctx, name, W * 0.28, H * 0.042, H * 0.020, '700');
+        ctx.font = '700 ' + nameSize + 'px Inter, system-ui, sans-serif';
+        ctx.fillText(name, W * 0.077, H * 0.352);
       }
     }
 
