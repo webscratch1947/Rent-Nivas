@@ -13229,7 +13229,7 @@
       var cityEl  = document.getElementById('vc-city');
       var refEl   = document.getElementById('vc-ref');
 
-      nameEl.value  = saved.name  || (user && user.user_metadata?.name) || '';
+      nameEl.value  = saved.name  || '';
       phoneEl.value = saved.phone || (user && user.user_metadata?.phone) || '';
       cityEl.value  = saved.city  || '';
 
@@ -13288,12 +13288,14 @@
         ctx.fillText(name, W * 0.08, H * 0.59);
       }
 
-      // Referral code — right after the "REF :" label, same row as name
+      // Referral code — overlaid on photo area to the right of the diagonal cut
       if (ref && ref !== 'Loading…') {
-        var refSize = _vcFitText(ctx, ref, W * 0.20, H * 0.032, H * 0.016, '800');
+        var refSize = _vcFitText(ctx, ref, W * 0.16, H * 0.030, H * 0.014, '800');
         ctx.font = '800 ' + refSize + 'px Inter, system-ui, sans-serif';
         ctx.textAlign = 'left';
-        ctx.fillText(ref, W * 0.455, H * 0.59);
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText(ref, W * 0.515, H * 0.59);
+        ctx.fillStyle = '#4a3826';
       }
 
       // Phone number — inside the phone-icon box (row sits at y≈74.5–79%, text area x≈9–22%)
