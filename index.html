@@ -13221,6 +13221,32 @@
 
     async function openVisitingCardPage() {
       showPage('pd-visiting-card');
+      var saved = {};
+      try { saved = JSON.parse(localStorage.getItem(_vcStorageKey()) || '{}') || {}; } catch(e) {}
+
+      var nameEl  = document.getElementById('vc-name');
+      var phoneEl = document.getElementById('vc-phone');
+      var cityEl  = document.getElementById('vc-city');
+      var refEl   = document.getElementById('vc-ref');
+
+      nameEl.value  = saved.name  || (user && user.user_metadata?.name) || '';
+      phoneEl.value = saved.phone || (user && user.user_metadata?.phone) || '';
+      cityEl.value  = saved.city  || '';
+
+      // Referral code: use sidebar value if already loaded, else fetch it
+      var sidebarCode = (document.getElementById('pd-ref-code-display')?.textContent || '').replace(/—/g, '').trim();
+      if (sidebarCode) {
+        refEl.value = sidebarCode;
+      } else {
+        refEl.value = 'Loading…';
+        try {
+          var res = await _rnReferralApi('stats');
+          refEl.value = (res && res.data && res.data.referralCode) || '';
+        } catch(e) { refEl.value = ''; }
+      }
+
+      document.getElementById('vc-saved-pill').style.display = 'none';
+      drawVisitingCard();
     }
 
     function _vcFitText(ctx, text, maxWidth, startSize, minSize, weight) {
@@ -21760,11 +21786,33 @@
       <div class="pdn-topbar-title">Visiting Card</div>
     </div>
     <div class="vc-wrap">
-      <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:80px 20px; gap:14px;">
-        <div style="font-size:44px;">🚧</div>
-        <div style="font-size:19px; font-weight:800; color:var(--ink);">Under Construction</div>
-        <div style="font-size:14px; color:var(--muted); max-width:320px; line-height:1.6;">The visiting card feature is being built. Please check back soon!</div>
+      <div class="vc-canvas-shell">
+        <canvas id="vc-canvas"></canvas>
       </div>
+
+      <div class="vc-field">
+        <label for="vc-name">Name</label>
+        <input type="text" id="vc-name" placeholder="Your name" oninput="drawVisitingCard()" maxlength="40">
+      </div>
+      <div class="vc-field">
+        <label for="vc-phone">Phone Number</label>
+        <input type="tel" id="vc-phone" placeholder="Your phone number" oninput="this.value=this.value.replace(/[^0-9+,\- ]/g,'');drawVisitingCard()" maxlength="20">
+      </div>
+      <div class="vc-field">
+        <label for="vc-city">City</label>
+        <input type="text" id="vc-city" placeholder="Your city" oninput="drawVisitingCard()" maxlength="30">
+      </div>
+      <div class="vc-field">
+        <label for="vc-ref">Referral Code</label>
+        <input type="text" id="vc-ref" disabled>
+      </div>
+
+      <div class="vc-btn-row">
+        <button class="vc-btn vc-btn-save" onclick="saveVisitingCard()">💾 Save</button>
+        <button class="vc-btn vc-btn-download" onclick="downloadVisitingCard()">⬇️ Download</button>
+      </div>
+      <div class="vc-saved-pill" id="vc-saved-pill">✅ Saved on this device</div>
+      <div class="vc-note">Your card details and image are saved only on this device, not on our servers. Each partner's card is private to their own phone/browser.</div>
     </div>
   </div>
 
