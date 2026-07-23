@@ -13280,11 +13280,36 @@
       ctx.textBaseline = 'middle';
       ctx.fillStyle = '#4a3826';
 
-      // Referral code only — right of divider, same row
+      // Name — left compartment of the divider box, upper row
+      if (name) {
+        var nameSize = _vcFitText(ctx, name, W * 0.25, H * 0.032, H * 0.016, '800');
+        ctx.font = '800 ' + nameSize + 'px Inter, system-ui, sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText(name, W * 0.325, H * 0.371);
+      }
+
+      // Referral code — right compartment of the divider box, same row as name
       if (ref && ref !== 'Loading…') {
-        var refSize = _vcFitText(ctx, ref, W * 0.12, H * 0.03, H * 0.016, '800');
+        var refSize = _vcFitText(ctx, ref, W * 0.28, H * 0.032, H * 0.016, '800');
         ctx.font = '800 ' + refSize + 'px Inter, system-ui, sans-serif';
-        ctx.fillText(ref, W * 0.315, H * 0.585);
+        ctx.textAlign = 'left';
+        ctx.fillText(ref, W * 0.67, H * 0.376);
+      }
+
+      // Phone number — inside the phone-icon box, lower row
+      if (phone) {
+        var phoneSize = _vcFitText(ctx, phone, W * 0.23, H * 0.03, H * 0.015, '700');
+        ctx.font = '700 ' + phoneSize + 'px Inter, system-ui, sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText(phone, W * 0.35, H * 0.53);
+      }
+
+      // City — inside the location-icon box, lower row
+      if (city) {
+        var citySize = _vcFitText(ctx, city, W * 0.295, H * 0.03, H * 0.015, '700');
+        ctx.font = '700 ' + citySize + 'px Inter, system-ui, sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText(city, W * 0.655, H * 0.53);
       }
     }
 
