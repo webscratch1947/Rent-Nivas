@@ -13288,14 +13288,14 @@
         ctx.fillText(name, W * 0.08, H * 0.59);
       }
 
-      // Referral code — overlaid on photo area to the right of the diagonal cut
+      // Referral code — centered inside the blank REF box (x=44.3%-48.4%, y=55-63%)
       if (ref && ref !== 'Loading…') {
-        var refSize = _vcFitText(ctx, ref, W * 0.16, H * 0.030, H * 0.014, '800');
-        ctx.font = '800 ' + refSize + 'px Inter, system-ui, sans-serif';
-        ctx.textAlign = 'left';
-        ctx.fillStyle = '#ffffff';
-        ctx.fillText(ref, W * 0.60, H * 0.59);
+        var refSize = _vcFitText(ctx, ref, W * 0.041, H * 0.028, H * 0.012, '700');
+        ctx.font = '700 ' + refSize + 'px Inter, system-ui, sans-serif';
+        ctx.textAlign = 'center';
         ctx.fillStyle = '#4a3826';
+        ctx.fillText(ref, W * 0.463, H * 0.590);
+        ctx.textAlign = 'left';
       }
 
       // Phone number — inside the phone-icon box (row sits at y≈74.5–79%, text area x≈9–22%)
