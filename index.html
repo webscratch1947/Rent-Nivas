@@ -13280,12 +13280,12 @@
       ctx.textBaseline = 'middle';
       ctx.fillStyle = '#4a3826';
 
-      // Name — left compartment of the divider box (box spans y≈55–63%, divider at x≈44%)
+      // Name — left compartment (box left wall x=4.8%, divider at x=24.1%)
       if (name) {
-        var nameSize = _vcFitText(ctx, name, W * 0.33, H * 0.032, H * 0.016, '800');
+        var nameSize = _vcFitText(ctx, name, W * 0.18, H * 0.032, H * 0.010, '800');
         ctx.font = '800 ' + nameSize + 'px Inter, system-ui, sans-serif';
         ctx.textAlign = 'left';
-        ctx.fillText(name, W * 0.10, H * 0.59);
+        ctx.fillText(name, W * 0.055, H * 0.59);
       }
 
       // Referral code — right of "REF :" label, inside the box (x=30.5%-43.5%)
