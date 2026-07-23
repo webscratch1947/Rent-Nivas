@@ -13282,34 +13282,34 @@
 
       // Name — left compartment of the divider box, upper row
       if (name) {
-        var nameSize = _vcFitText(ctx, name, W * 0.25, H * 0.032, H * 0.016, '800');
+        var nameSize = _vcFitText(ctx, name, W * 0.10, H * 0.032, H * 0.014, '800');
         ctx.font = '800 ' + nameSize + 'px Inter, system-ui, sans-serif';
         ctx.textAlign = 'left';
-        ctx.fillText(name, W * 0.325, H * 0.371);
+        ctx.fillText(name, W * 0.315, H * 0.59);
       }
 
       // Referral code — right compartment of the divider box, same row as name
       if (ref && ref !== 'Loading…') {
-        var refSize = _vcFitText(ctx, ref, W * 0.28, H * 0.032, H * 0.016, '800');
+        var refSize = _vcFitText(ctx, ref, W * 0.11, H * 0.032, H * 0.014, '800');
         ctx.font = '800 ' + refSize + 'px Inter, system-ui, sans-serif';
         ctx.textAlign = 'left';
-        ctx.fillText(ref, W * 0.67, H * 0.376);
+        ctx.fillText(ref, W * 0.43, H * 0.59);
       }
 
       // Phone number — inside the phone-icon box, lower row
       if (phone) {
-        var phoneSize = _vcFitText(ctx, phone, W * 0.23, H * 0.03, H * 0.015, '700');
+        var phoneSize = _vcFitText(ctx, phone, W * 0.085, H * 0.028, H * 0.013, '700');
         ctx.font = '700 ' + phoneSize + 'px Inter, system-ui, sans-serif';
         ctx.textAlign = 'left';
-        ctx.fillText(phone, W * 0.35, H * 0.53);
+        ctx.fillText(phone, W * 0.325, H * 0.694);
       }
 
       // City — inside the location-icon box, lower row
       if (city) {
-        var citySize = _vcFitText(ctx, city, W * 0.295, H * 0.03, H * 0.015, '700');
+        var citySize = _vcFitText(ctx, city, W * 0.08, H * 0.028, H * 0.013, '700');
         ctx.font = '700 ' + citySize + 'px Inter, system-ui, sans-serif';
         ctx.textAlign = 'left';
-        ctx.fillText(city, W * 0.655, H * 0.53);
+        ctx.fillText(city, W * 0.46, H * 0.694);
       }
     }
 
