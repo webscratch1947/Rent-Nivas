@@ -13285,16 +13285,16 @@
         var nameSize = _vcFitText(ctx, name, W * 0.33, H * 0.032, H * 0.016, '800');
         ctx.font = '800 ' + nameSize + 'px Inter, system-ui, sans-serif';
         ctx.textAlign = 'left';
-        ctx.fillText(name, W * 0.08, H * 0.59);
+        ctx.fillText(name, W * 0.10, H * 0.59);
       }
 
-      // Referral code — centered inside the blank REF box (x=44.3%-48.4%, y=55-63%)
+      // Referral code — right of "REF :" label, inside the box (x=30.5%-43.5%)
       if (ref && ref !== 'Loading…') {
-        var refSize = _vcFitText(ctx, ref, W * 0.041, H * 0.028, H * 0.012, '700');
-        ctx.font = '700 ' + refSize + 'px Inter, system-ui, sans-serif';
+        var refSize = _vcFitText(ctx, ref, W * 0.13, H * 0.032, H * 0.016, '800');
+        ctx.font = '800 ' + refSize + 'px Inter, system-ui, sans-serif';
         ctx.textAlign = 'center';
         ctx.fillStyle = '#4a3826';
-        ctx.fillText(ref, W * 0.463, H * 0.590);
+        ctx.fillText(ref, W * 0.370, H * 0.590);
         ctx.textAlign = 'left';
       }
 
