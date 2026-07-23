@@ -13288,9 +13288,9 @@
         ctx.fillText(name, W * 0.08, H * 0.59);
       }
 
-      // Referral code — right compartment of the divider box, same row as name
+      // Referral code — right after the "REF :" label, same row as name
       if (ref && ref !== 'Loading…') {
-        var refSize = _vcFitText(ctx, ref, W * 0.46, H * 0.032, H * 0.016, '800');
+        var refSize = _vcFitText(ctx, ref, W * 0.20, H * 0.032, H * 0.016, '800');
         ctx.font = '800 ' + refSize + 'px Inter, system-ui, sans-serif';
         ctx.textAlign = 'left';
         ctx.fillText(ref, W * 0.48, H * 0.59);
