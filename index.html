@@ -13280,36 +13280,36 @@
       ctx.textBaseline = 'middle';
       ctx.fillStyle = '#4a3826';
 
-      // Name — left compartment of the divider box, upper row
+      // Name — left compartment of the divider box (box spans y≈55–63%, divider at x≈44%)
       if (name) {
-        var nameSize = _vcFitText(ctx, name, W * 0.10, H * 0.032, H * 0.014, '800');
+        var nameSize = _vcFitText(ctx, name, W * 0.33, H * 0.032, H * 0.016, '800');
         ctx.font = '800 ' + nameSize + 'px Inter, system-ui, sans-serif';
         ctx.textAlign = 'left';
-        ctx.fillText(name, W * 0.315, H * 0.59);
+        ctx.fillText(name, W * 0.08, H * 0.59);
       }
 
       // Referral code — right compartment of the divider box, same row as name
       if (ref && ref !== 'Loading…') {
-        var refSize = _vcFitText(ctx, ref, W * 0.11, H * 0.032, H * 0.014, '800');
+        var refSize = _vcFitText(ctx, ref, W * 0.46, H * 0.032, H * 0.016, '800');
         ctx.font = '800 ' + refSize + 'px Inter, system-ui, sans-serif';
         ctx.textAlign = 'left';
-        ctx.fillText(ref, W * 0.43, H * 0.59);
+        ctx.fillText(ref, W * 0.48, H * 0.59);
       }
 
-      // Phone number — inside the phone-icon box, lower row
+      // Phone number — inside the phone-icon box (row sits at y≈74.5–79%, text area x≈9–22%)
       if (phone) {
-        var phoneSize = _vcFitText(ctx, phone, W * 0.085, H * 0.028, H * 0.013, '700');
+        var phoneSize = _vcFitText(ctx, phone, W * 0.13, H * 0.03, H * 0.015, '700');
         ctx.font = '700 ' + phoneSize + 'px Inter, system-ui, sans-serif';
         ctx.textAlign = 'left';
-        ctx.fillText(phone, W * 0.325, H * 0.694);
+        ctx.fillText(phone, W * 0.09, H * 0.765);
       }
 
-      // City — inside the location-icon box, lower row
+      // City — inside the location-icon box, same row as phone (text area x≈30–48%)
       if (city) {
-        var citySize = _vcFitText(ctx, city, W * 0.08, H * 0.028, H * 0.013, '700');
+        var citySize = _vcFitText(ctx, city, W * 0.18, H * 0.03, H * 0.015, '700');
         ctx.font = '700 ' + citySize + 'px Inter, system-ui, sans-serif';
         ctx.textAlign = 'left';
-        ctx.fillText(city, W * 0.46, H * 0.694);
+        ctx.fillText(city, W * 0.30, H * 0.765);
       }
     }
 
