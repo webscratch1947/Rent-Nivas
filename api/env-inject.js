@@ -130,6 +130,7 @@ module.exports = async function handler(req, res) {
     `window.__RN_GOOGLE_TOKEN_URI = ${JSON.stringify(googleTokenUri)};\n` +
     `window.__RN_GOOGLE_USERINFO_URI = ${JSON.stringify(googleUserinfoUri)};\n` +
     `window.__RN_GOOGLE_SCOPES = ${JSON.stringify(googleScopes)};\n` +
-    `window.__RN_SITE_VERSION = ${JSON.stringify(siteVersion)};\n`
+    `window.__RN_SITE_VERSION = ${JSON.stringify(siteVersion)};\n` +
+    `window.__RN_ADMIN_EMAILS = ${JSON.stringify(process.env.ADMIN_EMAILS || "")};\n`
   );
 };
