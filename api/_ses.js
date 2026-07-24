@@ -18,7 +18,7 @@ const SES_REGION = process.env.SES_REGION || REGION;
 // Sender address. Must be a VERIFIED identity in SES (Console > Verified
 // identities) for the SES_REGION above, or every send will fail with
 // MessageRejected: "Email address is not verified."
-const SES_FROM_EMAIL = process.env.SES_FROM_EMAIL || 'rentnivas@gmail.com';
+const SES_FROM_EMAIL = process.env.SES_FROM_EMAIL;
 const CODES_TABLE = process.env.TABLE_VERIFICATION_CODES || 'VerificationCodes';
 const CODE_TTL_MINUTES = 15;
 const MAX_ATTEMPTS = 5;
