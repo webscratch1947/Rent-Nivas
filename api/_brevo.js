@@ -26,7 +26,7 @@ const BREVO_SMTP_HOST = process.env.BREVO_SMTP_HOST;
 const BREVO_SMTP_PORT = Number(process.env.BREVO_SMTP_PORT || 587);
 const BREVO_SMTP_USER = process.env.BREVO_SMTP_USER;
 const BREVO_SMTP_PASS = process.env.BREVO_SMTP_PASS;
-const EMAIL_FROM = process.env.EMAIL_FROM || 'rentnivas@gmail.com';
+const EMAIL_FROM = process.env.EMAIL_FROM;
 const EMAIL_FROM_NAME = process.env.EMAIL_FROM_NAME || 'Rent Nivas';
 
 const CODES_TABLE = process.env.TABLE_VERIFICATION_CODES || 'VerificationCodes';
@@ -40,11 +40,12 @@ const ddb = new DynamoDBClient({ region: REGION });
 let transporter = null;
 function getTransporter() {
   if (transporter) return transporter;
-  if (!BREVO_SMTP_HOST || !BREVO_SMTP_USER || !BREVO_SMTP_PASS) {
+  if (!BREVO_SMTP_HOST || !BREVO_SMTP_USER || !BREVO_SMTP_PASS || !EMAIL_FROM) {
     const missing = [
       !BREVO_SMTP_HOST && 'BREVO_SMTP_HOST',
       !BREVO_SMTP_USER && 'BREVO_SMTP_USER',
-      !BREVO_SMTP_PASS && 'BREVO_SMTP_PASS'
+      !BREVO_SMTP_PASS && 'BREVO_SMTP_PASS',
+      !EMAIL_FROM && 'EMAIL_FROM'
     ].filter(Boolean).join(', ');
     throw new Error(`Brevo SMTP is not configured — missing env var(s): ${missing}`);
   }
@@ -177,7 +178,7 @@ function _emailWrap(body) {
         <tr><td style="padding:32px;">
           ${body}
           <hr style="border:none;border-top:1px solid #f0ebe6;margin:24px 0;">
-          <p style="font-size:12px;color:#999;margin:0;">This email was sent by Rent Nivas. If you have questions, reply to this email or contact us at rentnivas@gmail.com</p>
+          <p style="font-size:12px;color:#999;margin:0;">This email was sent by Rent Nivas. If you have questions, reply to this email or contact us at ${EMAIL_FROM}</p>
         </td></tr>
       </table>
     </td></tr>
@@ -217,7 +218,7 @@ If you didn't sign up for Rent Nivas, you can safely ignore this email.`,
       <h2 style="margin:0 0 8px;font-size:22px;font-weight:800;color:#1a1a1a;">Password reset required</h2>
       <p style="color:#666;font-size:15px;margin:0 0 4px;">Your Rent Nivas account requires a password reset before you can sign in. Use the code below to set a new password.</p>
       ${_codeBlock(code)}
-      <p style="color:#999;font-size:13px;margin:0;">If you didn't request this, contact us at rentnivas@gmail.com immediately.</p>`;
+      <p style="color:#999;font-size:13px;margin:0;">If you didn't request this, contact us at ${EMAIL_FROM} immediately.</p>`;
     return {
       subject: 'Action required — Reset your Rent Nivas password',
       text: `Your Rent Nivas account requires a password reset.
@@ -226,7 +227,7 @@ Your reset code is: ${code}
 
 This code expires in ${CODE_TTL_MINUTES} minutes. Enter it on the password reset page to set a new password.
 
-If you didn't request this, contact rentnivas@gmail.com immediately.`,
+If you didn't request this, contact ${EMAIL_FROM} immediately.`,
       html: _emailWrap(body)
     };
   }
