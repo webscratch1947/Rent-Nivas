@@ -18047,7 +18047,7 @@
 
     // ══ MISSING FUNCTIONS FIX ══
 
-    const ADMIN_EMAILS = ['webscratch99@gmail.com'];
+    const ADMIN_EMAILS = (window.__RN_ADMIN_EMAILS || '').split(',').map(e => e.trim()).filter(Boolean);
 
     function isAdmin() {
       return !!(user && ADMIN_EMAILS.includes(user.email));
