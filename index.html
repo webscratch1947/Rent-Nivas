@@ -24932,6 +24932,15 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
     }
     const chips = document.getElementById('rn-owner-map-coords');
     if (chips) chips.style.display = 'none';
+
+    // FIX: the Places search box (PlaceAutocompleteElement) is created once
+    // and reused across form opens, so it keeps showing whatever address was
+    // last searched (e.g. a previous listing's location) unless we clear it
+    // out here. Easiest reliable way is to tear it down and let
+    // rnInitPlaceAutocomplete() build a fresh, empty one next time the form opens.
+    const wrap = document.getElementById('rn-place-search-wrap');
+    if (wrap) wrap.innerHTML = '';
+    rnGmapsState.autocompleteEl = null;
   };
 
   // Called from editHouse() once the saved lat/lng are known, to make sure
