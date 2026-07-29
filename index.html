@@ -2458,6 +2458,62 @@
       gap: 12px;
     }
 
+    /* ══ GOOGLE MAP — property location picker (owner) & viewer (renter) ══ */
+    .rn-map-wrap {
+      margin-bottom: 16px;
+    }
+    .rn-map-search {
+      margin-bottom: 10px;
+      position: relative;
+    }
+    .rn-map-search gmp-place-autocomplete {
+      width: 100%;
+      --gmp-mat-color-surface: var(--white);
+      --gmp-mat-color-on-surface: var(--ink);
+      --gmp-mat-color-outline: var(--border2);
+    }
+    .rn-map {
+      width: 100%;
+      height: 260px;
+      border-radius: var(--r);
+      border: 1px solid var(--border);
+      background: var(--bg2);
+      overflow: hidden;
+      position: relative;
+    }
+    .rn-map-placeholder {
+      position: absolute; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      flex-direction: column; gap: 8px;
+      color: var(--muted); font-size: 13px; text-align: center; padding: 16px;
+    }
+    .rn-map-hint {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 6px;
+      line-height: 1.4;
+    }
+    .rn-map-coords {
+      display: flex; flex-wrap: wrap; gap: 8px;
+      margin-top: 10px;
+    }
+    .rn-map-coord-chip {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 5px 12px;
+      font-size: 12px;
+      color: var(--soft);
+      font-weight: 600;
+    }
+    .rn-map-actions {
+      display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap;
+    }
+    .rn-detail-map-wrap { margin-top: 24px; }
+    @media (max-width: 640px) {
+      .rn-map { height: 200px; }
+    }
+
     .custom-room-item {
       display: flex;
       align-items: center;
@@ -10649,6 +10705,22 @@
             <div class="add-col">
               <div class="form-sec">
                 <div class="form-sec-title"><span class="form-sec-icon">📍</span> <span id="add-loc-h">Location</span></div>
+
+                <div class="rn-map-wrap">
+                  <div class="rn-map-search" id="rn-place-search-wrap"></div>
+                  <div class="rn-map" id="rn-owner-map">
+                    <div class="rn-map-placeholder" id="rn-owner-map-placeholder">🗺️ Map loads when you open this form</div>
+                  </div>
+                  <div class="rn-map-hint">Search above, drag the pin, or click the map to set the exact spot. Use this to pinpoint the entrance if it's off from the search result.</div>
+                  <div class="rn-map-coords" id="rn-owner-map-coords" style="display:none;">
+                    <span class="rn-map-coord-chip" id="rn-owner-lat-chip">Lat: —</span>
+                    <span class="rn-map-coord-chip" id="rn-owner-lng-chip">Lng: —</span>
+                  </div>
+                  <input type="hidden" id="h-latitude">
+                  <input type="hidden" id="h-longitude">
+                  <input type="hidden" id="h-formatted-address">
+                </div>
+
                 <div class="fg"><label id="add-address-lbl">Full Address *</label><input type="text" id="h-address"
                     placeholder="Street, Area, City, State, PIN"></div>
                 <div class="loc-box">
@@ -11461,7 +11533,7 @@
       else if (id === 'profile') { if (typeof loadProfile === 'function') loadProfile(); }
       else if (id === 'settings') { if (typeof loadSettings === 'function') loadSettings(); }
       else if (id === 'admin') { if (typeof loadAdmin === 'function') loadAdmin(); }
-      else if (id === 'add') { /* form already visible */ }
+      else if (id === 'add') { if (typeof rnInitOwnerMap === 'function') rnInitOwnerMap(); }
     }
 
     // showModal — shows confirmation modal
@@ -15407,6 +15479,10 @@
       document.getElementById('h-area').value = h.area || '';
       document.getElementById('h-city').value = h.city || '';
       document.getElementById('h-state').value = h.state || '';
+      document.getElementById('h-latitude').value = (h.latitude != null) ? h.latitude : '';
+      document.getElementById('h-longitude').value = (h.longitude != null) ? h.longitude : '';
+      document.getElementById('h-formatted-address').value = h.formattedAddress || h.address || '';
+      if (typeof rnLoadOwnerMapFromHouse === 'function') rnLoadOwnerMapFromHouse(h);
       document.getElementById('h-beds').value = h.bedrooms || '';
       document.getElementById('h-baths').value = h.bathrooms || '';
       document.getElementById('h-kitchen').value = h.kitchen || '';
@@ -15547,10 +15623,12 @@
       // Clear all text inputs
       ['h-title', 'h-desc', 'h-price', 'h-phone', 'h-address', 'h-area', 'h-city', 'h-state',
         'h-beds', 'h-baths', 'h-kitchen', 'h-living', 'h-balcony', 'h-parking', 'h-conditions-extra',
-        'h-price-office', 'h-price-pg', 'h-price-shop'].forEach(id => {
+        'h-price-office', 'h-price-pg', 'h-price-shop',
+        'h-latitude', 'h-longitude', 'h-formatted-address'].forEach(id => {
           const el = document.getElementById(id);
           if (el) el.value = '';
         });
+      if (typeof rnResetOwnerMap === 'function') rnResetOwnerMap();
 
       // Clear property type chips
       selectedPropType = '';
@@ -16228,6 +16306,7 @@
           if (pincode && pinEl) pinEl.value = pincode;
           display.textContent = `📍 ${[area, city, state, pincode].filter(Boolean).join(', ') || 'Location detected'}`;
           toast('📍 Full address auto-filled!', 'success');
+          if (typeof rnSetOwnerMapLocation === 'function') rnSetOwnerMapLocation(lat, lng, { skipReverseGeocode: true });
         } catch {
           display.textContent = `📍 Coordinates: (${lat.toFixed(5)}, ${lng.toFixed(5)}) — address lookup failed`;
           toast('Location detected but address lookup failed. Check your connection.', 'info');
@@ -16357,6 +16436,7 @@
       const phone = v('h-phone'), addr = v('h-address');
       const area = v('h-area'), city = v('h-city'), state = v('h-state');
       const beds = v('h-beds'), baths = v('h-baths');
+      const lat = v('h-latitude'), lng = v('h-longitude'), fmtAddr = v('h-formatted-address');
 
       if (!title) return toast('Please enter a property title', 'error');
       if (!price) return toast('Please enter monthly rent', 'error');
@@ -16399,10 +16479,10 @@
         .filter(Boolean)
         .slice(0, 4);
 
-      await doSaveHouse(status, title, desc, price, phone, addr, area, city, state, beds, baths, v, questions);
+      await doSaveHouse(status, title, desc, price, phone, addr, area, city, state, beds, baths, v, questions, lat, lng, fmtAddr);
     }
 
-    async function doSaveHouse(status, title, desc, price, phone, addr, area, city, state, beds, baths, v, questions) {
+    async function doSaveHouse(status, title, desc, price, phone, addr, area, city, state, beds, baths, v, questions, lat, lng, fmtAddr) {
       const condArr = [...selectedConditions, ...customConditions];
 
       const loaderMs = selectedFiles.length ? Math.min(1800000, 45000 + selectedFiles.length * HOUSE_IMG_UPLOAD_MS) : 90000;
@@ -16475,6 +16555,9 @@
           area: area || null,
           city: city || null,
           state: state || null,
+          latitude: (lat !== '' && lat != null && !isNaN(parseFloat(lat))) ? parseFloat(lat) : null,
+          longitude: (lng !== '' && lng != null && !isNaN(parseFloat(lng))) ? parseFloat(lng) : null,
+          formattedAddress: fmtAddr || addr || null,
           bedrooms: parseInt(beds) || 0,
           bathrooms: parseInt(v('h-baths')) || 0,
           kitchen: parseInt(v('h-kitchen')) || 0,
@@ -17923,7 +18006,17 @@
                   <div><div class="detail-contact-lbl">Phone</div>
                   <div class="detail-contact-val"><a href="tel:${h.phone}" style="color:var(--terra);">${h.phone || 'Not provided'}</a></div></div>
                 </div>
-              </div>` : ''}
+              </div>
+              ${(h.latitude != null && h.longitude != null) ? `
+              <div class="rn-detail-map-wrap">
+                <div class="rn-map" id="rn-detail-map">
+                  <div class="rn-map-placeholder">🗺️ Loading map…</div>
+                </div>
+                <div class="rn-map-actions">
+                  <a class="btn btn-soft btn-sm" target="_blank" rel="noopener"
+                    href="https://www.google.com/maps/dir/?api=1&destination=${h.latitude},${h.longitude}">🧭 Open in Google Maps</a>
+                </div>
+              </div>` : ''}` : ''}
             </div>
 
             <!-- Unlock card -->
@@ -17952,6 +18045,10 @@
             </div>` : ''}
           </div>
         </div>`;
+
+      if (paid && h.latitude != null && h.longitude != null && typeof rnInitDetailMap === 'function') {
+        rnInitDetailMap(h);
+      }
 
       // If unlocked, check whether the renter still owes screening answers.
       // Repaint instantly from the last known state (avoids a blank flash
@@ -24637,6 +24734,254 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
 })();
 </script>
 
+<script>
+/* ══════════════════════════════════════════════════════════════════════
+   GOOGLE MAPS INTEGRATION — property location picker (owner) + viewer (renter)
+   ------------------------------------------------------------------------
+   - API key comes from window.__RN_GOOGLE_MAPS_API_KEY, injected server-side
+     by /api/env-inject.js from the GOOGLE_MAPS_API_KEY env var already set
+     in Vercel. Never hardcoded here.
+   - Uses Places API (New) via google.maps.places.PlaceAutocompleteElement,
+     with a legacy Autocomplete fallback only if the new element isn't
+     available in the loaded library version.
+   - Uses the classic (still fully supported) google.maps.Marker for the
+     draggable pin — no Map ID is configured for this project, and
+     AdvancedMarkerElement requires one, so Marker is the correct choice here.
+   - Lazy-loaded: the Maps JS API script is only injected the first time a
+     map is actually needed (opening the Add/Edit Listing form, or viewing
+     an unlocked property with saved coordinates).
+   ══════════════════════════════════════════════════════════════════════ */
+(function () {
+  const rnGmapsState = {
+    loading: null,
+    loaded: false,
+    map: null,
+    marker: null,
+    autocompleteEl: null,
+    geocoder: null,
+    defaultCenter: { lat: 20.5937, lng: 78.9629 }, // India
+    defaultZoom: 5,
+  };
+
+  function rnLoadGoogleMaps() {
+    if (rnGmapsState.loaded && window.google && window.google.maps) return Promise.resolve();
+    if (rnGmapsState.loading) return rnGmapsState.loading;
+    rnGmapsState.loading = new Promise((resolve, reject) => {
+      const key = window.__RN_GOOGLE_MAPS_API_KEY;
+      if (!key) { reject(new Error('Google Maps is not configured yet')); return; }
+      if (window.google && window.google.maps && window.google.maps.places) {
+        rnGmapsState.loaded = true; resolve(); return;
+      }
+      window.__rnGmapsReady = function () { rnGmapsState.loaded = true; resolve(); };
+      const s = document.createElement('script');
+      s.src = 'https://maps.googleapis.com/maps/api/js?key=' + encodeURIComponent(key) +
+        '&libraries=places&loading=async&callback=__rnGmapsReady';
+      s.async = true; s.defer = true;
+      s.onerror = () => reject(new Error('Could not load Google Maps — check your connection'));
+      document.head.appendChild(s);
+    }).catch(err => { rnGmapsState.loading = null; throw err; });
+    return rnGmapsState.loading;
+  }
+
+  // ── Owner: map + draggable marker + search box (Add/Edit Listing form) ──
+  window.rnInitOwnerMap = async function () {
+    const container = document.getElementById('rn-owner-map');
+    if (!container) return;
+    try {
+      await rnLoadGoogleMaps();
+    } catch (e) {
+      container.innerHTML = '<div class="rn-map-placeholder">⚠️ ' + (e.message || 'Map unavailable') + '</div>';
+      return;
+    }
+    if (rnGmapsState.map) {
+      google.maps.event.trigger(rnGmapsState.map, 'resize');
+      rnInitPlaceAutocomplete();
+      return;
+    }
+    container.innerHTML = '';
+    const latEl = document.getElementById('h-latitude');
+    const lngEl = document.getElementById('h-longitude');
+    const hasSaved = latEl && lngEl && latEl.value !== '' && lngEl.value !== '';
+    const center = hasSaved ? { lat: parseFloat(latEl.value), lng: parseFloat(lngEl.value) } : rnGmapsState.defaultCenter;
+    const zoom = hasSaved ? 17 : rnGmapsState.defaultZoom;
+
+    try {
+      const map = new google.maps.Map(container, {
+        center, zoom, mapTypeControl: false, streetViewControl: false,
+        fullscreenControl: false, clickableIcons: false,
+      });
+      const marker = new google.maps.Marker({
+        position: hasSaved ? center : rnGmapsState.defaultCenter,
+        map, draggable: true, visible: !!hasSaved,
+      });
+      rnGmapsState.map = map;
+      rnGmapsState.marker = marker;
+
+      marker.addListener('dragend', () => {
+        const p = marker.getPosition();
+        rnSetOwnerMapLocation(p.lat(), p.lng());
+      });
+      map.addListener('click', (e) => {
+        marker.setPosition(e.latLng);
+        marker.setVisible(true);
+        rnSetOwnerMapLocation(e.latLng.lat(), e.latLng.lng());
+      });
+
+      if (hasSaved) {
+        document.getElementById('rn-owner-map-coords').style.display = 'flex';
+        document.getElementById('rn-owner-lat-chip').textContent = 'Lat: ' + center.lat.toFixed(6);
+        document.getElementById('rn-owner-lng-chip').textContent = 'Lng: ' + center.lng.toFixed(6);
+      }
+    } catch (e) {
+      container.innerHTML = '<div class="rn-map-placeholder">⚠️ Map failed to load</div>';
+      console.warn('[RentNivas] Owner map init failed:', e);
+      return;
+    }
+    rnInitPlaceAutocomplete();
+  };
+
+  async function rnInitPlaceAutocomplete() {
+    const wrap = document.getElementById('rn-place-search-wrap');
+    if (!wrap || rnGmapsState.autocompleteEl || wrap.childElementCount) return;
+    try {
+      if (!google.maps.places || !google.maps.places.PlaceAutocompleteElement) throw new Error('PlaceAutocompleteElement unavailable');
+      const el = new google.maps.places.PlaceAutocompleteElement({});
+      el.id = 'rn-place-autocomplete';
+      el.setAttribute('placeholder', '🔍 Search address, apartment, locality, landmark…');
+      wrap.appendChild(el);
+      rnGmapsState.autocompleteEl = el;
+      el.addEventListener('gmp-select', async (ev) => {
+        try {
+          const place = ev.placePrediction.toPlace();
+          await place.fetchFields({ fields: ['location', 'formattedAddress'] });
+          if (!place.location) return;
+          const lat = place.location.lat(), lng = place.location.lng();
+          rnSetOwnerMapLocation(lat, lng, { formattedAddress: place.formattedAddress });
+          rnGmapsState.map.panTo({ lat, lng });
+          rnGmapsState.map.setZoom(17);
+        } catch (err) {
+          toast('Could not read that place — try another search.', 'error');
+        }
+      });
+    } catch (e) {
+      // Fallback for older Maps JS versions without the new Places element —
+      // bind the classic (still supported) Autocomplete to the address input.
+      try {
+        const input = document.getElementById('h-address');
+        const ac = new google.maps.places.Autocomplete(input, { fields: ['geometry', 'formatted_address'] });
+        ac.addListener('place_changed', () => {
+          const p = ac.getPlace();
+          if (!p.geometry || !p.geometry.location) return;
+          const lat = p.geometry.location.lat(), lng = p.geometry.location.lng();
+          rnSetOwnerMapLocation(lat, lng, { formattedAddress: p.formatted_address, skipAddressFill: true });
+          rnGmapsState.map.panTo({ lat, lng });
+          rnGmapsState.map.setZoom(17);
+        });
+      } catch (e2) { console.warn('[RentNivas] Places Autocomplete unavailable:', e2); }
+    }
+  }
+
+  function rnReverseGeocodeOwner(lat, lng) {
+    if (!rnGmapsState.geocoder) rnGmapsState.geocoder = new google.maps.Geocoder();
+    rnGmapsState.geocoder.geocode({ location: { lat, lng } }, (results, status) => {
+      if (status === 'OK' && results && results[0]) {
+        const addr = results[0].formatted_address;
+        const fmtEl = document.getElementById('h-formatted-address');
+        const addrEl = document.getElementById('h-address');
+        if (fmtEl) fmtEl.value = addr;
+        if (addrEl) addrEl.value = addr;
+      }
+    });
+  }
+
+  // Central place that updates the marker + lat/lng/address whenever the
+  // owner sets a location — via search, drag, map click, or GPS.
+  window.rnSetOwnerMapLocation = function (lat, lng, opts) {
+    opts = opts || {};
+    if (!rnGmapsState.map || !rnGmapsState.marker) return;
+    const pos = { lat, lng };
+    rnGmapsState.marker.setPosition(pos);
+    rnGmapsState.marker.setVisible(true);
+    const latEl = document.getElementById('h-latitude');
+    const lngEl = document.getElementById('h-longitude');
+    if (latEl) latEl.value = lat;
+    if (lngEl) lngEl.value = lng;
+    const chips = document.getElementById('rn-owner-map-coords');
+    if (chips) {
+      chips.style.display = 'flex';
+      document.getElementById('rn-owner-lat-chip').textContent = 'Lat: ' + lat.toFixed(6);
+      document.getElementById('rn-owner-lng-chip').textContent = 'Lng: ' + lng.toFixed(6);
+    }
+    if (opts.formattedAddress) {
+      const fmtEl = document.getElementById('h-formatted-address');
+      if (fmtEl) fmtEl.value = opts.formattedAddress;
+      if (!opts.skipAddressFill) {
+        const addrEl = document.getElementById('h-address');
+        if (addrEl) addrEl.value = opts.formattedAddress;
+      }
+    } else if (!opts.skipReverseGeocode) {
+      rnReverseGeocodeOwner(lat, lng);
+    }
+  };
+
+  window.rnResetOwnerMap = function () {
+    if (rnGmapsState.marker) rnGmapsState.marker.setVisible(false);
+    if (rnGmapsState.map) {
+      rnGmapsState.map.setCenter(rnGmapsState.defaultCenter);
+      rnGmapsState.map.setZoom(rnGmapsState.defaultZoom);
+    }
+    const chips = document.getElementById('rn-owner-map-coords');
+    if (chips) chips.style.display = 'none';
+  };
+
+  // Called from editHouse() once the saved lat/lng are known, to make sure
+  // the map (which may have just been created with default center) recenters
+  // on the property's actual saved location.
+  window.rnLoadOwnerMapFromHouse = async function (h) {
+    if (h.latitude == null || h.longitude == null) return;
+    const lat = parseFloat(h.latitude), lng = parseFloat(h.longitude);
+    if (isNaN(lat) || isNaN(lng)) return;
+    try { await rnLoadGoogleMaps(); } catch (e) { return; }
+    if (!rnGmapsState.map) await window.rnInitOwnerMap();
+    if (!rnGmapsState.map || !rnGmapsState.marker) return;
+    rnGmapsState.marker.setPosition({ lat, lng });
+    rnGmapsState.marker.setVisible(true);
+    rnGmapsState.map.setCenter({ lat, lng });
+    rnGmapsState.map.setZoom(17);
+    const chips = document.getElementById('rn-owner-map-coords');
+    if (chips) {
+      chips.style.display = 'flex';
+      document.getElementById('rn-owner-lat-chip').textContent = 'Lat: ' + lat.toFixed(6);
+      document.getElementById('rn-owner-lng-chip').textContent = 'Lng: ' + lng.toFixed(6);
+    }
+  };
+
+  // ── Renter: read-only map shown only after unlock (see renderDetailPage) ──
+  window.rnInitDetailMap = async function (h) {
+    const container = document.getElementById('rn-detail-map');
+    if (!container) return;
+    const lat = parseFloat(h.latitude), lng = parseFloat(h.longitude);
+    if (isNaN(lat) || isNaN(lng)) return;
+    try {
+      await rnLoadGoogleMaps();
+    } catch (e) {
+      container.innerHTML = '<div class="rn-map-placeholder">⚠️ ' + (e.message || 'Map unavailable') + '</div>';
+      return;
+    }
+    try {
+      container.innerHTML = '';
+      const map = new google.maps.Map(container, {
+        center: { lat, lng }, zoom: 17, mapTypeControl: true,
+        streetViewControl: true, fullscreenControl: true, clickableIcons: false,
+      });
+      new google.maps.Marker({ position: { lat, lng }, map, title: h.title || '' });
+    } catch (e) {
+      container.innerHTML = '<div class="rn-map-placeholder">⚠️ Map failed to load</div>';
+      console.warn('[RentNivas] Detail map init failed:', e);
+    }
+  };
+})();
+</script>
 <script src="/referral.js"></script>
 </body>
 </html>
