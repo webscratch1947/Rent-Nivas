@@ -103,6 +103,11 @@ module.exports = async function handler(req, res) {
   // the Google profile claims — but exposed for completeness/future use.
   const googleUserinfoUri = process.env.GOOGLE_USERINFO_URI || '';
   const googleScopes = process.env.GOOGLE_SCOPES || 'openid email profile';
+  // Google Maps Platform (Maps JS API / Places API (New) / Geocoding API) —
+  // key + restrictions are already configured in Google Cloud; this just
+  // hands the key to the client the same safe way every other config value
+  // here is handed over, without hardcoding it anywhere in the frontend.
+  const googleMapsApiKey = process.env.GOOGLE_MAPS_API_KEY || '';
   // COGNITO_REDIRECT_URI is the redirect_uri sent to Cognito's Hosted UI
   // (NOT a Google value — Cognito owns this redirect). Use this single env
   // var consistently; GOOGLE_REDIRECT_URI is no longer read here.
@@ -130,6 +135,7 @@ module.exports = async function handler(req, res) {
     `window.__RN_GOOGLE_TOKEN_URI = ${JSON.stringify(googleTokenUri)};\n` +
     `window.__RN_GOOGLE_USERINFO_URI = ${JSON.stringify(googleUserinfoUri)};\n` +
     `window.__RN_GOOGLE_SCOPES = ${JSON.stringify(googleScopes)};\n` +
+    `window.__RN_GOOGLE_MAPS_API_KEY = ${JSON.stringify(googleMapsApiKey)};\n` +
     `window.__RN_SITE_VERSION = ${JSON.stringify(siteVersion)};\n` +
     `window.__RN_ADMIN_EMAILS = ${JSON.stringify(process.env.ADMIN_EMAILS || "")};\n`
   );
