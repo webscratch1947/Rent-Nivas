@@ -1428,6 +1428,42 @@
       to   { opacity: 1; transform: translateY(0); }
     }
 
+    /* Hide bottom nav on role page */
+    #role-page.active ~ .mob-bottom-nav,
+    #role-page.active ~ .pdn-bottom-nav,
+    body:has(#role-page.active) .mob-bottom-nav,
+    body:has(#role-page.active) .pdn-bottom-nav {
+      display: none !important;
+    }
+
+    /* Mobile: no hover effects, images always vivid */
+    @media (max-width: 768px) {
+      .role-card-img-wrap img {
+        mix-blend-mode: normal !important;
+        opacity: 1 !important;
+        transform: none !important;
+      }
+      .role-card:hover {
+        transform: none !important;
+        box-shadow: inset 1px 1px 0 rgba(255,255,255,0.5), 0 20px 40px rgba(194,113,79,0.08) !important;
+        background: rgba(255,255,255,0.18) !important;
+        border-color: rgba(255,255,255,0.42) !important;
+      }
+      .role-card:hover .role-card-img-wrap img {
+        mix-blend-mode: normal !important;
+        opacity: 1 !important;
+        transform: none !important;
+      }
+      .role-card:hover .role-card-img-arrow {
+        background: rgba(255,255,255,0.28) !important;
+        border-color: rgba(255,255,255,0.5) !important;
+      }
+      .role-card:active {
+        transform: scale(.97) !important;
+        transition: transform .1s !important;
+      }
+    }
+
     /* ══ DASHBOARD ══ */
     .ds-wrap {
       display: flex;
@@ -9895,9 +9931,8 @@
     <div class="role-page-wrap">
       <!-- Brand header -->
       <div class="role-brand">
-        <div class="role-brand-icon">🏠</div>
-        <div class="role-page-title">Welcome to Rent Nivas</div>
-        <div class="role-page-sub">Choose your path to begin your real estate journey.</div>
+        <div class="role-page-title">What are you here for?</div>
+        <div class="role-page-sub">India's premier rental platform</div>
       </div>
 
       <!-- Cards -->
