@@ -1830,6 +1830,11 @@
       display: none;
       padding: 32px 36px;
     }
+    @media (min-width: 1101px) {
+      .ds-section {
+        padding: 40px 56px;
+      }
+    }
 
     .ds-section.active {
       display: block;
@@ -1867,6 +1872,11 @@
     .ndash-greeting {
       margin-bottom: 24px;
     }
+    @media (min-width: 1101px) {
+      .ndash-greeting {
+        margin-bottom: 32px;
+      }
+    }
     .ndash-greeting-date {
       font-size: 12px;
       font-weight: 700;
@@ -1892,6 +1902,12 @@
     @media (max-width: 1100px) {
       .ndash-kpi-grid { grid-template-columns: repeat(2, 1fr); }
     }
+    @media (min-width: 1101px) {
+      .ndash-kpi-grid {
+        gap: 22px;
+        margin-bottom: 36px;
+      }
+    }
     .ndash-kpi-card {
       background: var(--white);
       border: 1px solid var(--border);
@@ -1902,6 +1918,12 @@
       gap: 8px;
       box-shadow: 0 1px 4px rgba(24,21,15,.06);
       transition: box-shadow .2s;
+    }
+    @media (min-width: 1101px) {
+      .ndash-kpi-card {
+        padding: 26px 24px;
+        gap: 12px;
+      }
     }
     .ndash-kpi-card:hover { box-shadow: var(--sh1); }
     .ndash-kpi-top {
@@ -1925,6 +1947,11 @@
       letter-spacing: -.5px;
       font-family: var(--font-display);
       line-height: 1;
+    }
+    @media (min-width: 1101px) {
+      .ndash-kpi-val {
+        font-size: 38px;
+      }
     }
     .ndash-kpi-sub {
       font-size: 11px;
@@ -2030,6 +2057,11 @@
       align-items: center;
       padding: 16px 18px 12px;
       border-bottom: 1px solid var(--border);
+    }
+    @media (min-width: 1101px) {
+      .ndash-panel-head {
+        padding: 22px 26px 18px;
+      }
     }
     .ndash-table-wrap { display: block; overflow-x: auto; }
     .ndash-act-list  { display: none; }
