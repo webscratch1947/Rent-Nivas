@@ -6342,7 +6342,241 @@
         opacity: 1 !important;
       }
 
-      /* ══ HOST DASHBOARD — SIDEBAR + TOPBAR ══ */
+      /* ══ NEW DASHBOARD HOME DESIGN ══ */
+    .ndash-greeting {
+      margin-bottom: 24px;
+    }
+    .ndash-greeting-date {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      margin-bottom: 4px;
+    }
+    .ndash-greeting-name {
+      font-size: clamp(22px, 4vw, 30px);
+      font-weight: 700;
+      color: var(--ink);
+      font-family: var(--font-display);
+      letter-spacing: -.3px;
+    }
+
+    /* KPI 2x2 grid */
+    .ndash-kpi-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      margin-bottom: 28px;
+    }
+    .ndash-kpi-card {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: var(--rl);
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      box-shadow: 0 1px 4px rgba(24,21,15,.06);
+      transition: box-shadow .2s;
+    }
+    .ndash-kpi-card:hover { box-shadow: var(--sh1); }
+    .ndash-kpi-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+    .ndash-kpi-label {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--muted);
+    }
+    .ndash-kpi-icon {
+      font-size: 20px !important;
+    }
+    .ndash-kpi-val {
+      font-size: clamp(26px, 5vw, 34px);
+      font-weight: 700;
+      color: var(--ink);
+      letter-spacing: -.5px;
+      font-family: var(--font-display);
+      line-height: 1;
+    }
+    .ndash-kpi-sub {
+      font-size: 11px;
+      color: var(--muted2);
+    }
+    .ndash-kpi-val-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .ndash-kpi-badge {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      background: var(--bg2);
+      color: var(--muted);
+      border: 1px solid var(--border);
+      border-radius: 99px;
+      padding: 2px 10px;
+    }
+    .ndash-kpi-progress {
+      width: 100%;
+      height: 4px;
+      background: var(--border);
+      border-radius: 99px;
+      overflow: hidden;
+      margin-top: 4px;
+    }
+    .ndash-kpi-progress-bar {
+      height: 100%;
+      background: var(--terra);
+      border-radius: 99px;
+      transition: width .6s ease;
+    }
+
+    /* Quick actions row */
+    .ndash-section-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--ink);
+      margin-bottom: 14px;
+    }
+    .ndash-qa-row {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+      padding-bottom: 4px;
+      margin-bottom: 28px;
+    }
+    .ndash-qa-row::-webkit-scrollbar { display: none; }
+    .ndash-qa-btn {
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      background: none;
+      border: none;
+      cursor: pointer;
+      min-width: 72px;
+    }
+    .ndash-qa-circle {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform .15s;
+    }
+    .ndash-qa-btn:active .ndash-qa-circle { transform: scale(.93); }
+    .ndash-qa-primary {
+      background: var(--terra);
+      color: #fff;
+      box-shadow: 0 2px 8px rgba(194,113,79,.3);
+    }
+    .ndash-qa-muted {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      color: var(--muted);
+    }
+    .ndash-qa-btn:hover .ndash-qa-muted { background: var(--bg3); }
+    .ndash-qa-lbl {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--ink);
+      text-align: center;
+      white-space: nowrap;
+    }
+
+    /* Panel */
+    .ndash-panel {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: var(--rl);
+      overflow: hidden;
+      box-shadow: 0 1px 4px rgba(24,21,15,.06);
+      margin-bottom: 20px;
+    }
+    .ndash-panel-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 18px 12px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    /* Desktop table visible, mobile list hidden by default */
+    .ndash-table-wrap { display: block; }
+    .ndash-act-list  { display: none; }
+
+    /* Activity list item (mobile) */
+    .ndash-act-item {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--border);
+      transition: background .15s;
+    }
+    .ndash-act-item:last-child { border-bottom: none; }
+    .ndash-act-item:active { background: var(--bg2); }
+    .ndash-act-thumb {
+      width: 60px;
+      height: 60px;
+      border-radius: 8px;
+      object-fit: cover;
+      flex-shrink: 0;
+      background: var(--bg2);
+      border: 1px solid var(--border);
+    }
+    .ndash-act-thumb-icon {
+      width: 60px;
+      height: 60px;
+      border-radius: 8px;
+      flex-shrink: 0;
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--muted);
+      font-size: 22px;
+    }
+    .ndash-act-body { flex: 1; min-width: 0; }
+    .ndash-act-time {
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      margin-bottom: 3px;
+    }
+    .ndash-act-text {
+      font-size: 14px;
+      color: var(--ink);
+      line-height: 1.4;
+    }
+    .ndash-act-status {
+      font-size: 20px;
+      flex-shrink: 0;
+    }
+
+    /* Mobile overrides */
+    @media (max-width: 768px) {
+      .ndash-kpi-grid { gap: 10px; }
+      .ndash-kpi-card { padding: 14px 12px; }
+      .ndash-table-wrap { display: none; }
+      .ndash-act-list  { display: block; }
+    }
+
+    /* ══ HOST DASHBOARD — SIDEBAR + TOPBAR ══ */
       .ds-sidebar {
         transform: translateX(-100%);
         z-index: 600;
@@ -10393,110 +10627,100 @@
 
         <!-- DASHBOARD HOME -->
         <div class="ds-section active" id="section-home">
-          <div class="dash-greeting">
-            <h1><span id="g-good" data-i18n="g_good">Good</span> <span id="g-time">morning</span>, <span id="g-name">there</span> 👋</h1>
-            <p id="g-date">Loading...</p>
+
+          <!-- Greeting -->
+          <div class="ndash-greeting">
+            <p class="ndash-greeting-date" id="g-date">Loading...</p>
+            <h2 class="ndash-greeting-name"><span id="g-good" data-i18n="g_good">Good</span> <span id="g-time">morning</span>, <span id="g-name">there</span> 👋</h2>
           </div>
-          <div class="kpi-grid">
-            <div class="kpi-card k-terra">
-              <div class="kpi-top-bar"></div>
-              <div class="kpi-icon">🏠</div>
-              <div class="kpi-val" id="k-total">—</div>
-              <div class="kpi-lbl" data-i18n="kpi_total">Total Listings</div>
-              <div class="kpi-sub" data-i18n="kpi_total_sub">All time</div>
-            </div>
-            <div class="kpi-card k-green">
-              <div class="kpi-top-bar"></div>
-              <div class="kpi-icon">✅</div>
-              <div class="kpi-val" id="k-pub">—</div>
-              <div class="kpi-lbl" data-i18n="kpi_pub">Published</div>
-              <div class="kpi-sub" data-i18n="kpi_pub_sub">Active now</div>
-            </div>
-            <div class="kpi-card k-blue">
-              <div class="kpi-top-bar"></div>
-              <div class="kpi-icon">📝</div>
-              <div class="kpi-val" id="k-draft">—</div>
-              <div class="kpi-lbl" data-i18n="kpi_drafts">Drafts</div>
-              <div class="kpi-sub" data-i18n="kpi_drafts_sub">Unpublished</div>
-            </div>
-            <div class="kpi-card k-gold">
-              <div class="kpi-top-bar"></div>
-              <div class="kpi-icon">💰</div>
-              <div class="kpi-val" id="k-rentval">₹—</div>
-              <div class="kpi-lbl" data-i18n="kpi_rent">Rent Value</div>
-              <div class="kpi-sub" data-i18n="kpi_rent_sub">Total/month</div>
-            </div>
-            <div class="kpi-card k-sage">
-              <div class="kpi-top-bar"></div>
-              <div class="kpi-icon">📸</div>
-              <div class="kpi-val" id="k-imgs">—</div>
-              <div class="kpi-lbl" data-i18n="kpi_photos">Total Photos</div>
-              <div class="kpi-sub" data-i18n="kpi_photos_sub">All listings</div>
-            </div>
-          </div>
-          <div class="dash-grid">
-            <div class="dash-panel">
-              <div class="dash-panel-head">
-                <div class="dash-panel-title" data-i18n="dash_recent">Recent Listings</div><button class="btn btn-soft btn-sm" data-i18n="dash_view_all"
-                  onclick="showSection('listings')">View all →</button>
+
+          <!-- KPI Grid 2x2 -->
+          <div class="ndash-kpi-grid">
+            <div class="ndash-kpi-card ndash-kpi-blue">
+              <div class="ndash-kpi-top">
+                <span class="ndash-kpi-label" data-i18n="kpi_total">Total Listings</span>
+                <span class="material-symbols-outlined ndash-kpi-icon" style="color:#3b82f6;">home_work</span>
               </div>
-              <div class="dash-panel-body">
-                <table class="rec-table">
-                  <thead>
-                    <tr>
-                      <th data-i18n="th_property">Property</th>
-                      <th data-i18n="th_status">Status</th>
-                      <th data-i18n="th_beds">Beds</th>
-                      <th data-i18n="th_rent">Rent</th>
-                      <th data-i18n="th_valid">Valid Till</th>
-                      <th data-i18n="th_date">Date</th>
-                    </tr>
-                  </thead>
-                  <tbody id="rec-tbody">
-                    <tr>
-                      <td colspan="5" style="text-align:center;color:var(--muted);padding:32px;font-size:14px;">
-                        Loading...</td>
-                    </tr>
-                  </tbody>
-                </table>
+              <div class="ndash-kpi-val" id="k-total">—</div>
+              <div class="ndash-kpi-sub" data-i18n="kpi_total_sub">All time</div>
+            </div>
+            <div class="ndash-kpi-card ndash-kpi-green">
+              <div class="ndash-kpi-top">
+                <span class="ndash-kpi-label" data-i18n="kpi_pub">Published</span>
+                <span class="material-symbols-outlined ndash-kpi-icon" style="color:#10b981;">public</span>
+              </div>
+              <div class="ndash-kpi-val" id="k-pub">—</div>
+              <div class="ndash-kpi-progress"><div class="ndash-kpi-progress-bar" id="k-pub-bar" style="width:0%"></div></div>
+            </div>
+            <div class="ndash-kpi-card ndash-kpi-amber">
+              <div class="ndash-kpi-top">
+                <span class="ndash-kpi-label" data-i18n="kpi_drafts">Drafts</span>
+                <span class="material-symbols-outlined ndash-kpi-icon" style="color:#f59e0b;">edit_document</span>
+              </div>
+              <div class="ndash-kpi-val-row">
+                <span class="ndash-kpi-val" id="k-draft">—</span>
+                <span class="ndash-kpi-badge" data-i18n="kpi_drafts_sub">Unpublished</span>
               </div>
             </div>
-            <div style="display:flex;flex-direction:column;gap:18px;">
-              <div class="dash-panel">
-                <div class="dash-panel-head">
-                  <div class="dash-panel-title" data-i18n="dash_quick">Quick Actions</div>
-                </div>
-                <div class="qa-grid">
-                  <button class="qa-item" onclick="showSection('add')">
-                    <div class="qa-em">🏠</div>
-                    <div class="qa-t" data-i18n="qa_add">Add Listing</div>
-                    <div class="qa-s" data-i18n="qa_add_sub">New property</div>
-                  </button>
-                  <button class="qa-item" onclick="showSection('listings')">
-                    <div class="qa-em">📋</div>
-                    <div class="qa-t" data-i18n="qa_listings">My Listings</div>
-                    <div class="qa-s" data-i18n="qa_listings_sub">Manage all</div>
-                  </button>
-                  <button class="qa-item" onclick="showSection('analytics')">
-                    <div class="qa-em">📊</div>
-                    <div class="qa-t" data-i18n="qa_analytics">Analytics</div>
-                    <div class="qa-s" data-i18n="qa_analytics_sub">View stats</div>
-                  </button>
-                  <button class="qa-item" onclick="showSection('profile')">
-                    <div class="qa-em">👤</div>
-                    <div class="qa-t" data-i18n="qa_profile">Profile</div>
-                    <div class="qa-s" data-i18n="qa_profile_sub">Update info</div>
-                  </button>
-                </div>
+            <div class="ndash-kpi-card ndash-kpi-terra">
+              <div class="ndash-kpi-top">
+                <span class="ndash-kpi-label" data-i18n="kpi_rent">Rent Value</span>
+                <span class="material-symbols-outlined ndash-kpi-icon" style="color:#c2714f;">payments</span>
               </div>
-              <div class="dash-panel">
-                <div class="dash-panel-head">
-                  <div class="dash-panel-title" data-i18n="dash_activity">Recent Activity</div>
-                </div>
-                <div class="act-feed" id="act-feed"></div>
-              </div>
+              <div class="ndash-kpi-val" id="k-rentval">₹—</div>
+              <div class="ndash-kpi-sub" data-i18n="kpi_rent_sub">Total/month</div>
             </div>
           </div>
+
+          <!-- Quick Actions -->
+          <div class="ndash-section-title" data-i18n="dash_quick">Quick Actions</div>
+          <div class="ndash-qa-row">
+            <button class="ndash-qa-btn" onclick="currentEditId=null;editMode=false;resetForm();showSection('add')">
+              <div class="ndash-qa-circle ndash-qa-primary"><span class="material-symbols-outlined">add</span></div>
+              <span class="ndash-qa-lbl" data-i18n="qa_add">Add Listing</span>
+            </button>
+            <button class="ndash-qa-btn" onclick="showSection('listings')">
+              <div class="ndash-qa-circle ndash-qa-muted"><span class="material-symbols-outlined">list_alt</span></div>
+              <span class="ndash-qa-lbl" data-i18n="qa_listings">My Listings</span>
+            </button>
+            <button class="ndash-qa-btn" onclick="showSection('analytics')">
+              <div class="ndash-qa-circle ndash-qa-muted"><span class="material-symbols-outlined">analytics</span></div>
+              <span class="ndash-qa-lbl" data-i18n="qa_analytics">Analytics</span>
+            </button>
+            <button class="ndash-qa-btn" onclick="showSection('profile')">
+              <div class="ndash-qa-circle ndash-qa-muted"><span class="material-symbols-outlined">person</span></div>
+              <span class="ndash-qa-lbl" data-i18n="qa_profile">Profile</span>
+            </button>
+          </div>
+
+          <!-- Recent Listings (mobile-friendly vertical list) -->
+          <div class="ndash-panel">
+            <div class="ndash-panel-head">
+              <span class="ndash-section-title" style="margin-bottom:0;" data-i18n="dash_recent">Recent Listings</span>
+              <button class="btn btn-soft btn-sm" onclick="showSection('listings')" data-i18n="dash_view_all">View all →</button>
+            </div>
+            <!-- Desktop table (hidden on mobile) -->
+            <div class="ndash-table-wrap">
+              <table class="rec-table">
+                <thead>
+                  <tr>
+                    <th data-i18n="th_property">Property</th>
+                    <th data-i18n="th_status">Status</th>
+                    <th data-i18n="th_beds">Beds</th>
+                    <th data-i18n="th_rent">Rent</th>
+                    <th data-i18n="th_valid">Valid Till</th>
+                    <th data-i18n="th_date">Date</th>
+                  </tr>
+                </thead>
+                <tbody id="rec-tbody">
+                  <tr><td colspan="6" style="text-align:center;color:var(--muted);padding:32px;font-size:14px;">Loading...</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <!-- Mobile activity list -->
+            <div class="ndash-act-list" id="act-feed"></div>
+          </div>
+
         </div>
 
         <!-- MY LISTINGS -->
@@ -15110,7 +15334,10 @@
       document.getElementById('k-pub').textContent = pub.length;
       document.getElementById('k-draft').textContent = dr.length;
       document.getElementById('k-rentval').textContent = totalRent ? '₹' + Math.round(totalRent).toLocaleString('en-IN') : '₹—';
-      document.getElementById('k-imgs').textContent = totalImgs;
+      const kImgs = document.getElementById('k-imgs'); if(kImgs) kImgs.textContent = totalImgs;
+      // Progress bar: published / total
+      const pubBar = document.getElementById('k-pub-bar');
+      if (pubBar) pubBar.style.width = h.length ? Math.round((pub.length / h.length) * 100) + '%' : '0%';
 
       const tbody = document.getElementById('rec-tbody');
       if (!h.length) {
@@ -15139,13 +15366,26 @@
       }
 
       const feed = document.getElementById('act-feed');
-      feed.innerHTML = h.length
-        ? h.slice(0, 5).map(x => `
-          <div class="act-item">
-            <div class="act-dot" style="background:${x.status === 'published' ? 'var(--green-bg)' : 'var(--amber-bg)'};">${x.status === 'published' ? '✅' : '📝'}</div>
-            <div><div class="act-text"><strong>${x.title}</strong> — ${x.status}</div><div class="act-time">${fmtDate(x.created_at)}</div></div>
-          </div>`).join('')
-        : '<div style="padding:20px;text-align:center;font-size:14px;color:var(--muted);">No activity yet</div>';
+      if (feed) feed.innerHTML = h.length
+        ? h.slice(0, 5).map(x => {
+            const img = x.images?.[0];
+            const thumbHtml = img
+              ? `<img class="ndash-act-thumb" src="${img}" onerror="this.outerHTML='<div class=ndash-act-thumb-icon>&#127968;</div>'" alt="">`
+              : `<div class="ndash-act-thumb-icon">&#127968;</div>`;
+            const statusIcon = x.status === 'published'
+              ? `<span class="material-symbols-outlined" style="color:var(--green);font-size:22px;">check_circle</span>`
+              : `<span class="material-symbols-outlined" style="color:var(--muted);font-size:22px;">edit_document</span>`;
+            return `<div class="ndash-act-item">
+              ${thumbHtml}
+              <div class="ndash-act-body">
+                <div class="ndash-act-time">${fmtDate(x.created_at)}</div>
+                <div class="ndash-act-text"><strong>${x.title}</strong> u2014 ${x.status === 'published' ? 'Published' : 'Draft'}</div>
+                ${x.city || x.area ? `<div style="font-size:12px;color:var(--muted);margin-top:2px;">&#128205; ${x.city || x.area}</div>` : ''}
+              </div>
+              <div class="ndash-act-status">${statusIcon}</div>
+            </div>`;
+          }).join('')
+        : '<div style="padding:24px;text-align:center;font-size:14px;color:var(--muted);">No listings yet. <span style="color:var(--terra);cursor:pointer;font-weight:700;" onclick="showSection(\'add\')">Add your first &rarr;</span></div>';
     }
 
     async function expireStaleListings(h) {
