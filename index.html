@@ -1685,19 +1685,24 @@
       white-space: nowrap;
     }
 
+    /* Android safe-area: --rn-safe-top is injected by MainActivity when running as app */
+    :root { --rn-safe-top: 0px; --rn-safe-bot: 0px; }
+
     .ds-topbar {
       position: fixed;
       top: 0;
       left: var(--sw);
       right: 0;
-      height: var(--th);
+      height: calc(var(--th) + var(--rn-safe-top));
+      padding-top: var(--rn-safe-top);
       background: rgba(250, 248, 245, .95);
       backdrop-filter: blur(12px);
       border-bottom: 1px solid var(--border);
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 0 32px;
+      padding-left: 32px;
+      padding-right: 32px;
       z-index: 100;
       overflow: visible;
     }
@@ -1815,7 +1820,7 @@
 
     .ds-main {
       margin-left: var(--sw);
-      padding-top: var(--th);
+      padding-top: calc(var(--th) + var(--rn-safe-top));
       min-height: 100vh;
     }
 
@@ -1878,8 +1883,12 @@
     .ndash-kpi-grid {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
-      gap: 14px;
+      gap: 16px;
       margin-bottom: 28px;
+      max-width: 100%;
+    }
+    @media (max-width: 1100px) {
+      .ndash-kpi-grid { grid-template-columns: repeat(2, 1fr); }
     }
     .ndash-kpi-card {
       background: var(--white);
@@ -2069,11 +2078,13 @@
       line-height: 1.4;
     }
     .ndash-act-status { flex-shrink: 0; }
+    .ndash-table-wrap { display: block; overflow-x: auto; }
+    .ndash-act-list  { display: none !important; }
     @media (max-width: 768px) {
       .ndash-kpi-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
       .ndash-kpi-card { padding: 14px 12px; }
-      .ndash-table-wrap { display: none; }
-      .ndash-act-list  { display: block; }
+      .ndash-table-wrap { display: none !important; }
+      .ndash-act-list  { display: block !important; }
     }
 
     .kpi-grid {
@@ -2332,6 +2343,7 @@
       border: 1px solid var(--border);
       border-radius: 10px;
       padding: 4px;
+      flex-shrink: 0;
     }
 
     .filter-tab {
@@ -2345,6 +2357,8 @@
       border-radius: 8px;
       cursor: pointer;
       transition: all .2s;
+      white-space: nowrap;
+      flex-shrink: 0;
     }
 
     .filter-tab.active {
@@ -5528,7 +5542,8 @@
       left: 0;
       right: 0;
       z-index: 7000;
-      height: 64px;
+      height: calc(64px + var(--rn-safe-bot));
+      padding-bottom: var(--rn-safe-bot);
       background: var(--white);
       border-top: 1px solid var(--border);
       box-shadow: 0 -4px 24px rgba(24, 21, 15, .09);
