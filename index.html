@@ -138,6 +138,29 @@
       animation: fadeUp .35s var(--ease);
     }
 
+    /* ── Ambient cloud background (landing page only, never behind the hero photo) ── */
+    #bgCanvas {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: -1;
+      pointer-events: none;
+      mix-blend-mode: multiply;
+      opacity: .4;
+      display: none;
+    }
+
+    body:has(#landing-page.active) #bgCanvas {
+      display: block;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      #bgCanvas {
+        display: none !important;
+      }
+    }
+
     @keyframes fadeUp {
       from {
         opacity: 0;
@@ -9553,6 +9576,7 @@
 </head>
 
 <body>
+  <canvas id="bgCanvas" aria-hidden="true"></canvas>
   <script>
     // ── Capture a referral code from a shared link before anything else runs ──
     // Supports both /ref:CODE (new share-link format) and the older ?ref=CODE query param.
@@ -9872,7 +9896,7 @@
       </div>
       <div class="hero-scroll">↓ Scroll to explore</div>
     </div>
-    <section class="lp-section" id="how-it-works" style="background:var(--white);">
+    <section class="lp-section" id="how-it-works">
       <div class="lp-section-inner">
         <div class="section-chip">✨ How It Works</div>
         <h2 class="section-h2">Rent or list in minutes</h2>
@@ -9950,7 +9974,7 @@
         </div>
       </div>
     </section>
-    <section class="lp-section" id="testimonials" style="background:var(--white);">
+    <section class="lp-section" id="testimonials">
       <div class="lp-section-inner">
         <div class="section-chip">💬 Testimonials</div>
         <h2 class="section-h2">What our hosts say</h2>
@@ -10005,7 +10029,7 @@
         </div>
       </div>
     </div>
-    <section class="lp-section" id="support" style="background:var(--white);">
+    <section class="lp-section" id="support">
       <div class="lp-section-inner" style="max-width:900px;">
         <div class="section-chip">🛟 Support</div>
         <h2 class="section-h2">Need help? Contact us</h2>
@@ -25466,5 +25490,126 @@ if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded'
 })();
 </script>
 <script src="/referral.js"></script>
+<script>
+  /* ── Ambient drifting "cloud" background shader (landing page only) ──
+     Pure WebGL fragment-shader noise, tinted with the Rent Nivas palette.
+     CSS keeps the canvas hidden everywhere except #landing-page.active,
+     and the opaque hero photo (.hero-bg) always paints over it, so the
+     hero image is never affected. */
+  (function () {
+    var reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduced) return;
+
+    var canvas = document.getElementById('bgCanvas');
+    if (!canvas) return;
+
+    var gl = canvas.getContext('webgl', { alpha: true, premultipliedAlpha: false }) ||
+      canvas.getContext('experimental-webgl');
+    if (!gl) { canvas.style.display = 'none'; return; }
+
+    var vsSrc = 'attribute vec2 aPos; void main(){ gl_Position = vec4(aPos,0.0,1.0); }';
+    var fsSrc = [
+      'precision highp float;',
+      'uniform vec2 uRes;',
+      'uniform float uTime;',
+      'uniform vec2 uMouse;',
+      'uniform float uScroll;',
+      'float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7))) * 43758.5453123); }',
+      'float noise(vec2 p){',
+      '  vec2 i = floor(p), f = fract(p);',
+      '  float a = hash(i), b = hash(i+vec2(1.0,0.0));',
+      '  float c = hash(i+vec2(0.0,1.0)), d = hash(i+vec2(1.0,1.0));',
+      '  vec2 u = f*f*(3.0-2.0*f);',
+      '  return mix(a,b,u.x) + (c-a)*u.y*(1.0-u.x) + (d-b)*u.x*u.y;',
+      '}',
+      'float fbm(vec2 p){',
+      '  float v = 0.0, amp = 0.55;',
+      '  for(int i=0;i<5;i++){ v += amp*noise(p); p *= 2.02; amp *= 0.55; }',
+      '  return v;',
+      '}',
+      'void main(){',
+      '  vec2 uv = gl_FragCoord.xy / uRes.xy;',
+      '  vec2 p = uv * vec2(uRes.x/uRes.y, 1.0) * 2.4;',
+      '  float t = uTime * 0.045;',
+      '  vec2 drift = vec2(t*0.6, -t*0.4) + uScroll * 0.0009;',
+      '  vec2 mouseOff = (uMouse - 0.5) * 0.35;',
+      '  float n1 = fbm(p + drift + mouseOff);',
+      '  float n2 = fbm(p * 1.6 - drift * 1.3 + 4.2);',
+      '  float blend = smoothstep(0.15, 0.85, n1 * 0.6 + n2 * 0.4);',
+      /* Rent Nivas palette: warm paper -> terracotta -> soft gold, kept very light */
+      '  vec3 cPaper = vec3(0.980, 0.973, 0.961);', // #faf8f5
+      '  vec3 cTerra = vec3(0.761, 0.443, 0.310);', // #c2714f
+      '  vec3 cGold  = vec3(0.788, 0.659, 0.298);', // #c9a84c
+      '  vec3 col = mix(cPaper, cTerra, smoothstep(0.35, 0.75, blend) * 0.45);',
+      '  col = mix(col, cGold, smoothstep(0.55, 0.95, n2) * 0.3);',
+      '  float vign = smoothstep(1.15, 0.25, length(uv - 0.5));',
+      '  col = mix(cPaper, col, vign);',
+      '  gl_FragColor = vec4(col, 1.0);',
+      '}'
+    ].join('\n');
+
+    function compile(type, src) {
+      var s = gl.createShader(type);
+      gl.shaderSource(s, src);
+      gl.compileShader(s);
+      if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
+        console.warn(gl.getShaderInfoLog(s));
+        return null;
+      }
+      return s;
+    }
+    var vs = compile(gl.VERTEX_SHADER, vsSrc);
+    var fs = compile(gl.FRAGMENT_SHADER, fsSrc);
+    if (!vs || !fs) { canvas.style.display = 'none'; return; }
+    var prog = gl.createProgram();
+    gl.attachShader(prog, vs);
+    gl.attachShader(prog, fs);
+    gl.linkProgram(prog);
+    gl.useProgram(prog);
+
+    var buf = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+    var aPos = gl.getAttribLocation(prog, 'aPos');
+    gl.enableVertexAttribArray(aPos);
+    gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
+
+    var uRes = gl.getUniformLocation(prog, 'uRes');
+    var uTime = gl.getUniformLocation(prog, 'uTime');
+    var uMouse = gl.getUniformLocation(prog, 'uMouse');
+    var uScroll = gl.getUniformLocation(prog, 'uScroll');
+
+    var mouse = [0.5, 0.5], targetMouse = [0.5, 0.5];
+    window.addEventListener('mousemove', function (e) {
+      targetMouse = [e.clientX / window.innerWidth, 1 - e.clientY / window.innerHeight];
+    }, { passive: true });
+
+    function resize() {
+      var dpr = Math.min(window.devicePixelRatio || 1, 1.75);
+      canvas.width = window.innerWidth * dpr;
+      canvas.height = window.innerHeight * dpr;
+      gl.viewport(0, 0, canvas.width, canvas.height);
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    var start = performance.now();
+    function frame(now) {
+      requestAnimationFrame(frame);
+      /* Skip rendering entirely while the canvas is hidden (i.e. not on the
+         landing page) so this never costs GPU cycles inside the logged-in app. */
+      if (getComputedStyle(canvas).display === 'none') return;
+      var t = (now - start) / 1000;
+      mouse[0] += (targetMouse[0] - mouse[0]) * 0.04;
+      mouse[1] += (targetMouse[1] - mouse[1]) * 0.04;
+      gl.uniform2f(uRes, canvas.width, canvas.height);
+      gl.uniform1f(uTime, t);
+      gl.uniform2f(uMouse, mouse[0], mouse[1]);
+      gl.uniform1f(uScroll, window.scrollY || 0);
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+    }
+    requestAnimationFrame(frame);
+  })();
+</script>
 </body>
 </html>
