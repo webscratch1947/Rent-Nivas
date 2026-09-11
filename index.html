@@ -4272,15 +4272,23 @@
       gap: 36px;
     }
 
+    .detail-main-img-wrap {
+      width: 100%;
+      border-radius: var(--rxl);
+      box-shadow: var(--sh2);
+      overflow: hidden;
+      background: linear-gradient(135deg, #e8ddd3 0%, #d4c8bb 50%, #c2b5a6 100%);
+      position: relative;
+    }
+
     .detail-main-img {
       width: 100%;
       max-height: 520px;
-      object-fit: contain;
-      background: var(--bg2);
+      object-fit: cover;
       border-radius: var(--rxl);
-      box-shadow: var(--sh2);
       cursor: pointer;
       transition: opacity .2s;
+      display: block;
     }
 
     .detail-gallery {
@@ -4392,6 +4400,8 @@
       font-size: 15px;
       color: var(--muted);
       margin-bottom: 20px;
+      word-break: break-word;
+      overflow-wrap: anywhere;
     }
 
     .detail-price {
@@ -4410,8 +4420,8 @@
     }
 
     .detail-rooms {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
+      display: flex;
+      flex-wrap: wrap;
       gap: 10px;
       padding: 16px;
       background: var(--bg);
@@ -4420,24 +4430,28 @@
     }
 
     .detail-room-item {
-      text-align: center;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 14px;
+      background: var(--bg2);
+      border-radius: var(--rl);
+      border: 1px solid var(--border2);
     }
 
     .detail-room-em {
       font-size: 18px;
-      margin-bottom: 3px;
     }
 
     .detail-room-val {
-      font-size: 16px;
+      font-size: 15px;
       font-weight: 700;
       color: var(--ink);
     }
 
     .detail-room-lbl {
-      font-size: 11px;
+      font-size: 13px;
       color: var(--muted2);
-      margin-top: 1px;
     }
 
     .detail-custom-rooms {
@@ -4508,13 +4522,14 @@
 
     .detail-contact-item {
       display: flex;
-      align-items: center;
+      align-items: flex-start;
       gap: 12px;
       padding: 14px 16px;
       background: var(--bg);
       border-radius: var(--r);
       font-size: 14px;
       color: var(--soft);
+      overflow: hidden;
     }
 
     .detail-contact-item > div:last-child {
@@ -7215,7 +7230,6 @@
 
       .detail-content {
         padding: 20px 16px 90px;
-        overflow-x: clip;
         max-width: 100%;
       }
 
@@ -7224,10 +7238,13 @@
         gap: 0;
       }
 
+      .detail-main-img-wrap {
+        border-radius: 16px;
+      }
+
       .detail-main-img {
         max-height: 320px;
-        object-fit: contain;
-        background: var(--bg2);
+        object-fit: cover;
         border-radius: 16px;
         width: 100%;
       }
@@ -7277,10 +7294,14 @@
       }
 
       .detail-rooms {
-        grid-template-columns: repeat(3, 1fr);
         gap: 8px;
         padding: 12px;
         border-radius: 12px;
+      }
+
+      .detail-room-item {
+        padding: 6px 12px;
+        gap: 5px;
       }
 
       .detail-room-em {
@@ -8263,7 +8284,6 @@
       .detail-content {
         padding: 18px 14px 90px !important;
         max-width: 100vw;
-        overflow-x: clip;
         box-sizing: border-box;
       }
 
@@ -9177,7 +9197,6 @@
       .detail-content {
         padding: 16px 14px 96px !important;
         box-sizing: border-box !important;
-        overflow-x: clip !important;
       }
 
       /* ── Saved / purchased grids ── */
@@ -18477,7 +18496,7 @@
         <div class="detail-grid">
           <div>
             <!-- Images — always visible -->
-            <div>
+            <div class="detail-main-img-wrap">
               <img id="detail-main-img" class="detail-main-img" src="${coverImg}" alt="${esc(h.title)}"
                 onerror="this.src='https://images.unsplash.com/photo-1568605114967-8130f3a36994?w=800'">
             </div>
