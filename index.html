@@ -4274,8 +4274,9 @@
 
     .detail-main-img {
       width: 100%;
-      aspect-ratio: 16/9;
-      object-fit: cover;
+      max-height: 520px;
+      object-fit: contain;
+      background: var(--bg2);
       border-radius: var(--rxl);
       box-shadow: var(--sh2);
       cursor: pointer;
@@ -4498,6 +4499,10 @@
       color: var(--soft);
     }
 
+    .detail-contact-item > div:last-child {
+      min-width: 0;
+    }
+
     .detail-contact-icon {
       font-size: 20px;
       flex-shrink: 0;
@@ -4512,6 +4517,8 @@
     .detail-contact-val {
       font-weight: 600;
       color: var(--ink);
+      overflow-wrap: anywhere;
+      word-break: break-word;
     }
 
     .detail-unlock-card {
@@ -7200,7 +7207,9 @@
       }
 
       .detail-main-img {
-        aspect-ratio: 4/3;
+        max-height: 320px;
+        object-fit: contain;
+        background: var(--bg2);
         border-radius: 16px;
         width: 100%;
       }
