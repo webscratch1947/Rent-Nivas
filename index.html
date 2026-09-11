@@ -4301,6 +4301,9 @@
       scroll-behavior: smooth;
       -webkit-overflow-scrolling: touch;
       scrollbar-width: thin;
+      width: 0;
+      min-width: 100%;
+      position: relative;
     }
 
     .detail-gallery::-webkit-scrollbar {
@@ -4336,6 +4339,68 @@
 
     .detail-thumb:hover {
       opacity: 1;
+    }
+
+    .img-fullscreen-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 99999;
+      background: rgba(0,0,0,.92);
+      backdrop-filter: blur(8px);
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .img-fullscreen-overlay.open { display: flex; }
+    .img-fullscreen-overlay img {
+      max-width: 95vw;
+      max-height: 80vh;
+      object-fit: contain;
+      border-radius: 12px;
+      box-shadow: 0 8px 40px rgba(0,0,0,.5);
+    }
+    .img-fullscreen-close {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: rgba(255,255,255,.15);
+      border: none;
+      color: #fff;
+      font-size: 22px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 10;
+    }
+    .img-fullscreen-nav {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: rgba(255,255,255,.15);
+      border: none;
+      color: #fff;
+      font-size: 20px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .img-fullscreen-nav.prev { left: 12px; }
+    .img-fullscreen-nav.next { right: 12px; }
+    .img-fullscreen-counter {
+      color: rgba(255,255,255,.7);
+      font-size: 14px;
+      margin-top: 12px;
+      font-weight: 600;
     }
 
     .detail-lock-overlay {
@@ -4385,6 +4450,8 @@
       border-radius: var(--rxl);
       padding: 24px;
       box-shadow: var(--sh1);
+      overflow: hidden;
+      word-break: break-word;
     }
 
     .detail-title {
@@ -4420,8 +4487,8 @@
     }
 
     .detail-rooms {
-      display: flex;
-      flex-wrap: wrap;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
       gap: 10px;
       padding: 16px;
       background: var(--bg);
@@ -4430,28 +4497,29 @@
     }
 
     .detail-room-item {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 8px 14px;
+      text-align: center;
+      padding: 10px 6px;
       background: var(--bg2);
       border-radius: var(--rl);
       border: 1px solid var(--border2);
     }
 
     .detail-room-em {
-      font-size: 18px;
+      font-size: 22px;
+      margin-bottom: 4px;
     }
 
     .detail-room-val {
-      font-size: 15px;
+      font-size: 18px;
       font-weight: 700;
       color: var(--ink);
+      line-height: 1.2;
     }
 
     .detail-room-lbl {
-      font-size: 13px;
+      font-size: 11px;
       color: var(--muted2);
+      margin-top: 2px;
     }
 
     .detail-custom-rooms {
@@ -4533,6 +4601,7 @@
     }
 
     .detail-contact-item > div:last-child {
+      flex: 1;
       min-width: 0;
     }
 
@@ -7257,6 +7326,8 @@
         overflow-y: hidden;
         -webkit-overflow-scrolling: touch;
         scrollbar-width: thin;
+        width: 0;
+        min-width: 100%;
       }
 
       .detail-thumb {
@@ -7294,22 +7365,23 @@
       }
 
       .detail-rooms {
+        grid-template-columns: repeat(3, 1fr);
         gap: 8px;
         padding: 12px;
         border-radius: 12px;
       }
 
       .detail-room-item {
-        padding: 6px 12px;
-        gap: 5px;
+        padding: 8px 4px;
+        border-radius: 10px;
       }
 
       .detail-room-em {
-        font-size: 15px;
+        font-size: 20px;
       }
 
       .detail-room-val {
-        font-size: 14px;
+        font-size: 16px;
       }
 
       .detail-room-lbl {
@@ -18496,13 +18568,13 @@
         <div class="detail-grid">
           <div>
             <!-- Images — always visible -->
-            <div class="detail-main-img-wrap">
+            <div class="detail-main-img-wrap" onclick="openFullscreenImg(0)" style="cursor:pointer;">
               <img id="detail-main-img" class="detail-main-img" src="${coverImg}" alt="${esc(h.title)}"
                 onerror="this.src='https://images.unsplash.com/photo-1568605114967-8130f3a36994?w=800'">
             </div>
             ${images.length > 1 ? `<div class="detail-gallery" id="detail-gallery">
               ${images.map((img, i) => `<img class="detail-thumb ${i === 0 ? 'active' : ''}" src="${img}"
-                onclick="switchDetailImg('${img}',this)" onerror="this.style.display='none'" alt="Photo ${i + 1}">`).join('')}
+                onclick="event.preventDefault();openFullscreenImg(${i})" onerror="this.style.display='none'" alt="Photo ${i + 1}">`).join('')}
             </div>` : ''}
 
             <!-- Conditions — always visible, above rooms -->
@@ -18687,6 +18759,47 @@
       if (main) main.src = src;
       document.querySelectorAll('.detail-thumb').forEach(t => t.classList.remove('active'));
       if (thumbEl) thumbEl.classList.add('active');
+    }
+
+    let _fsImgIdx = 0;
+    let _fsImgList = [];
+    function openFullscreenImg(idx) {
+      _fsImgIdx = idx;
+      const h = window._currentDetailHouse;
+      if (!h) return;
+      _fsImgList = (h.images && h.images.length > 0) ? h.images : ['https://images.unsplash.com/photo-1568605114967-8130f3a36994?w=800&q=80'];
+      const overlay = document.getElementById('img-fullscreen-overlay');
+      if (!overlay) return;
+      _fsRenderImg(overlay);
+      overlay.classList.add('open');
+      document.body.style.overflow = 'hidden';
+    }
+    function _fsRenderImg(overlay) {
+      const img = overlay.querySelector('img');
+      const counter = overlay.querySelector('.img-fullscreen-counter');
+      if (img) img.src = _fsImgList[_fsImgIdx];
+      if (counter) counter.textContent = (_fsImgIdx + 1) + ' / ' + _fsImgList.length;
+      const prev = overlay.querySelector('.img-fullscreen-nav.prev');
+      const next = overlay.querySelector('.img-fullscreen-nav.next');
+      if (prev) prev.style.display = _fsImgIdx > 0 ? 'flex' : 'none';
+      if (next) next.style.display = _fsImgIdx < _fsImgList.length - 1 ? 'flex' : 'none';
+    }
+    function closeFullscreenImg() {
+      const overlay = document.getElementById('img-fullscreen-overlay');
+      if (overlay) overlay.classList.remove('open');
+      document.body.style.overflow = '';
+    }
+    function fsImgPrev() {
+      if (_fsImgIdx > 0) {
+        _fsImgIdx--;
+        _fsRenderImg(document.getElementById('img-fullscreen-overlay'));
+      }
+    }
+    function fsImgNext() {
+      if (_fsImgIdx < _fsImgList.length - 1) {
+        _fsImgIdx++;
+        _fsRenderImg(document.getElementById('img-fullscreen-overlay'));
+      }
     }
 
     // ══ MISSING FUNCTIONS FIX ══
@@ -21457,6 +21570,14 @@
     <div class="detail-content" id="detail-content">
       <!-- Filled dynamically -->
     </div>
+  </div>
+  <!-- ══ FULLSCREEN IMAGE VIEWER ══ -->
+  <div class="img-fullscreen-overlay" id="img-fullscreen-overlay" onclick="if(event.target===this)closeFullscreenImg()">
+    <button class="img-fullscreen-close" onclick="closeFullscreenImg()">✕</button>
+    <button class="img-fullscreen-nav prev" onclick="fsImgPrev()">‹</button>
+    <img src="" alt="Full image">
+    <button class="img-fullscreen-nav next" onclick="fsImgNext()">›</button>
+    <div class="img-fullscreen-counter"></div>
   </div>
   <!-- ══ PURCHASED HOMES PAGE ══ -->
   <div class="page" id="purchased-page">
