@@ -4288,7 +4288,25 @@
       gap: 10px;
       margin-top: 12px;
       overflow-x: auto;
-      padding-bottom: 4px;
+      overflow-y: hidden;
+      padding-bottom: 8px;
+      scroll-behavior: smooth;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: thin;
+    }
+
+    .detail-gallery::-webkit-scrollbar {
+      height: 4px;
+    }
+
+    .detail-gallery::-webkit-scrollbar-track {
+      background: var(--border);
+      border-radius: 99px;
+    }
+
+    .detail-gallery::-webkit-scrollbar-thumb {
+      background: var(--terra);
+      border-radius: 99px;
     }
 
     .detail-thumb {
@@ -7197,7 +7215,7 @@
 
       .detail-content {
         padding: 20px 16px 90px;
-        overflow-x: hidden;
+        overflow-x: clip;
         max-width: 100%;
       }
 
@@ -7217,8 +7235,11 @@
       .detail-gallery {
         gap: 8px;
         margin-top: 10px;
-        padding-bottom: 6px;
+        padding-bottom: 8px;
+        overflow-x: auto;
+        overflow-y: hidden;
         -webkit-overflow-scrolling: touch;
+        scrollbar-width: thin;
       }
 
       .detail-thumb {
@@ -8242,7 +8263,7 @@
       .detail-content {
         padding: 18px 14px 90px !important;
         max-width: 100vw;
-        overflow-x: hidden;
+        overflow-x: clip;
         box-sizing: border-box;
       }
 
@@ -9156,7 +9177,7 @@
       .detail-content {
         padding: 16px 14px 96px !important;
         box-sizing: border-box !important;
-        overflow-x: hidden !important;
+        overflow-x: clip !important;
       }
 
       /* ── Saved / purchased grids ── */
