@@ -22238,6 +22238,7 @@
       .pdn-tab-strip-desktop { display: none !important; }
       @media (max-width: 768px) {
         .pdn-back-arrow-btn { display: none; }
+        #pd-visiting-card .pdn-back-arrow-btn { display: flex; }
       }
 
       /* ── Partner Dashboard mobile bottom nav ── */
@@ -22612,24 +22613,30 @@
   <!-- BOTTOM NAV: hidden until logged in -->
   <nav class="mob-bottom-nav" id="mob-bottom-nav">
     <button class="mob-bottom-btn" id="mbn-home" onclick="closeModal();if(typeof switchToHost==='function'){switchToHost();}else{showPage('host-dashboard');}mobBottomActive('mbn-home')">
-      <span class="mbn-icon">🏡</span>
+      <span class="mbn-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      </span>
       <span class="mbn-label">Home</span>
     </button>
     <button class="mob-bottom-btn" id="mbn-rent"
       onclick="closeModal();showPage('rent-page');if(typeof loadRentPage==='function')loadRentPage();mobBottomActive('mbn-rent')">
-      <span class="mbn-icon">🔍</span>
+      <span class="mbn-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      </span>
       <span class="mbn-label">Rent</span>
     </button>
 
     <button class="mob-bottom-btn" id="mbn-referral" onclick="closeModal();openReferralPanel();mobBottomActive('mbn-referral')">
-      <span class="mbn-icon">🎁</span>
+      <span class="mbn-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg>
+      </span>
       <span class="mbn-label">Referral</span>
     </button>
 
     <button class="mob-bottom-btn" id="mbn-profile"
       onclick="closeModal();mobBottomActive('mbn-profile');var _r=localStorage.getItem('nestly-role');if(_r==='rent'){rentShowSection('profile');}else{var _hd=document.getElementById('host-dashboard');if(_hd&&_hd.classList.contains('active')){showSection('profile');}else if(typeof switchToHost==='function'){Promise.resolve(switchToHost()).then(function(){showSection('profile');mobBottomActive('mbn-profile');});}else{showPage('host-dashboard');showSection('profile');}}">
       <span class="mbn-icon" style="position:relative;display:inline-flex;align-items:center;justify-content:center;">
-        👤
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
         <span id="mbn-unlocked-badge" style="display:none;position:absolute;top:-6px;right:-10px;background:#15803d;color:#fff;font-size:8px;font-weight:800;border-radius:20px;padding:1px 5px;line-height:1.4;min-width:14px;text-align:center;"></span>
       </span>
       <span class="mbn-label">Profile</span>
