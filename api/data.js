@@ -20,12 +20,12 @@ let jwksCache = null;
 let jwksFetchedAt = 0;
 
 // ── Broker AWS (separate credentials for broker network tables) ──────────
-const BROKER_REGION = process.env.BROKER_AWS_REGION || REGION;
+const BROKER_REGION = process.env.BROKER_AWS_REGION || process.env.broker_aws_region || REGION;
 const brokerDdb = new DynamoDBClient({
   region: BROKER_REGION,
   credentials: {
-    accessKeyId: process.env.BROKER_AWS_KEY || '',
-    secretAccessKey: process.env.BROKER_AWS_SECRET || '',
+    accessKeyId: process.env.BROKER_AWS_KEY || process.env.broker_aws_key || '',
+    secretAccessKey: process.env.BROKER_AWS_SECRET || process.env.broker_aws_secret || '',
   },
 });
 
