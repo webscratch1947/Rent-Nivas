@@ -22122,52 +22122,58 @@
     }
 
     /* ═══════════════════════════════════════════════════════
-       BROKER NETWORK — Full Panel Logic
+       BROKER NETWORK — Full Panel Logic (API-backed)
        ═══════════════════════════════════════════════════════ */
 
-    var _bpRole = 0; // 0 = regular user, 1 = broker
+    var _bpRole = 0;
     var _bpPosts = [];
-    var _bpConnectTarget = null;
     var _bpConnectingId = null;
+    var _bpProfile = null;
 
-    function bpGetCoins() {
+    async function bpApiFetch(action, body) {
       var u = window.user;
-      var uid = u && (u.id || u.sub || u.email) || 'anon';
-      return parseInt(localStorage.getItem('rn-coins-' + uid) || '50', 10);
-    }
-    function bpSetCoins(n) {
-      var u = window.user;
-      var uid = u && (u.id || u.sub || u.email) || 'anon';
-      localStorage.setItem('rn-coins-' + uid, String(n));
+      if (!u) throw new Error('Not logged in');
+      var sess = await window.sb.auth.getSession();
+      var token = sess && sess.data && sess.data.session && (sess.data.session.id_token || sess.data.session.access_token);
+      if (!token) throw new Error('No session token');
+      var opts = { method: body ? 'POST' : 'GET', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token } };
+      if (body) opts.body = JSON.stringify(body);
+      var url = '/api/broker?action=' + encodeURIComponent(action);
+      var res = await fetch(url, opts);
+      var json = await res.json();
+      if (json.error) throw new Error(json.error.message || 'API error');
+      return json.data;
     }
 
-    function bpInit() {
+    async function bpInit() {
       var u = window.user;
       if (!u) { showPage('login-page'); return false; }
-      _bpRole = parseInt(localStorage.getItem('rn-broker-role-' + ((u.id||u.sub||u.email)||'')) || '0', 10);
-      bpUpdateCoinsDisplay();
-      bpLoadFeed();
-      bpUpdateBrokerButtons();
+      try {
+        _bpProfile = await bpApiFetch('profile');
+        _bpRole = _bpProfile.isBroker ? 1 : 0;
+        bpUpdateCoinsDisplay(_bpProfile.credits);
+        bpLoadFeed();
+        bpUpdateBrokerButtons();
+      } catch(e) {
+        console.error('[Broker] Init failed:', e);
+        _bpRole = 0;
+        bpLoadFeed();
+      }
       return true;
     }
 
-    function bpUpdateCoinsDisplay() {
+    function bpUpdateCoinsDisplay(credits) {
       var el = document.getElementById('bp-coins-count');
-      if (el) el.textContent = bpGetCoins();
+      if (el) el.textContent = credits !== undefined ? credits : '—';
     }
 
     function bpUpdateBrokerButtons() {
       document.querySelectorAll('#nb-broker,#rnb-broker').forEach(function(b) {
-        if (_bpRole === 1) {
-          b.onclick = function() { showPage('broker-page'); bpInit(); };
-          b.setAttribute('title', 'Open Broker Network');
-        }
+        b.onclick = function() { showPage('broker-page'); bpInit(); };
       });
       document.querySelectorAll('#mob-nav-loggedin .mob-nav-item,#mob-nav-loggedout .mob-nav-item').forEach(function(b) {
         if (b.textContent.trim().indexOf('Broker Panel') !== -1) {
-          if (_bpRole === 1) {
-            b.setAttribute('onclick', b.getAttribute('onclick').replace("toast('Broker Panel coming soon!','info')", "showPage('broker-page');if(typeof bpInit==='function')bpInit();"));
-          }
+          b.setAttribute('onclick', b.getAttribute('onclick').replace(/toast\('Broker Panel coming soon!','info'\)/, "showPage('broker-page');if(typeof bpInit==='function')bpInit();"));
         }
       });
     }
@@ -22179,12 +22185,9 @@
       document.getElementById('bp-form-have').style.display = tab === 'have' ? '' : 'none';
     }
 
-    function bpSubmitPost(type) {
+    async function bpSubmitPost(type) {
       if (!user) { showPage('login-page'); return; }
-      var u = user;
-      var name = u.user_metadata?.name || u.email?.split('@')[0] || 'User';
-      var post = {};
-
+      var body = {};
       if (type === 'need') {
         var tp = document.getElementById('bp-need-type').value;
         var pur = document.getElementById('bp-need-purpose').value;
@@ -22192,20 +22195,7 @@
         var loc = document.getElementById('bp-need-location').value.trim();
         var ext = document.getElementById('bp-need-extra').value.trim();
         if (!tp || !pur || !loc) { toast('Please fill property type, purpose & location','error'); return; }
-        post = {
-          id: 'bp-' + Date.now(),
-          type: 'need',
-          propertyType: tp,
-          purpose: pur,
-          budget: bud || 'Not specified',
-          location: loc,
-          extra: ext,
-          userName: name,
-          userEmail: u.email || '',
-          userId: u.id || u.sub || u.email || '',
-          time: Date.now(),
-          verified: _bpRole === 1 && localStorage.getItem('rn-broker-verified-' + ((u.id||u.sub||u.email)||'')) === '1'
-        };
+        body = { action:'create-post', type:'need', propertyType:tp, purpose:pur, budget:bud||'Not specified', location:loc, extra:ext };
       } else {
         var ht = document.getElementById('bp-have-type').value;
         var hl = document.getElementById('bp-have-listing').value;
@@ -22213,43 +22203,33 @@
         var hloc = document.getElementById('bp-have-location').value.trim();
         var hex = document.getElementById('bp-have-extra').value.trim();
         if (!ht || !hl || !hloc) { toast('Please fill property type, listing type & location','error'); return; }
-        post = {
-          id: 'bp-' + Date.now(),
-          type: 'have',
-          propertyType: ht,
-          listingType: hl,
-          price: hp || 'Not specified',
-          location: hloc,
-          extra: hex,
-          userName: name,
-          userEmail: u.email || '',
-          userId: u.id || u.sub || u.email || '',
-          time: Date.now(),
-          verified: _bpRole === 1 && localStorage.getItem('rn-broker-verified-' + ((u.id||u.sub||u.email)||'')) === '1'
-        };
+        body = { action:'create-post', type:'have', propertyType:ht, listingType:hl, price:hp||'Not specified', location:hloc, extra:hex };
       }
-
-      _bpPosts.unshift(post);
-      bpSavePosts();
-      bpRenderFeed();
-      toast('Posted to Broker Network!', 'success');
-      ['bp-need-type','bp-need-purpose','bp-need-budget','bp-need-location','bp-need-extra',
-       'bp-have-type','bp-have-listing','bp-have-price','bp-have-location','bp-have-extra'].forEach(function(id) {
-        var el = document.getElementById(id);
-        if (el) el.value = el.tagName === 'SELECT' ? '' : '';
-      });
+      try {
+        var newPost = await bpApiFetch('create-post', body);
+        _bpPosts.unshift(newPost);
+        bpRenderFeed();
+        toast('Posted to Broker Network!', 'success');
+        ['bp-need-type','bp-need-purpose','bp-need-budget','bp-need-location','bp-need-extra',
+         'bp-have-type','bp-have-listing','bp-have-price','bp-have-location','bp-have-extra'].forEach(function(id) {
+          var el = document.getElementById(id);
+          if (el) el.value = el.tagName === 'SELECT' ? '' : '';
+        });
+      } catch(e) {
+        toast('Failed to post: ' + e.message, 'error');
+      }
     }
 
-    function bpSavePosts() {
-      try { localStorage.setItem('rn-broker-posts', JSON.stringify(_bpPosts.slice(0, 200))); } catch(e) {}
-    }
-    function bpLoadPosts() {
-      try { _bpPosts = JSON.parse(localStorage.getItem('rn-broker-posts') || '[]'); } catch(e) { _bpPosts = []; }
-    }
-
-    function bpLoadFeed() {
-      bpLoadPosts();
-      bpRenderFeed();
+    async function bpLoadFeed() {
+      var container = document.getElementById('bp-feed');
+      if (!container) return;
+      container.innerHTML = '<div style="text-align:center;padding:40px;color:#9ca3af;"><div style="font-size:24px;margin-bottom:8px;">⏳</div>Loading feed...</div>';
+      try {
+        _bpPosts = await bpApiFetch('feed');
+        bpRenderFeed();
+      } catch(e) {
+        container.innerHTML = '<div class="bp-empty"><div class="bp-empty-icon">⚠️</div><div class="bp-empty-text">Failed to load feed</div><div class="bp-empty-sub">' + esc(e.message) + '</div></div>';
+      }
     }
 
     function bpRenderFeed() {
@@ -22261,13 +22241,17 @@
       }
       container.innerHTML = _bpPosts.map(function(p) {
         var avatarColors = ['#c2714f','#2563eb','#16a34a','#9333ea','#ea580c','#0891b2'];
-        var ci = Math.abs(p.userEmail.charCodeAt(0)||0) % avatarColors.length;
+        var ci = Math.abs((p.userId||'').charCodeAt(0)||0) % avatarColors.length;
+        var hasAvatar = p.avatarUrl && p.avatarUrl.length > 5;
         var initials = (p.userName||'U').split(' ').map(function(w){return w[0];}).join('').substring(0,2).toUpperCase();
-        var timeAgo = bpTimeAgo(p.time);
+        var timeAgo = bpTimeAgo(p.createdAt || p.time);
         var isNeed = p.type === 'need';
         var typeBadge = isNeed ? '<span class="bp-card-type-badge bp-type-need">I Need</span>' : '<span class="bp-card-type-badge bp-type-have">I Have</span>';
         var verifiedHtml = p.verified ? '<span class="bp-verified-badge"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>MGR Verified</span>' : '';
-        var isOwn = (window.user && p.userEmail === window.user.email);
+        var isOwn = window.user && p.userId === (window.user.id || window.user.sub);
+        var avatarHtml = hasAvatar
+          ? '<img src="' + esc(p.avatarUrl) + '" style="width:100%;height:100%;object-fit:cover;border-radius:10px;">'
+          : '<span style="font-size:15px;font-weight:800;color:#fff;">' + initials + '</span>';
         var detailRows = '';
         if (isNeed) {
           detailRows = '<div class="bp-detail-item"><span class="bp-detail-label">Property</span><span class="bp-detail-value">' + esc(p.propertyType) + '</span></div>' +
@@ -22282,11 +22266,11 @@
         }
         var extraHtml = p.extra ? '<div style="font-size:13px;color:#6b7280;margin-bottom:14px;padding:8px 12px;background:#f9fafb;border-radius:8px;border-left:3px solid #c2714f;">' + esc(p.extra) + '</div>' : '';
         var connectBtn = isOwn ? '' :
-          '<button class="bp-connect-btn" onclick="bpOpenConnect(\'' + p.id + '\')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Connect for Deal <span class="bp-coins-cost">· 10 RN Coins</span></button>';
+          '<button class="bp-connect-btn" onclick="bpOpenConnect(\'' + p.postId + '\')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Connect for Deal <span class="bp-coins-cost">· 10 RN Coins</span></button>';
 
-        return '<div class="bp-card" id="bp-card-' + p.id + '">' +
+        return '<div class="bp-card" id="bp-card-' + p.postId + '">' +
           '<div class="bp-card-header">' +
-            '<div class="bp-card-avatar" style="background:' + avatarColors[ci] + ';">' + initials + '</div>' +
+            '<div class="bp-card-avatar" style="background:' + avatarColors[ci] + ';">' + avatarHtml + '</div>' +
             '<div class="bp-card-user-info">' +
               '<div class="bp-card-username">' + esc(p.userName) + verifiedHtml + '</div>' +
               '<div class="bp-card-time">' + timeAgo + '</div>' +
@@ -22301,7 +22285,8 @@
     }
 
     function bpTimeAgo(ts) {
-      var diff = Date.now() - ts;
+      var num = typeof ts === 'number' ? ts : Date.parse(ts) || 0;
+      var diff = Date.now() - num;
       var mins = Math.floor(diff / 60000);
       if (mins < 1) return 'Just now';
       if (mins < 60) return mins + 'm ago';
@@ -22311,19 +22296,13 @@
       return days + 'd ago';
     }
 
-    function bpOpenConnect(postId) {
+    async function bpOpenConnect(postId) {
       if (!user) { showPage('login-page'); return; }
-      var coins = bpGetCoins();
-      if (coins < 10) {
-        toast('Not enough RN Coins! You need 10 coins to connect.','error');
-        return;
-      }
+      var post = _bpPosts.find(function(p){return p.postId===postId;});
+      if (!post) return;
       _bpConnectingId = postId;
-      var post = _bpPosts.find(function(p){return p.id===postId;});
-      if (post) {
-        document.getElementById('bp-connect-desc').innerHTML =
-          'Connect with <strong>' + esc(post.userName) + '</strong>? This will deduct <strong>10 RN Coins</strong> from your wallet and reveal their contact details.';
-      }
+      document.getElementById('bp-connect-desc').innerHTML =
+        'Connect with <strong>' + esc(post.userName) + '</strong>? This will deduct <strong>10 RN Coins</strong> from your wallet and reveal their contact details.';
       document.getElementById('bp-connect-modal').style.display = 'flex';
     }
 
@@ -22332,25 +22311,26 @@
       _bpConnectingId = null;
     }
 
-    function bpConfirmConnect() {
-      var coins = bpGetCoins();
-      if (coins < 10) { toast('Not enough RN Coins!','error'); bpCloseConnectModal(); return; }
-      bpSetCoins(coins - 10);
-      bpUpdateCoinsDisplay();
-      var post = _bpPosts.find(function(p){return p.id===_bpConnectingId;});
-      if (post) {
-        var email = post.userEmail || 'No email provided';
-        var card = document.getElementById('bp-card-' + post.id);
+    async function bpConfirmConnect() {
+      if (!_bpConnectingId) return;
+      try {
+        var result = await bpApiFetch('connect', { action:'connect', postId: _bpConnectingId });
+        var card = document.getElementById('bp-card-' + _bpConnectingId);
         if (card) {
           var btnWrap = card.querySelector('.bp-connect-btn');
           if (btnWrap) {
             btnWrap.outerHTML = '<div style="margin-top:12px;padding:14px;background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:12px;text-align:center;">' +
               '<div style="font-size:13px;font-weight:700;color:#16a34a;margin-bottom:4px;">✅ Connected!</div>' +
-              '<div style="font-size:14px;font-weight:800;color:#111827;">' + esc(email) + '</div>' +
+              '<div style="font-size:14px;font-weight:800;color:#111827;">' + esc(result.targetEmail || 'Contact revealed') + '</div>' +
               '<div style="font-size:12px;color:#6b7280;margin-top:4px;">Contact the broker to proceed</div></div>';
           }
         }
-        toast('Connected with ' + post.userName + '!','success');
+        bpUpdateCoinsDisplay(result.remainingCredits);
+        // Update global credits cache too
+        try { localStorage.setItem('nestly-credits', String(result.remainingCredits)); updateCreditsBadges(); } catch(e){}
+        toast('Connected successfully!', 'success');
+      } catch(e) {
+        toast(e.message || 'Connection failed', 'error');
       }
       bpCloseConnectModal();
     }
@@ -22366,52 +22346,63 @@
     /* ═══════════════════════════════════════════════════════
        ADMIN: Toggle broker role + verification
        ═══════════════════════════════════════════════════════ */
-    function bpToggleBrokerRole() {
+    async function bpToggleBrokerRole(targetUserId) {
       var u = window.user;
       if (!u) return;
-      var uid = u.id || u.sub || u.email || '';
-      _bpRole = _bpRole === 1 ? 0 : 1;
-      localStorage.setItem('rn-broker-role-' + uid, String(_bpRole));
-      bpUpdateBrokerButtons();
-      toast(_bpRole === 1 ? 'Broker role enabled! You can now post in the Broker Network.' : 'Broker role disabled.', 'info');
-    }
-
-    function bpToggleVerified(email) {
-      if (!email) return;
-      var current = localStorage.getItem('rn-broker-verified-' + email);
-      var next = current === '1' ? '0' : '1';
-      localStorage.setItem('rn-broker-verified-' + email, next);
-      toast(next === '1' ? 'Broker verified!' : 'Verification removed.', 'info');
-      bpRenderFeed();
-    }
-
-    function bpAdminLoadBrokers() {
-      bpLoadPosts();
-      var el = document.getElementById('bp-admin-posts-count');
-      if (el) el.textContent = _bpPosts.length + ' posts in the Broker Network feed.';
-      var list = document.getElementById('bp-admin-posts-list');
-      if (!list) return;
-      if (_bpPosts.length === 0) {
-        list.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:16px 0;">No posts yet.</div>';
-        return;
+      try {
+        var result = await bpApiFetch('toggle-role', { action:'toggle-role', userId: targetUserId || (u.id||u.sub) });
+        if (!targetUserId || targetUserId === (u.id||u.sub)) {
+          _bpRole = result.isBroker ? 1 : 0;
+          bpUpdateBrokerButtons();
+        }
+        toast(result.isBroker ? 'Broker role enabled!' : 'Broker role disabled.', 'info');
+      } catch(e) {
+        toast('Failed: ' + e.message, 'error');
       }
-      list.innerHTML = _bpPosts.slice(0, 20).map(function(p) {
-        var badge = p.verified ? ' <span style="color:#2563eb;font-weight:700;">✓ MGR</span>' : '';
-        return '<div style="padding:10px 0;border-bottom:1px solid var(--border2);font-size:13px;display:flex;justify-content:space-between;align-items:center;">' +
-          '<div><strong>' + (p.userName||'User') + badge + '</strong> — ' + (p.type==='need'?'I Need':'I Have') + ' ' + esc(p.propertyType) + ' @ ' + esc(p.location) +
-          '<br><span style="color:var(--muted);font-size:11px;">' + p.userEmail + ' · ' + bpTimeAgo(p.time) + '</span></div>' +
-          '<div style="display:flex;gap:6px;flex-shrink:0;">' +
-            '<button class="btn btn-outline-dark btn-sm" style="font-size:11px;padding:4px 8px;" onclick="bpToggleBrokerRole()" title="Toggle Broker Role">Role</button>' +
-            '<button class="btn btn-outline-dark btn-sm" style="font-size:11px;padding:4px 8px;" onclick="bpToggleVerified(\'' + esc(p.userEmail) + '\')" title="Toggle Verified Badge">Badge</button>' +
-          '</div></div>';
-      }).join('');
+    }
+
+    async function bpToggleVerified(targetUserId) {
+      if (!targetUserId) return;
+      try {
+        var result = await bpApiFetch('toggle-verified', { action:'toggle-verified', userId: targetUserId });
+        toast(result.isVerified ? 'Broker verified (MGR badge added)!' : 'Verification removed.', 'info');
+        bpRenderFeed();
+      } catch(e) {
+        toast('Failed: ' + e.message, 'error');
+      }
+    }
+
+    async function bpAdminLoadBrokers() {
+      try {
+        var posts = await bpApiFetch('admin-posts');
+        var el = document.getElementById('bp-admin-posts-count');
+        if (el) el.textContent = posts.length + ' posts in the Broker Network feed.';
+        var list = document.getElementById('bp-admin-posts-list');
+        if (!list) return;
+        if (posts.length === 0) {
+          list.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:16px 0;">No posts yet.</div>';
+          return;
+        }
+        list.innerHTML = posts.map(function(p) {
+          var badge = p.verified ? ' <span style="color:#2563eb;font-weight:700;">✓ MGR</span>' : '';
+          return '<div style="padding:10px 0;border-bottom:1px solid var(--border2);font-size:13px;display:flex;justify-content:space-between;align-items:center;">' +
+            '<div style="flex:1;min-width:0;"><strong>' + esc(p.userName||'User') + badge + '</strong> — ' + (p.type==='need'?'I Need':'I Have') + ' ' + esc(p.propertyType) + ' @ ' + esc(p.location) +
+            '<br><span style="color:var(--muted);font-size:11px;">' + esc(p.userId) + ' · ' + bpTimeAgo(p.createdAt) + '</span></div>' +
+            '<div style="display:flex;gap:6px;flex-shrink:0;margin-left:10px;">' +
+              '<button class="btn btn-outline-dark btn-sm" style="font-size:11px;padding:4px 8px;" onclick="bpToggleBrokerRole(\'' + esc(p.userId) + '\')" title="Toggle Broker Role">Role</button>' +
+              '<button class="btn btn-outline-dark btn-sm" style="font-size:11px;padding:4px 8px;" onclick="bpToggleVerified(\'' + esc(p.userId) + '\')" title="Toggle Verified Badge">Badge</button>' +
+            '</div></div>';
+        }).join('');
+      } catch(e) {
+        var el2 = document.getElementById('bp-admin-posts-list');
+        if (el2) el2.innerHTML = '<div style="color:red;font-size:13px;">Error: ' + esc(e.message) + '</div>';
+      }
     }
 
     /* ═══════════════════════════════════════════════════════
        Ensure broker role on login
        ═══════════════════════════════════════════════════════ */
     (function() {
-      var origInitDash = window._bpOrigInitDash;
       var _origSwitchToHost = window.switchToHost;
       if (_origSwitchToHost && !_origSwitchToHost._bpPatched) {
         var _origSwitch = _origSwitchToHost;
@@ -22433,9 +22424,7 @@
     function bpInitBrokerNav() {
       setTimeout(function() {
         if (!user) return;
-        _bpRole = parseInt(localStorage.getItem('rn-broker-role-' + ((user.id||user.sub||user.email)||'')) || '0', 10);
-        bpUpdateBrokerButtons();
-        bpUpdateCoinsDisplay();
+        bpInit();
       }, 500);
     }
 
