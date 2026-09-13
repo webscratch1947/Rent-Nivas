@@ -2535,12 +2535,13 @@ async function handleRpc(spec, claims) {
     const TABLE_BROKER_POSTS = 'BrokerPosts';
     const TABLE_BROKER_PROFILES = 'BrokerProfiles';
     const userId = claims.sub;
+    const p = spec.params || {};
     const postId = 'bp-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6);
     const item = {
-      postId, type: spec.p_type || 'need', propertyType: spec.p_propertyType || '',
-      purpose: spec.p_purpose || '', listingType: spec.p_listingType || '',
-      budget: spec.p_budget || '', price: spec.p_price || '',
-      location: spec.p_location || '', extra: spec.p_extra || '',
+      postId, type: p.p_type || 'need', propertyType: p.p_propertyType || '',
+      purpose: p.p_purpose || '', listingType: p.p_listingType || '',
+      budget: p.p_budget || '', price: p.p_price || '',
+      location: p.p_location || '', extra: p.p_extra || '',
       userId, createdAt: Date.now(),
     };
     await brokerDdb.send(new PutItemCommand({ TableName: TABLE_BROKER_POSTS, Item: marshall(item, { removeUndefinedValues: true }) }));
@@ -2554,7 +2555,7 @@ async function handleRpc(spec, claims) {
     const TABLE_BROKER_CONNECTIONS = 'BrokerConnections';
     const TABLE_BROKER_PROFILES = 'BrokerProfiles';
     const userId = claims.sub;
-    const postId = String(spec.p_postId || '').trim();
+    const postId = String((spec.params || {}).p_postId || '').trim();
     if (!postId) throw new Error('Missing postId');
     const postRes = await brokerDdb.send(new GetItemCommand({ TableName: TABLE_BROKER_POSTS, Key: marshall({ postId }) }));
     if (!postRes.Item) throw new Error('Post not found');
@@ -2584,7 +2585,7 @@ async function handleRpc(spec, claims) {
       const myProf = await brokerGetProfile(claims.sub, TABLE_BROKER_PROFILES);
       if (!myProf.isBroker) throw new Error('Admin or broker access required');
     }
-    const targetUserId = String(spec.p_userId || claims.sub);
+    const targetUserId = String((spec.params || {}).p_userId || claims.sub);
     const current = await brokerGetProfile(targetUserId, TABLE_BROKER_PROFILES);
     const newVal = !current.isBroker;
     await brokerDdb.send(new PutItemCommand({
@@ -2597,7 +2598,7 @@ async function handleRpc(spec, claims) {
   if (spec.name === 'broker_toggle_verified') {
     const TABLE_BROKER_PROFILES = 'BrokerProfiles';
     if (!isAdmin(claims)) throw new Error('Admin access required');
-    const targetUserId = String(spec.p_userId || '');
+    const targetUserId = String((spec.params || {}).p_userId || '');
     if (!targetUserId) throw new Error('Missing userId');
     const current = await brokerGetProfile(targetUserId, TABLE_BROKER_PROFILES);
     const newVal = !current.isVerified;
