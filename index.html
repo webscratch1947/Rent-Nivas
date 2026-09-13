@@ -9759,6 +9759,9 @@
       <button class="mob-nav-item" onclick="closeMobSidebar();showPage('landing-page');setTimeout(function(){var el=document.getElementById('support');if(el)window.scrollTo({top:el.offsetTop-20,behavior:'smooth'});},400)">
         <span class="mob-nav-icon">🛟</span> Support
       </button>
+      <button class="mob-nav-item" onclick="closeMobSidebar();toast('Broker Panel coming soon!','info')">
+        <span class="mob-nav-icon">🤝</span> Broker Panel
+      </button>
     </div>
     <!-- LOGGED-IN sidebar items -->
     <div class="mob-sidebar-nav" id="mob-nav-loggedin" style="display:none;">
@@ -9787,6 +9790,9 @@
       </button>
       <button class="mob-nav-item" onclick="closeMobSidebar();if(typeof showLeaderboard==='function')showLeaderboard()">
         <span class="mob-nav-icon">🏆</span> Leaderboard
+      </button>
+      <button class="mob-nav-item" onclick="closeMobSidebar();toast('Broker Panel coming soon!','info')">
+        <span class="mob-nav-icon">🤝</span> Broker Panel
       </button>
       <button class="mob-nav-item" onclick="closeMobSidebar();window.open('/language.html','_blank')">
         <span class="mob-nav-icon">🌐</span> Language <span id="mob-lang-badge"
@@ -10493,7 +10499,7 @@
           </div>
         </div>
         <div class="topbar-right">
-          <div class="credits-badge" id="rent-credits-badge" title="Your free unlock credits">🪙 <span
+          <div class="credits-badge" id="rent-credits-badge" title="Your free unlock credits" onclick="openCreditShop()" style="cursor:pointer;">🪙 <span
               id="rent-credits-count">—</span> Credits</div>
           <button class="btn btn-terra btn-sm" onclick="switchToHost()" style="font-weight:700;">🏠 List a
             Property</button>
@@ -10800,7 +10806,7 @@
           <div class="topbar-notif" id="notif-bell" onclick="openNotif(event)">
             <span id="bell-icon" class="bell-ring">🔔</span><span class="notif-dot pulse" id="notif-dot"></span>
           </div>
-          <div class="credits-badge" id="host-credits-badge" title="Your free unlock credits">🪙 <span
+          <div class="credits-badge" id="host-credits-badge" title="Your free unlock credits" onclick="openCreditShop()" style="cursor:pointer;">🪙 <span
               id="host-credits-count">—</span> Credits</div>
           <button class="btn btn-terra btn-sm" id="host-add-listing-btn"
             onclick="currentEditId=null;editMode=false;resetForm();showSection('add')" data-i18n="dash_add_listing_btn">+ Add Listing</button>
@@ -21559,7 +21565,7 @@
     <div class="detail-topbar">
       <button class="detail-back-btn" onclick="showPage('rent-page')">← Back</button>
       <div style="display:flex;gap:10px;align-items:center;margin-left:auto;">
-        <div class="rent-credits-badge" style="font-size:12px;padding:5px 10px;" title="Your free unlock credits">🪙
+        <div class="rent-credits-badge" style="font-size:12px;padding:5px 10px;cursor:pointer;" title="Your free unlock credits" onclick="openCreditShop()">🪙
           <span id="detail-credits-count">—</span>
         </div>
         <button class="btn btn-sm"
@@ -21579,11 +21585,56 @@
     <button class="img-fullscreen-nav next" onclick="fsImgNext()">›</button>
     <div class="img-fullscreen-counter"></div>
   </div>
+
+  <!-- ══ CREDIT SHOP MODAL ══ -->
+  <div id="credit-shop-modal" style="display:none;position:fixed;inset:0;z-index:99998;background:rgba(0,0,0,.6);backdrop-filter:blur(6px);align-items:center;justify-content:center;padding:0;">
+    <div style="width:100%;max-width:480px;max-height:100vh;height:100%;background:var(--bg);overflow-y:auto;position:relative;">
+      <!-- Close btn -->
+      <button onclick="closeCreditShop()" style="position:sticky;top:14px;float:right;margin-right:14px;z-index:10;width:36px;height:36px;border-radius:50%;background:rgba(0,0,0,.08);border:none;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;">✕</button>
+
+      <!-- Hero Banner -->
+      <div style="background:linear-gradient(135deg,#1a0f0a 0%,#3d1f0e 40%,#5a2d14 100%);padding:30px 24px 28px;text-align:center;position:relative;overflow:hidden;">
+        <div style="position:absolute;top:-20px;right:-20px;width:120px;height:120px;background:radial-gradient(circle,rgba(217,119,6,.3),transparent 70%);border-radius:50%;"></div>
+        <div style="position:absolute;bottom:-30px;left:-10px;width:80px;height:80px;background:radial-gradient(circle,rgba(217,119,6,.2),transparent 70%);border-radius:50%;"></div>
+        <div style="font-size:64px;margin-bottom:8px;filter:drop-shadow(0 4px 12px rgba(0,0,0,.4));">🪙</div>
+        <div style="color:#fbbf24;font-size:22px;font-weight:900;letter-spacing:-.5px;margin-bottom:4px;font-family:var(--font-display);">Credit Shop</div>
+        <div style="color:rgba(255,255,255,.6);font-size:13px;font-weight:500;">Unlock listings, contact details & more</div>
+      </div>
+
+      <!-- BEST VALUE Banner -->
+      <div style="padding:20px 16px 0;">
+        <div id="cs-best-plan" style="background:linear-gradient(135deg,#fef3c7,#fde68a);border:2px solid #f59e0b;border-radius:16px;padding:20px;position:relative;overflow:hidden;cursor:pointer;" onclick="buyCredits(10)">
+          <div style="position:absolute;top:8px;right:8;background:#f59e0b;color:#fff;font-size:10px;font-weight:800;padding:3px 10px;border-radius:99px;text-transform:uppercase;letter-spacing:.5px;">Best Value</div>
+          <div style="display:flex;align-items:center;gap:14px;">
+            <div style="font-size:48px;flex-shrink:0;">🪙</div>
+            <div>
+              <div style="font-size:28px;font-weight:900;color:#92400e;line-height:1;">10 Credits</div>
+              <div style="font-size:13px;color:#a16207;margin-top:4px;">Only ₹5 per credit · Best deal!</div>
+            </div>
+          </div>
+          <div style="margin-top:14px;background:#92400e;color:#fff;text-align:center;padding:12px;border-radius:10px;font-size:15px;font-weight:800;cursor:pointer;">Buy for ₹50</div>
+        </div>
+      </div>
+
+      <!-- Other Plans -->
+      <div style="padding:16px;">
+        <div style="font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px;">All Plans</div>
+
+        <div style="display:flex;flex-direction:column;gap:10px;" id="cs-plans-list">
+          <!-- Filled by JS -->
+        </div>
+      </div>
+
+      <div style="padding:0 16px 40px;text-align:center;">
+        <div style="font-size:11px;color:var(--muted);line-height:1.6;">Credits are used to unlock property contact details. 1 credit = 1 property unlock. Credits are stored locally on this device.</div>
+      </div>
+    </div>
+  </div>
   <!-- ══ PURCHASED HOMES PAGE ══ -->
   <div class="page" id="purchased-page">
     <div class="purchased-topbar">
       <button class="detail-back-btn" onclick="showPage('rent-page')">← Back</button>
-      <div class="rent-credits-badge" id="pur-credits-badge" style="margin-left:auto;" title="Your free unlock credits">🪙 <span
+      <div class="rent-credits-badge" id="pur-credits-badge" style="margin-left:auto;cursor:pointer;" title="Your free unlock credits" onclick="openCreditShop()">🪙 <span
           id="pur-credits-count">—</span> Credits</div>
     </div>
     <div class="detail-content">
@@ -21783,6 +21834,48 @@
       }).catch(function(){
         toast('Your referral code: ' + code, 'info');
       });
+    }
+
+    function openCreditShop() {
+      const modal = document.getElementById('credit-shop-modal');
+      if (!modal) return;
+      modal.style.display = 'flex';
+      document.body.style.overflow = 'hidden';
+      renderCreditShopPlans();
+    }
+
+    function closeCreditShop() {
+      const modal = document.getElementById('credit-shop-modal');
+      if (!modal) return;
+      modal.style.display = 'none';
+      document.body.style.overflow = '';
+    }
+
+    function renderCreditShopPlans() {
+      const plans = [
+        { credits: 1, price: 10, badge: '' },
+        { credits: 3, price: 25, badge: 'Save ₹5' },
+        { credits: 5, price: 40, badge: 'Save ₹10' },
+      ];
+      const container = document.getElementById('cs-plans-list');
+      if (!container) return;
+      container.innerHTML = plans.map(p => `
+        <div onclick="buyCredits(${p.credits})" style="background:var(--white);border:1.5px solid var(--border);border-radius:14px;padding:16px;display:flex;align-items:center;gap:14px;cursor:pointer;transition:border-color .2s,box-shadow .2s;" onmouseenter="this.style.borderColor='var(--terra)';this.style.boxShadow='0 2px 12px rgba(194,113,79,.15)'" onmouseleave="this.style.borderColor='var(--border)';this.style.boxShadow='none'">
+          <div style="font-size:36px;flex-shrink:0;">🪙</div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:20px;font-weight:800;color:var(--ink);line-height:1;">${p.credits} Credit${p.credits > 1 ? 's' : ''}</div>
+            <div style="font-size:13px;color:var(--muted);margin-top:3px;">₹${Math.round(p.price / p.credits)} per credit</div>
+          </div>
+          <div style="text-align:right;flex-shrink:0;">
+            ${p.badge ? `<div style="font-size:10px;font-weight:700;color:#15803d;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:99px;padding:2px 8px;margin-bottom:4px;display:inline-block;">${p.badge}</div>` : ''}
+            <div style="font-size:16px;font-weight:800;color:var(--terra);">₹${p.price}</div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function buyCredits(n) {
+      toast(`Credit purchase coming soon! (${n} credit${n>1?'s':''})`, 'info');
     }
 
     function openReferralPanel() {
@@ -22631,6 +22724,13 @@
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg>
       </span>
       <span class="mbn-label">Referral</span>
+    </button>
+
+    <button class="mob-bottom-btn" id="mbn-shop" onclick="closeModal();openCreditShop();mobBottomActive('mbn-shop')">
+      <span class="mbn-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+      </span>
+      <span class="mbn-label">Shop</span>
     </button>
 
     <button class="mob-bottom-btn" id="mbn-profile"
