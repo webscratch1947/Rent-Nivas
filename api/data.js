@@ -19,6 +19,16 @@ const S3_BUCKET = process.env.S3_BUCKET || process.env.RENT_NIVAS_S3_BUCKET;
 let jwksCache = null;
 let jwksFetchedAt = 0;
 
+// ── Broker AWS (separate credentials for broker network tables) ──────────
+const BROKER_REGION = process.env.BROKER_AWS_REGION || REGION;
+const brokerDdb = new DynamoDBClient({
+  region: BROKER_REGION,
+  credentials: {
+    accessKeyId: process.env.BROKER_AWS_KEY || '',
+    secretAccessKey: process.env.BROKER_AWS_SECRET || '',
+  },
+});
+
 const TABLES = {
   profiles: process.env.TABLE_USERS || 'Users',
   users: process.env.TABLE_USERS || 'Users',
@@ -2497,6 +2507,155 @@ async function handleRpc(spec, claims) {
   if (spec.name === 'expire_partner_task') {
     const taskId = String((spec.params && spec.params.p_task_id) || '').trim();
     return await expirePartnerTaskCore(claims.sub, taskId);
+  }
+
+  // ── Broker Network RPCs ───────────────────────────────────────────────
+  if (spec.name === 'broker_get_feed') {
+    const TABLE_BROKER_POSTS = 'BrokerPosts';
+    const TABLE_BROKER_PROFILES = 'BrokerProfiles';
+    const brokerScanRes = await brokerDdb.send(new ScanCommand({ TableName: TABLE_BROKER_POSTS }));
+    const posts = (brokerScanRes.Items || []).map(unmarshall).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    const enriched = await Promise.all(posts.map(async (post) => {
+      const profile = await brokerGetUserProfile(post.userId);
+      const brokerProf = await brokerGetProfile(post.userId, TABLE_BROKER_PROFILES);
+      return { ...post, userName: profile?.name || 'User', avatarUrl: profile?.avatar_url || '', verified: brokerProf.isVerified };
+    }));
+    return enriched;
+  }
+
+  if (spec.name === 'broker_get_profile') {
+    const TABLE_BROKER_PROFILES = 'BrokerProfiles';
+    const userId = claims.sub;
+    const brokerProf = await brokerGetProfile(userId, TABLE_BROKER_PROFILES);
+    const credits = await brokerGetCredits(userId);
+    return { ...brokerProf, credits };
+  }
+
+  if (spec.name === 'broker_create_post') {
+    const TABLE_BROKER_POSTS = 'BrokerPosts';
+    const TABLE_BROKER_PROFILES = 'BrokerProfiles';
+    const userId = claims.sub;
+    const postId = 'bp-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6);
+    const item = {
+      postId, type: spec.p_type || 'need', propertyType: spec.p_propertyType || '',
+      purpose: spec.p_purpose || '', listingType: spec.p_listingType || '',
+      budget: spec.p_budget || '', price: spec.p_price || '',
+      location: spec.p_location || '', extra: spec.p_extra || '',
+      userId, createdAt: Date.now(),
+    };
+    await brokerDdb.send(new PutItemCommand({ TableName: TABLE_BROKER_POSTS, Item: marshall(item, { removeUndefinedValues: true }) }));
+    const profile = await brokerGetUserProfile(userId);
+    const brokerProf = await brokerGetProfile(userId, TABLE_BROKER_PROFILES);
+    return { ...item, userName: profile?.name || 'User', avatarUrl: profile?.avatar_url || '', verified: brokerProf.isVerified };
+  }
+
+  if (spec.name === 'broker_connect') {
+    const TABLE_BROKER_POSTS = 'BrokerPosts';
+    const TABLE_BROKER_CONNECTIONS = 'BrokerConnections';
+    const TABLE_BROKER_PROFILES = 'BrokerProfiles';
+    const userId = claims.sub;
+    const postId = String(spec.p_postId || '').trim();
+    if (!postId) throw new Error('Missing postId');
+    const postRes = await brokerDdb.send(new GetItemCommand({ TableName: TABLE_BROKER_POSTS, Key: marshall({ postId }) }));
+    if (!postRes.Item) throw new Error('Post not found');
+    const post = unmarshall(postRes.Item);
+    if (post.userId === userId) throw new Error('Cannot connect with yourself');
+    const existingConn = await brokerDdb.send(new ScanCommand({
+      TableName: TABLE_BROKER_CONNECTIONS,
+      FilterExpression: 'userId = :uid AND postId = :pid',
+      ExpressionAttributeValues: marshall({ ':uid': userId, ':pid': postId }),
+    }));
+    if (existingConn.Items && existingConn.Items.length > 0) throw new Error('Already connected');
+    const credits = await brokerGetCredits(userId);
+    if (credits < 10) throw new Error('Not enough credits. You need 10 credits to connect.');
+    await brokerSetCredits(userId, credits - 10);
+    const connectionId = 'conn-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6);
+    await brokerDdb.send(new PutItemCommand({
+      TableName: TABLE_BROKER_CONNECTIONS,
+      Item: marshall({ connectionId, userId, targetUserId: post.userId, postId, coinsSpent: 10, createdAt: new Date().toISOString() }),
+    }));
+    const targetProfile = await brokerGetUserProfile(post.userId);
+    return { connectionId, targetEmail: targetProfile?.email || '', targetName: targetProfile?.name || 'User', remainingCredits: credits - 10 };
+  }
+
+  if (spec.name === 'broker_toggle_role') {
+    const TABLE_BROKER_PROFILES = 'BrokerProfiles';
+    if (!isAdmin(claims)) {
+      const myProf = await brokerGetProfile(claims.sub, TABLE_BROKER_PROFILES);
+      if (!myProf.isBroker) throw new Error('Admin or broker access required');
+    }
+    const targetUserId = String(spec.p_userId || claims.sub);
+    const current = await brokerGetProfile(targetUserId, TABLE_BROKER_PROFILES);
+    const newVal = !current.isBroker;
+    await brokerDdb.send(new PutItemCommand({
+      TableName: TABLE_BROKER_PROFILES,
+      Item: marshall({ userId: targetUserId, isBroker: newVal, isVerified: current.isVerified, updatedAt: new Date().toISOString() }),
+    }));
+    return { userId: targetUserId, isBroker: newVal, isVerified: current.isVerified };
+  }
+
+  if (spec.name === 'broker_toggle_verified') {
+    const TABLE_BROKER_PROFILES = 'BrokerProfiles';
+    if (!isAdmin(claims)) throw new Error('Admin access required');
+    const targetUserId = String(spec.p_userId || '');
+    if (!targetUserId) throw new Error('Missing userId');
+    const current = await brokerGetProfile(targetUserId, TABLE_BROKER_PROFILES);
+    const newVal = !current.isVerified;
+    await brokerDdb.send(new PutItemCommand({
+      TableName: TABLE_BROKER_PROFILES,
+      Item: marshall({ userId: targetUserId, isBroker: current.isBroker, isVerified: newVal, verifiedAt: newVal ? new Date().toISOString() : null, updatedAt: new Date().toISOString() }),
+    }));
+    return { userId: targetUserId, isBroker: current.isBroker, isVerified: newVal };
+  }
+
+  if (spec.name === 'broker_admin_posts') {
+    const TABLE_BROKER_POSTS = 'BrokerPosts';
+    const TABLE_BROKER_PROFILES = 'BrokerProfiles';
+    if (!isAdmin(claims)) throw new Error('Admin access required');
+    const brokerScanRes = await brokerDdb.send(new ScanCommand({ TableName: TABLE_BROKER_POSTS }));
+    const posts = (brokerScanRes.Items || []).map(unmarshall).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    const enriched = await Promise.all(posts.slice(0, 50).map(async (post) => {
+      const profile = await brokerGetUserProfile(post.userId);
+      const brokerProf = await brokerGetProfile(post.userId, TABLE_BROKER_PROFILES);
+      return { ...post, userName: profile?.name || 'User', avatarUrl: profile?.avatar_url || '', verified: brokerProf.isVerified };
+    }));
+    return enriched;
+  }
+
+  // ── Broker helper functions (inline, not exported) ──────────────────────
+  async function brokerGetUserProfile(userId) {
+    try {
+      const res = await ddb.send(new GetItemCommand({
+        TableName: TABLES.profiles, Key: marshall({ userId }),
+        ProjectionExpression: 'userId, #n, avatar_url, email',
+        ExpressionAttributeNames: { '#n': 'name' },
+      }));
+      if (!res.Item) return null;
+      const item = unmarshall(res.Item);
+      return { id: item.userId, name: item.name || 'User', avatar_url: item.avatar_url || '', email: item.email || '' };
+    } catch (e) { console.error('[Broker] getUserProfile:', e.message); return null; }
+  }
+
+  async function brokerGetCredits(userId) {
+    try {
+      const res = await ddb.send(new GetItemCommand({ TableName: TABLES.profiles, Key: marshall({ userId }), ProjectionExpression: 'credits' }));
+      return res.Item ? (parseFloat(unmarshall(res.Item).credits) || 0) : 0;
+    } catch (e) { return 0; }
+  }
+
+  async function brokerSetCredits(userId, val) {
+    try {
+      await ddb.send(new UpdateItemCommand({ TableName: TABLES.profiles, Key: marshall({ userId }), UpdateExpression: 'SET credits = :c', ExpressionAttributeValues: marshall({ ':c': val }) }));
+    } catch (e) { console.error('[Broker] setCredits:', e.message); }
+  }
+
+  async function brokerGetProfile(userId, table) {
+    try {
+      const res = await brokerDdb.send(new GetItemCommand({ TableName: table, Key: marshall({ userId }) }));
+      if (!res.Item) return { userId, isBroker: false, isVerified: false };
+      const item = unmarshall(res.Item);
+      return { userId: item.userId, isBroker: !!item.isBroker, isVerified: !!item.isVerified };
+    } catch (e) { return { userId, isBroker: false, isVerified: false }; }
   }
 
   throw new Error(`Unsupported RPC "${spec.name}"`);

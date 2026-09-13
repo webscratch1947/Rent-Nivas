@@ -22122,7 +22122,7 @@
     }
 
     /* ═══════════════════════════════════════════════════════
-       BROKER NETWORK — Full Panel Logic (API-backed)
+       BROKER NETWORK — Full Panel Logic (data.js RPC-backed)
        ═══════════════════════════════════════════════════════ */
 
     var _bpRole = 0;
@@ -22130,16 +22130,17 @@
     var _bpConnectingId = null;
     var _bpProfile = null;
 
-    async function bpApiFetch(action, body) {
+    async function bpRpc(name, params) {
       var u = window.user;
       if (!u) throw new Error('Not logged in');
       var sess = await window.sb.auth.getSession();
       var token = sess && sess.data && sess.data.session && (sess.data.session.id_token || sess.data.session.access_token);
       if (!token) throw new Error('No session token');
-      var opts = { method: body ? 'POST' : 'GET', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token } };
-      if (body) opts.body = JSON.stringify(body);
-      var url = '/api/broker?action=' + encodeURIComponent(action);
-      var res = await fetch(url, opts);
+      var res = await fetch('/api/data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+        body: JSON.stringify({ op: 'rpc', name: name, params: params || {} }),
+      });
       var json = await res.json();
       if (json.error) throw new Error(json.error.message || 'API error');
       return json.data;
@@ -22149,7 +22150,7 @@
       var u = window.user;
       if (!u) { showPage('login-page'); return false; }
       try {
-        _bpProfile = await bpApiFetch('profile');
+        _bpProfile = await bpRpc('broker_get_profile');
         _bpRole = _bpProfile.isBroker ? 1 : 0;
         bpUpdateCoinsDisplay(_bpProfile.credits);
         bpLoadFeed();
@@ -22187,7 +22188,7 @@
 
     async function bpSubmitPost(type) {
       if (!user) { showPage('login-page'); return; }
-      var body = {};
+      var params = {};
       if (type === 'need') {
         var tp = document.getElementById('bp-need-type').value;
         var pur = document.getElementById('bp-need-purpose').value;
@@ -22195,7 +22196,7 @@
         var loc = document.getElementById('bp-need-location').value.trim();
         var ext = document.getElementById('bp-need-extra').value.trim();
         if (!tp || !pur || !loc) { toast('Please fill property type, purpose & location','error'); return; }
-        body = { action:'create-post', type:'need', propertyType:tp, purpose:pur, budget:bud||'Not specified', location:loc, extra:ext };
+        params = { p_type:'need', p_propertyType:tp, p_purpose:pur, p_budget:bud||'Not specified', p_location:loc, p_extra:ext };
       } else {
         var ht = document.getElementById('bp-have-type').value;
         var hl = document.getElementById('bp-have-listing').value;
@@ -22203,10 +22204,10 @@
         var hloc = document.getElementById('bp-have-location').value.trim();
         var hex = document.getElementById('bp-have-extra').value.trim();
         if (!ht || !hl || !hloc) { toast('Please fill property type, listing type & location','error'); return; }
-        body = { action:'create-post', type:'have', propertyType:ht, listingType:hl, price:hp||'Not specified', location:hloc, extra:hex };
+        params = { p_type:'have', p_propertyType:ht, p_listingType:hl, p_price:hp||'Not specified', p_location:hloc, p_extra:hex };
       }
       try {
-        var newPost = await bpApiFetch('create-post', body);
+        var newPost = await bpRpc('broker_create_post', params);
         _bpPosts.unshift(newPost);
         bpRenderFeed();
         toast('Posted to Broker Network!', 'success');
@@ -22225,7 +22226,7 @@
       if (!container) return;
       container.innerHTML = '<div style="text-align:center;padding:40px;color:#9ca3af;"><div style="font-size:24px;margin-bottom:8px;">⏳</div>Loading feed...</div>';
       try {
-        _bpPosts = await bpApiFetch('feed');
+        _bpPosts = await bpRpc('broker_get_feed');
         bpRenderFeed();
       } catch(e) {
         container.innerHTML = '<div class="bp-empty"><div class="bp-empty-icon">⚠️</div><div class="bp-empty-text">Failed to load feed</div><div class="bp-empty-sub">' + esc(e.message) + '</div></div>';
@@ -22314,7 +22315,7 @@
     async function bpConfirmConnect() {
       if (!_bpConnectingId) return;
       try {
-        var result = await bpApiFetch('connect', { action:'connect', postId: _bpConnectingId });
+        var result = await bpRpc('broker_connect', { p_postId: _bpConnectingId });
         var card = document.getElementById('bp-card-' + _bpConnectingId);
         if (card) {
           var btnWrap = card.querySelector('.bp-connect-btn');
@@ -22326,7 +22327,6 @@
           }
         }
         bpUpdateCoinsDisplay(result.remainingCredits);
-        // Update global credits cache too
         try { localStorage.setItem('nestly-credits', String(result.remainingCredits)); updateCreditsBadges(); } catch(e){}
         toast('Connected successfully!', 'success');
       } catch(e) {
@@ -22350,7 +22350,7 @@
       var u = window.user;
       if (!u) return;
       try {
-        var result = await bpApiFetch('toggle-role', { action:'toggle-role', userId: targetUserId || (u.id||u.sub) });
+        var result = await bpRpc('broker_toggle_role', { p_userId: targetUserId || (u.id||u.sub) });
         if (!targetUserId || targetUserId === (u.id||u.sub)) {
           _bpRole = result.isBroker ? 1 : 0;
           bpUpdateBrokerButtons();
@@ -22364,7 +22364,7 @@
     async function bpToggleVerified(targetUserId) {
       if (!targetUserId) return;
       try {
-        var result = await bpApiFetch('toggle-verified', { action:'toggle-verified', userId: targetUserId });
+        var result = await bpRpc('broker_toggle_verified', { p_userId: targetUserId });
         toast(result.isVerified ? 'Broker verified (MGR badge added)!' : 'Verification removed.', 'info');
         bpRenderFeed();
       } catch(e) {
@@ -22374,7 +22374,7 @@
 
     async function bpAdminLoadBrokers() {
       try {
-        var posts = await bpApiFetch('admin-posts');
+        var posts = await bpRpc('broker_admin_posts');
         var el = document.getElementById('bp-admin-posts-count');
         if (el) el.textContent = posts.length + ' posts in the Broker Network feed.';
         var list = document.getElementById('bp-admin-posts-list');
@@ -22409,10 +22409,7 @@
         window.switchToHost = function() {
           var result = _origSwitch.apply(this, arguments);
           if (result && typeof result.then === 'function') {
-            return result.then(function(r) {
-              bpInitBrokerNav();
-              return r;
-            });
+            return result.then(function(r) { bpInitBrokerNav(); return r; });
           }
           bpInitBrokerNav();
           return result;
@@ -22422,19 +22419,11 @@
     })();
 
     function bpInitBrokerNav() {
-      setTimeout(function() {
-        if (!user) return;
-        bpInit();
-      }, 500);
+      setTimeout(function() { if (user) bpInit(); }, 500);
     }
 
-    /* ═══════════════════════════════════════════════════════
-       Initialize broker buttons on page load
-       ═══════════════════════════════════════════════════════ */
     document.addEventListener('DOMContentLoaded', function() {
-      setTimeout(function() {
-        if (window.user) bpInitBrokerNav();
-      }, 2000);
+      setTimeout(function() { if (window.user) bpInitBrokerNav(); }, 2000);
     });
 
     function openReferralPanel() {
