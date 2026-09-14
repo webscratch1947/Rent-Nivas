@@ -21713,8 +21713,7 @@
     .bp-topbar-sub{font-size:12px;color:#6b7280;margin-top:1px;}
     .bp-back-btn{display:flex;align-items:center;gap:6px;background:#f4f5f7;border:1.5px solid #e4e4ec;border-radius:8px;padding:8px 12px;font-size:13px;font-weight:600;color:#374151;cursor:pointer;transition:all .2s;}
     .bp-back-btn:hover{background:#e5e7eb;border-color:#d1d5db;}
-    .bp-body{padding:16px 20px;max-width:1100px;width:100%;margin:0 auto;}
-    .bp-bottom-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start;}
+    .bp-body{padding:16px 20px;max-width:1200px;width:100%;margin:0 auto;}
     .bp-right-tabs{display:flex;gap:6px;margin-bottom:14px;}
     .bp-right-tab{flex:1;padding:10px 6px;border-radius:10px;border:1.5px solid #e5e7eb;background:#fff;text-align:center;cursor:pointer;font-weight:700;font-size:13px;color:#6b7280;transition:all .2s;}
     .bp-right-tab.active{border-color:#c2714f;background:rgba(194,113,79,.06);color:#c2714f;}
@@ -21729,9 +21728,11 @@
     .bp-library-filters{display:flex;gap:8px;margin-top:10px;}
     .bp-library-filters select{flex:1;padding:8px 12px;border:1.5px solid #e5e7eb;border-radius:8px;font-size:12px;font-weight:600;color:#6b7280;background:#f9fafb;cursor:pointer;box-sizing:border-box;}
     .bp-library-filters select:focus{outline:none;border-color:#c2714f;}
-    .bp-library-grid{display:flex;flex-direction:column;gap:10px;}
+    .bp-masonry{columns:3;column-gap:14px;}
+    .bp-masonry .bp-card{break-inside:avoid;margin-bottom:14px;display:inline-block;width:100%;}
     .bp-lib-count{font-size:11px;font-weight:600;color:#9ca3af;margin-bottom:10px;}
-    @media(max-width:768px){.bp-bottom-grid{grid-template-columns:1fr !important;}.bp-topbar-inner{flex-wrap:wrap;gap:8px;padding:10px 14px;}.bp-topbar-title{font-size:15px;}.bp-topbar-sub{display:none;}.bp-back-btn{padding:6px 10px;font-size:12px;}.bp-coins-display{font-size:11px;padding:6px 14px;}.bp-body{padding:12px 14px;}#bp-stats{grid-template-columns:repeat(2,1fr) !important;}.bp-my-posts-scroll{max-height:400px;}.bp-form-card{padding:16px;}.bp-post-tab{padding:10px 6px;font-size:12px;}}
+    @media(max-width:1024px){.bp-masonry{columns:2;}}
+    @media(max-width:768px){.bp-topbar-inner{flex-wrap:wrap;gap:8px;padding:10px 14px;}.bp-topbar-title{font-size:15px;}.bp-topbar-sub{display:none;}.bp-back-btn{padding:6px 10px;font-size:12px;}.bp-coins-display{font-size:11px;padding:6px 14px;}.bp-body{padding:12px 14px;}#bp-stats{grid-template-columns:repeat(2,1fr) !important;}.bp-my-posts-scroll{max-height:400px;}.bp-form-card{padding:16px;}.bp-post-tab{padding:10px 6px;font-size:12px;}.bp-masonry{columns:1;}}
     .bp-post-type-tabs{display:flex;gap:8px;margin-bottom:16px;}
     .bp-post-tab{flex:1;padding:12px 8px;border-radius:14px;border:2px solid #e5e7eb;background:#fff;text-align:center;cursor:pointer;font-weight:700;font-size:14px;color:#6b7280;transition:all .25s;}
     .bp-post-tab.active{border-color:#c2714f;background:rgba(194,113,79,.06);color:#c2714f;}
@@ -21835,10 +21836,8 @@
         </div>
       </div>
 
-      <!-- Forms + Feed side by side -->
-      <div class="bp-bottom-grid">
-      <!-- Left: Post Forms -->
-      <div>
+      <!-- Forms (full width on top) -->
+      <div style="max-width:640px;margin:0 auto;">
       <!-- Post Type Tabs -->
       <div class="bp-post-type-tabs">
         <div class="bp-post-tab active" id="bp-tab-need" onclick="bpSwitchTab('need')">
@@ -21931,40 +21930,37 @@
       </div>
       </div>
 
-      <!-- Right: Your Posts + Library -->
-      <div>
-        <div class="bp-right-tabs">
-          <div class="bp-right-tab active" onclick="bpSwitchRightTab('myposts')">📋 Your Posts</div>
-          <div class="bp-right-tab" onclick="bpSwitchRightTab('library')">📚 All Posts Library</div>
-        </div>
-        <!-- Your Posts Panel -->
-        <div id="bp-myposts-panel">
-          <div id="bp-my-posts" class="bp-my-posts-scroll">
-            <div style="text-align:center;padding:40px;color:#9ca3af;"><div style="font-size:24px;margin-bottom:8px;">⏳</div>Loading your posts...</div>
-          </div>
-        </div>
-        <!-- All Posts Library Panel -->
-        <div id="bp-library-panel" style="display:none;">
-          <div class="bp-library-search">
-            <input type="text" id="bp-lib-search" placeholder="Search by name, location, property type..." oninput="bpFilterLibrary()">
-            <div class="bp-library-filters">
-              <select id="bp-lib-type" onchange="bpFilterLibrary()">
-                <option value="">All Types</option>
-                <option value="need">🙋 I Need</option>
-                <option value="have">🏠 I Have</option>
-              </select>
-              <select id="bp-lib-location" onchange="bpFilterLibrary()">
-                <option value="">All Locations</option>
-              </select>
-            </div>
-          </div>
-          <div class="bp-lib-count" id="bp-lib-count"></div>
-          <div id="bp-library-feed" class="bp-library-grid">
-            <div style="text-align:center;padding:40px;color:#9ca3af;"><div style="font-size:24px;margin-bottom:8px;">⏳</div>Loading all posts...</div>
-          </div>
+      <!-- Your Posts + Library Tabs (below form, full width) -->
+      <div class="bp-right-tabs">
+        <div class="bp-right-tab active" onclick="bpSwitchRightTab('myposts')">📋 Your Posts</div>
+        <div class="bp-right-tab" onclick="bpSwitchRightTab('library')">📚 All Posts Library</div>
+      </div>
+      <!-- Your Posts Panel -->
+      <div id="bp-myposts-panel">
+        <div id="bp-my-posts" class="bp-my-posts-scroll">
+          <div style="text-align:center;padding:40px;color:#9ca3af;"><div style="font-size:24px;margin-bottom:8px;">⏳</div>Loading your posts...</div>
         </div>
       </div>
-      </div><!-- /bp-bottom-grid -->
+      <!-- All Posts Library Panel -->
+      <div id="bp-library-panel" style="display:none;">
+        <div class="bp-library-search">
+          <input type="text" id="bp-lib-search" placeholder="Search by name, location, property type..." oninput="bpFilterLibrary()">
+          <div class="bp-library-filters">
+            <select id="bp-lib-type" onchange="bpFilterLibrary()">
+              <option value="">All Types</option>
+              <option value="need">🙋 I Need</option>
+              <option value="have">🏠 I Have</option>
+            </select>
+            <select id="bp-lib-location" onchange="bpFilterLibrary()">
+              <option value="">All Locations</option>
+            </select>
+          </div>
+        </div>
+        <div class="bp-lib-count" id="bp-lib-count"></div>
+        <div id="bp-library-feed" class="bp-masonry">
+          <div style="text-align:center;padding:40px;color:#9ca3af;column-span:all;"><div style="font-size:24px;margin-bottom:8px;">⏳</div>Loading all posts...</div>
+        </div>
+      </div>
       </div><!-- /bp-feed-container -->
     </div>
   </div>
