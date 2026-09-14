@@ -12537,6 +12537,7 @@
         if (typeof window.rnStreakSetUser === 'function') window.rnStreakSetUser(user.id);
         await loadCreditsFromDB();
         syncMobNavAuth();
+        if (typeof bpEnforceAccess === 'function') bpEnforceAccess();
         const banned = await checkUserBan();
         if (banned) return;
         const savedRole = localStorage.getItem('nestly-role');
@@ -15150,6 +15151,7 @@
         user = session.user;
         window.user = user;
         syncMobNavAuth();
+        if (typeof bpEnforceAccess === 'function') bpEnforceAccess();
         if (typeof window._checkCrown === 'function') setTimeout(window._checkCrown, 1500);
         const banned = await checkUserBan();
         if (banned) return;
@@ -15292,6 +15294,7 @@
       }
       user = session.user;
       window.user = user;
+      if (typeof bpEnforceAccess === 'function') bpEnforceAccess();
       // SAFETY NET for the cross-account cache bug: nestly-credits/-role/etc
       // are plain localStorage keys with no user id in them. doLogout() now
       // clears them, but if a browser tab was just closed/killed instead of
@@ -21072,6 +21075,7 @@
           if (typeof window.rnStreakSetUser === 'function') window.rnStreakSetUser(user.id);
           await loadCreditsFromDB();
           syncMobNavAuth();
+          if (typeof bpEnforceAccess === 'function') bpEnforceAccess();
           if (typeof window._checkCrown === 'function') setTimeout(window._checkCrown, 1500);
           const banned = await checkUserBan();
           if (banned) return;
@@ -22153,6 +22157,36 @@
     /* ═══════════════════════════════════════════════════════
        BROKER NETWORK — Full Panel Logic (data.js RPC-backed)
        ═══════════════════════════════════════════════════════ */
+
+    var _bpBrokerAccess = null; // null = unknown, true/false after check
+
+    function bpEnforceAccess() {
+      if (!window.user || _bpBrokerAccess !== null) return;
+      bpRpc('broker_check_access').then(function(access) {
+        _bpBrokerAccess = access.allowed;
+        bpToggleBrokerVisibility(access.allowed);
+      }).catch(function() {
+        _bpBrokerAccess = false;
+        bpToggleBrokerVisibility(false);
+      });
+    }
+
+    function bpToggleBrokerVisibility(show) {
+      var d = show ? '' : 'none';
+      document.querySelectorAll('#nb-broker,#rnb-broker').forEach(function(b) { b.style.display = d; });
+      var mbShop = document.getElementById('mbn-shop');
+      if (mbShop) mbShop.style.display = d;
+      document.querySelectorAll('.mob-nav-item').forEach(function(b) {
+        if (b.textContent.trim() === 'Broker Panel' || b.textContent.indexOf('Broker Panel') !== -1) {
+          b.style.display = d;
+        }
+      });
+      document.querySelectorAll('.mob-nav-item').forEach(function(b) {
+        if (b.textContent.trim() === 'Credit Shop' || b.textContent.indexOf('Credit Shop') !== -1) {
+          b.style.display = d;
+        }
+      });
+    }
 
     var _bpRole = 0;
     var _bpPosts = [];
