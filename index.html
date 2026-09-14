@@ -11672,7 +11672,7 @@
             <button class="admin-tab" onclick="adminTab(this,'adm-tasks');loadAdminTasksTab()">📋 Tasks</button>
             <button class="admin-tab" onclick="adminTab(this,'adm-reports');loadAdminReports()">🚩 Reports <span id="adm-reports-count" style="display:none;background:#dc2626;color:#fff;font-size:10px;font-weight:800;padding:1px 7px;border-radius:20px;margin-left:4px;"></span></button>
             <button class="admin-tab" onclick="adminTab(this,'adm-settings');loadAdminSettings()">⚙️ Settings</button>
-            <button class="admin-tab" onclick="adminTab(this,'adm-broker');bpAdminLoadBrokers()">💼 Brokers</button>
+            <button class="admin-tab" onclick="adminTab(this,'adm-broker')">💼 Brokers</button>
           </div>
 
           <!-- USERS TAB -->
@@ -11910,29 +11910,11 @@
           <div class="admin-sub" id="adm-broker">
             <div style="max-width:620px;">
               <h3 style="font-size:18px;font-weight:700;margin-bottom:6px;">💼 Broker Network</h3>
-              <p style="font-size:13px;color:var(--muted);margin-bottom:24px;">Manage broker roles and verification badges. Toggle broker status and MGR Verified badges for users.</p>
-
-              <div style="background:var(--white);border:1.5px solid var(--border2);border-radius:var(--r);padding:20px;margin-bottom:20px;">
-                <div style="font-size:15px;font-weight:700;margin-bottom:12px;">Enable Broker Role for Current User</div>
-                <p style="font-size:13px;color:var(--muted);margin-bottom:16px;line-height:1.6;">This will toggle the Broker Panel access for the currently logged-in user. Only verified brokers should be given this role.</p>
-                <button class="btn btn-terra" onclick="bpToggleBrokerRole()">Toggle Broker Role (Current User)</button>
-                <div id="bp-admin-role-status" style="font-size:13px;color:var(--muted);margin-top:8px;"></div>
-              </div>
-
-              <div style="background:var(--white);border:1.5px solid var(--border2);border-radius:var(--r);padding:20px;margin-bottom:20px;">
-                <div style="font-size:15px;font-weight:700;margin-bottom:12px;">MGR Verification Badge</div>
-                <p style="font-size:13px;color:var(--muted);margin-bottom:16px;line-height:1.6;">Toggle the blue tick "MGR Verified" badge for broker users. This badge appears on their posts in the Broker Network feed.</p>
-                <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                  <input type="email" id="bp-admin-verify-email" placeholder="Broker email address"
-                    style="flex:1;min-width:200px;padding:10px 14px;border:1.5px solid var(--border2);border-radius:var(--r);font-size:14px;font-family:var(--font);color:var(--ink);background:var(--bg);">
-                  <button class="btn btn-terra" onclick="bpToggleVerified(document.getElementById('bp-admin-verify-email').value)">Toggle Verified Badge</button>
-                </div>
-              </div>
-
-              <div style="background:var(--white);border:1.5px solid var(--border2);border-radius:var(--r);padding:20px;">
-                <div style="font-size:15px;font-weight:700;margin-bottom:12px;">Active Broker Posts</div>
-                <div id="bp-admin-posts-count" style="font-size:13px;color:var(--muted);margin-bottom:12px;"></div>
-                <div id="bp-admin-posts-list"></div>
+              <p style="font-size:13px;color:var(--muted);margin-bottom:24px;">Broker management features coming soon. New tools for managing broker access, verification, and plan purchases will appear here.</p>
+              <div style="background:var(--white);border:1.5px solid var(--border2);border-radius:var(--r);padding:40px 20px;text-align:center;">
+                <div style="font-size:32px;margin-bottom:12px;">🚧</div>
+                <div style="font-size:15px;font-weight:700;margin-bottom:8px;">Under Construction</div>
+                <div style="font-size:13px;color:var(--muted);">New broker admin features are being built. Check back soon.</div>
               </div>
             </div>
           </div>
@@ -21635,48 +21617,72 @@
     <div class="img-fullscreen-counter"></div>
   </div>
 
-  <!-- ══ CREDIT SHOP MODAL ══ -->
-  <div id="credit-shop-modal" style="display:none;position:fixed;inset:0;z-index:99998;background:rgba(0,0,0,.7);backdrop-filter:blur(10px);align-items:center;justify-content:center;padding:0;">
-    <div style="width:100%;max-width:460px;max-height:100vh;height:100%;background:#0c0705;overflow-y:auto;position:relative;border-left:1px solid rgba(217,119,6,.08);">
-
-      <!-- Close btn — inside the banner, top-right corner -->
-      <button onclick="closeCreditShop()" style="position:fixed;top:16px;right:calc(50% - 214px);z-index:12;width:38px;height:38px;border-radius:50%;background:rgba(0,0,0,.5);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.12);color:rgba(255,255,255,.8);font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .25s;" onmouseenter="this.style.background='rgba(220,38,38,.6)';this.style.color='#fff';this.style.transform='scale(1.1)'" onmouseleave="this.style.background='rgba(0,0,0,.5)';this.style.color='rgba(255,255,255,.8)';this.style.transform='scale(1)'">✕</button>
-
-      <!-- Hero Banner -->
-      <div style="background:linear-gradient(160deg,#1a0f08 0%,#2c1609 30%,#4a2510 60%,#1a0f08 100%);padding:48px 24px 36px;text-align:center;position:relative;overflow:hidden;">
-        <div style="position:absolute;top:-50px;right:-40px;width:200px;height:200px;background:radial-gradient(circle,rgba(217,119,6,.2),transparent 70%);border-radius:50%;pointer-events:none;"></div>
-        <div style="position:absolute;bottom:-50px;left:-30px;width:150px;height:150px;background:radial-gradient(circle,rgba(217,119,6,.12),transparent 70%);border-radius:50%;pointer-events:none;"></div>
-        <div style="position:absolute;top:20%;left:50%;width:300px;height:300px;background:radial-gradient(circle,rgba(251,191,36,.06),transparent 60%);border-radius:50%;transform:translateX(-50%);pointer-events:none;"></div>
-        <img src="chest.png" alt="Treasure Chest" style="width:120px;height:120px;object-fit:contain;margin-bottom:16px;filter:drop-shadow(0 12px 32px rgba(217,119,6,.4));position:relative;z-index:1;">
-        <div style="color:#fbbf24;font-size:26px;font-weight:900;letter-spacing:-.5px;margin-bottom:6px;font-family:var(--font-display);position:relative;z-index:1;">Credit Shop</div>
-        <div style="color:rgba(255,255,255,.45);font-size:13px;font-weight:500;position:relative;z-index:1;">Unlock listings, contact details & more</div>
+  <!-- ══ CREDIT SHOP PAGE ══ -->
+  <div class="page" id="credit-shop-page">
+    <!-- Topbar -->
+    <div style="position:sticky;top:0;z-index:100;background:#fff;border-bottom:1px solid #f0ebe4;">
+      <div style="max-width:480px;margin:0 auto;padding:14px 16px;display:flex;align-items:center;gap:12px;">
+        <button onclick="closeCreditShop()" style="display:flex;align-items:center;gap:6px;background:none;border:none;color:#a85a3b;font-size:15px;font-weight:700;cursor:pointer;padding:6px 10px 6px 0;border-radius:8px;transition:background .15s;" onmouseenter="this.style.background='#fdf6ee'" onmouseleave="this.style.background='none'">&#8592; Back</button>
+        <div>
+          <div style="font-size:18px;font-weight:800;color:#2c2720;">Credit Shop</div>
+          <div style="font-size:12px;color:#9a8878;font-weight:500;">Unlock listings, contact details & more</div>
+        </div>
       </div>
+    </div>
 
+    <!-- Hero Banner -->
+    <div style="background:linear-gradient(160deg,#fdf6ee 0%,#f9ead8 40%,#f5e6d0 70%,#fdf6ee 100%);padding:36px 24px 32px;text-align:center;position:relative;overflow:hidden;">
+      <div style="position:absolute;top:-50px;right:-40px;width:200px;height:200px;background:radial-gradient(circle,rgba(168,90,59,.1),transparent 70%);border-radius:50%;pointer-events:none;"></div>
+      <div style="position:absolute;bottom:-50px;left:-30px;width:150px;height:150px;background:radial-gradient(circle,rgba(168,90,59,.07),transparent 70%);border-radius:50%;pointer-events:none;"></div>
+      <img src="chest.png" alt="Treasure Chest" style="width:110px;height:110px;object-fit:contain;margin:0 auto;display:block;filter:drop-shadow(0 12px 32px rgba(168,90,59,.25));position:relative;z-index:1;">
+      <div style="color:#8b5e3c;font-size:24px;font-weight:900;letter-spacing:-.5px;margin-top:14px;margin-bottom:4px;font-family:var(--font-display);position:relative;z-index:1;">Credit Shop</div>
+      <div style="color:rgba(139,94,60,.55);font-size:13px;font-weight:500;position:relative;z-index:1;">Credits unlock property contacts & premium features</div>
+    </div>
+
+    <!-- Content -->
+    <div style="max-width:480px;margin:0 auto;padding:0 16px;">
       <!-- BEST VALUE Card -->
-      <div style="padding:24px 16px 0;">
-        <div id="cs-best-plan" onclick="buyCredits(10)" style="background:linear-gradient(145deg,#1a1008 0%,#2a1a0c 40%,#1a1008 100%);border:1.5px solid rgba(217,119,6,.3);border-radius:20px;padding:24px 20px;position:relative;overflow:hidden;cursor:pointer;box-shadow:0 8px 32px rgba(217,119,6,.1),inset 0 1px 0 rgba(251,191,36,.05);transition:all .3s;" onmouseenter="this.style.borderColor='rgba(217,119,6,.5)';this.style.boxShadow='0 8px 40px rgba(217,119,6,.2)'" onmouseleave="this.style.borderColor='rgba(217,119,6,.3)';this.style.boxShadow='0 8px 32px rgba(217,119,6,.1)'">
-          <div style="position:absolute;top:0;right:0;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;font-size:10px;font-weight:800;padding:6px 16px;border-radius:0 20px 0 16px;text-transform:uppercase;letter-spacing:.8px;">Best Value</div>
+      <div style="padding:24px 0 0;">
+        <div id="cs-best-plan" onclick="buyCredits(10)" style="background:linear-gradient(145deg,#fdf8f2 0%,#f9efe3 40%,#fdf8f2 100%);border:1.5px solid rgba(168,90,59,.2);border-radius:20px;padding:24px 20px;position:relative;overflow:hidden;cursor:pointer;box-shadow:0 8px 32px rgba(168,90,59,.07),inset 0 1px 0 rgba(255,255,255,.6);transition:all .3s;" onmouseenter="this.style.borderColor='rgba(168,90,59,.4)';this.style.boxShadow='0 8px 40px rgba(168,90,59,.12)'" onmouseleave="this.style.borderColor='rgba(168,90,59,.2)';this.style.boxShadow='0 8px 32px rgba(168,90,59,.07)'">
+          <div style="position:absolute;top:0;right:0;background:linear-gradient(135deg,#c2714f,#a85a3b);color:#fff;font-size:10px;font-weight:800;padding:6px 16px;border-radius:0 20px 0 16px;text-transform:uppercase;letter-spacing:.8px;">Best Value</div>
           <div style="display:flex;align-items:center;gap:16px;">
-            <div style="width:72px;height:72px;border-radius:16px;background:linear-gradient(135deg,rgba(217,119,6,.15),rgba(217,119,6,.05));display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-              <img src="chest.png" alt="10 Credits" style="width:52px;height:52px;object-fit:contain;filter:drop-shadow(0 2px 8px rgba(217,119,6,.3));">
+            <div style="width:72px;height:72px;border-radius:16px;background:linear-gradient(135deg,rgba(168,90,59,.12),rgba(168,90,59,.04));display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+              <img src="chest.png" alt="10 Credits" style="width:52px;height:52px;object-fit:contain;filter:drop-shadow(0 2px 8px rgba(168,90,59,.2));">
             </div>
             <div style="flex:1;">
-              <div style="font-size:32px;font-weight:900;color:#fbbf24;line-height:1;">10 Credits</div>
-              <div style="font-size:13px;color:rgba(251,191,36,.55);margin-top:6px;">Only ₹5 per credit · Best deal!</div>
+              <div style="font-size:32px;font-weight:900;color:#8b5e3c;line-height:1;">10 Credits</div>
+              <div style="font-size:13px;color:rgba(139,94,60,.5);margin-top:6px;">Only ₹5 per credit · Best deal!</div>
             </div>
           </div>
-          <div style="margin-top:18px;background:linear-gradient(135deg,#d97706,#b45309);color:#fff;text-align:center;padding:15px;border-radius:14px;font-size:16px;font-weight:800;letter-spacing:.3px;box-shadow:0 6px 20px rgba(217,119,6,.3);transition:transform .2s;" onmouseenter="this.style.transform='translateY(-1px)'" onmouseleave="this.style.transform='translateY(0)'">Buy for ₹50</div>
+          <div style="margin-top:18px;background:linear-gradient(135deg,#c2714f,#a85a3b);color:#fff;text-align:center;padding:15px;border-radius:14px;font-size:16px;font-weight:800;letter-spacing:.3px;box-shadow:0 6px 20px rgba(168,90,59,.2);transition:transform .2s;" onmouseenter="this.style.transform='translateY(-1px)'" onmouseleave="this.style.transform='translateY(0)'">Buy for ₹50</div>
         </div>
       </div>
 
       <!-- Other Plans -->
-      <div style="padding:24px 16px 0;">
-        <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,.3);text-transform:uppercase;letter-spacing:1.2px;margin-bottom:14px;">All Plans</div>
+      <div style="padding:24px 0 0;">
+        <div style="font-size:11px;font-weight:700;color:rgba(139,94,60,.35);text-transform:uppercase;letter-spacing:1.2px;margin-bottom:14px;">All Plans</div>
         <div style="display:flex;flex-direction:column;gap:10px;" id="cs-plans-list"></div>
       </div>
 
-      <div style="padding:28px 16px 40px;text-align:center;">
-        <div style="font-size:11px;color:rgba(255,255,255,.25);line-height:1.8;">Credits are used to unlock property contact details.<br>1 credit = 1 property unlock · Credits are stored locally on this device.</div>
+      <!-- Broker Plan Card -->
+      <div style="padding:16px 0 0;">
+        <div id="cs-broker-plan" onclick="brokerPlanApply()" style="background:linear-gradient(145deg,#f9f3ec 0%,#f2e8dc 40%,#f9f3ec 100%);border:1.5px solid rgba(168,90,59,.2);border-radius:20px;padding:24px 20px;position:relative;overflow:hidden;cursor:pointer;box-shadow:0 8px 32px rgba(168,90,59,.07),inset 0 1px 0 rgba(255,255,255,.6);transition:all .3s;" onmouseenter="this.style.borderColor='rgba(168,90,59,.4)';this.style.boxShadow='0 8px 40px rgba(168,90,59,.12)'" onmouseleave="this.style.borderColor='rgba(168,90,59,.2)';this.style.boxShadow='0 8px 32px rgba(168,90,59,.07)'">
+          <div style="position:absolute;top:0;right:0;background:linear-gradient(135deg,#c2714f,#8b5e3c);color:#fff;font-size:10px;font-weight:800;padding:6px 14px;border-radius:0 20px 0 16px;text-transform:uppercase;letter-spacing:.8px;">New</div>
+          <div style="display:flex;align-items:center;gap:16px;">
+            <div style="width:72px;height:72px;border-radius:16px;background:linear-gradient(135deg,rgba(168,90,59,.12),rgba(168,90,59,.04));display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:36px;">
+              💼
+            </div>
+            <div style="flex:1;">
+              <div style="font-size:20px;font-weight:900;color:#6b4226;line-height:1;">Broker Plan</div>
+              <div style="font-size:13px;color:rgba(107,66,38,.5);margin-top:6px;">Unlock access to the Broker Network</div>
+            </div>
+          </div>
+          <div style="margin-top:18px;background:linear-gradient(135deg,#c2714f,#8b5e3c);color:#fff;text-align:center;padding:15px;border-radius:14px;font-size:16px;font-weight:800;letter-spacing:.3px;box-shadow:0 6px 20px rgba(168,90,59,.2);transition:transform .2s;" onmouseenter="this.style.transform='translateY(-1px)'" onmouseleave="this.style.transform='translateY(0)'">Apply for Access</div>
+        </div>
+      </div>
+
+      <div style="padding:28px 0 40px;text-align:center;">
+        <div style="font-size:11px;color:rgba(139,94,60,.35);line-height:1.8;">Credits are used to unlock property contact details.<br>1 credit = 1 property unlock · Credits are stored locally on this device.</div>
       </div>
     </div>
   </div>
@@ -21762,6 +21768,10 @@
     </div>
 
     <div class="bp-body">
+      <!-- Access Denied (shown when user doesn't have broker plan) -->
+      <div id="bp-access-denied" style="display:none;"></div>
+
+      <div id="bp-feed-container">
       <!-- Post Type Tabs -->
       <div class="bp-post-type-tabs">
         <div class="bp-post-tab active" id="bp-tab-need" onclick="bpSwitchTab('need')">
@@ -21856,6 +21866,7 @@
       <!-- Feed -->
       <div class="bp-feed-label">Broker Feed</div>
       <div id="bp-feed"></div>
+      </div><!-- /bp-feed-container -->
     </div>
   </div>
 
@@ -22078,18 +22089,36 @@
     }
 
     function openCreditShop() {
-      const modal = document.getElementById('credit-shop-modal');
-      if (!modal) return;
-      modal.style.display = 'flex';
-      document.body.style.overflow = 'hidden';
+      showPage('credit-shop-page');
       renderCreditShopPlans();
     }
 
     function closeCreditShop() {
-      const modal = document.getElementById('credit-shop-modal');
-      if (!modal) return;
-      modal.style.display = 'none';
-      document.body.style.overflow = '';
+      goBackFromCreditShop();
+    }
+
+    function goBackFromCreditShop() {
+      var role = localStorage.getItem('nestly-role');
+      if (role === 'rent') { showPage('rent-page'); }
+      else if (typeof switchToHost === 'function') { switchToHost(); }
+      else { showPage('host-dashboard'); }
+      mobBottomActive('mbn-home');
+    }
+
+    async function brokerPlanApply() {
+      if (!window.user) { showPage('login-page'); return; }
+      try {
+        var result = await bpRpc('broker_buy_plan');
+        if (result.alreadyHas) {
+          toast('You already have Broker Plan access!', 'info');
+        } else if (result.success) {
+          toast('Broker Plan activated! Welcome to the Broker Network.', 'success');
+          showPage('broker-page');
+          bpInit();
+        }
+      } catch(e) {
+        toast('Failed to activate: ' + e.message, 'error');
+      }
     }
 
     function renderCreditShopPlans() {
@@ -22101,17 +22130,17 @@
       const container = document.getElementById('cs-plans-list');
       if (!container) return;
       container.innerHTML = plans.map(p => `
-        <div onclick="buyCredits(${p.credits})" style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:18px 16px;display:flex;align-items:center;gap:14px;cursor:pointer;transition:all .25s;" onmouseenter="this.style.borderColor='rgba(217,119,6,.4)';this.style.background='rgba(217,119,6,.06)';this.style.boxShadow='0 4px 16px rgba(217,119,6,.1)'" onmouseleave="this.style.borderColor='rgba(255,255,255,.08)';this.style.background='rgba(255,255,255,.04)';this.style.boxShadow='none'">
-          <div style="width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,rgba(217,119,6,.12),rgba(217,119,6,.04));display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+        <div onclick="buyCredits(${p.credits})" style="background:#fff;border:1px solid rgba(168,90,59,.12);border-radius:16px;padding:18px 16px;display:flex;align-items:center;gap:14px;cursor:pointer;transition:all .25s;" onmouseenter="this.style.borderColor='rgba(168,90,59,.35)';this.style.boxShadow='0 4px 16px rgba(168,90,59,.08)'" onmouseleave="this.style.borderColor='rgba(168,90,59,.12)';this.style.boxShadow='none'">
+          <div style="width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,rgba(168,90,59,.1),rgba(168,90,59,.03));display:flex;align-items:center;justify-content:center;flex-shrink:0;">
             <img src="chest.png" alt="${p.credits} Credit${p.credits>1?'s':''}" style="width:30px;height:30px;object-fit:contain;">
           </div>
           <div style="flex:1;min-width:0;">
-            <div style="font-size:18px;font-weight:800;color:rgba(255,255,255,.9);line-height:1;">${p.credits} Credit${p.credits > 1 ? 's' : ''}</div>
-            <div style="font-size:12px;color:rgba(255,255,255,.4);margin-top:4px;">₹${Math.round(p.price / p.credits)} per credit</div>
+            <div style="font-size:18px;font-weight:800;color:#3d2b1f;line-height:1;">${p.credits} Credit${p.credits > 1 ? 's' : ''}</div>
+            <div style="font-size:12px;color:rgba(139,94,60,.5);margin-top:4px;">₹${Math.round(p.price / p.credits)} per credit</div>
           </div>
           <div style="text-align:right;flex-shrink:0;">
-            ${p.badge ? `<div style="font-size:10px;font-weight:700;color:#34d399;background:rgba(52,211,153,.1);border:1px solid rgba(52,211,153,.2);border-radius:99px;padding:2px 8px;margin-bottom:4px;display:inline-block;">${p.badge}</div>` : ''}
-            <div style="font-size:17px;font-weight:800;color:#fbbf24;">₹${p.price}</div>
+            ${p.badge ? `<div style="font-size:10px;font-weight:700;color:#16a34a;background:rgba(22,163,74,.08);border:1px solid rgba(22,163,74,.18);border-radius:99px;padding:2px 8px;margin-bottom:4px;display:inline-block;">${p.badge}</div>` : ''}
+            <div style="font-size:17px;font-weight:800;color:#8b5e3c;">₹${p.price}</div>
           </div>
         </div>
       `).join('');
@@ -22150,9 +22179,16 @@
       var u = window.user;
       if (!u) { showPage('login-page'); return false; }
       try {
+        var access = await bpRpc('broker_check_access');
+        if (!access.allowed) {
+          bpShowAccessDenied();
+          return false;
+        }
         _bpProfile = await bpRpc('broker_get_profile');
         _bpRole = _bpProfile.isBroker ? 1 : 0;
         bpUpdateCoinsDisplay(_bpProfile.credits);
+        document.getElementById('bp-feed-container').style.display = '';
+        document.getElementById('bp-access-denied').style.display = 'none';
         bpLoadFeed();
         bpUpdateBrokerButtons();
       } catch(e) {
@@ -22161,6 +22197,15 @@
         bpLoadFeed();
       }
       return true;
+    }
+
+    function bpShowAccessDenied() {
+      document.getElementById('bp-feed-container').style.display = 'none';
+      var denied = document.getElementById('bp-access-denied');
+      if (denied) {
+        denied.style.display = '';
+        denied.innerHTML = '<div style="text-align:center;padding:60px 24px;"><div style="font-size:48px;margin-bottom:16px;">🔒</div><div style="font-size:20px;font-weight:800;color:#111827;margin-bottom:8px;">Broker Access Required</div><div style="font-size:14px;color:#6b7280;margin-bottom:24px;line-height:1.6;">You need a Broker Plan to access the Broker Network.<br>Purchase a plan from the Credit Shop to get started.</div><button onclick="openCreditShop()" style="background:linear-gradient(135deg,#c2714f,#a85a3b);color:#fff;border:none;padding:14px 32px;border-radius:12px;font-size:15px;font-weight:800;cursor:pointer;box-shadow:0 4px 16px rgba(194,113,79,.3);">Open Credit Shop</button></div>';
+      }
     }
 
     function bpUpdateCoinsDisplay(credits) {

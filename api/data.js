@@ -5,6 +5,7 @@ const { marshall, unmarshall } = require('@aws-sdk/util-dynamodb');
 // account's Cognito login once its data has been moved to the keeper.
 const { CognitoIdentityProviderClient, ListUsersCommand, AdminDeleteUserCommand } = require('@aws-sdk/client-cognito-identity-provider');
 const { S3Client, DeleteObjectsCommand, ListObjectsV2Command } = require('@aws-sdk/client-s3');
+const { isAdmin } = require('./_auth');
 
 const REGION = process.env.AWS_REGION || process.env.RENT_NIVAS_AWS_REGION || 'eu-north-1';
 const USER_POOL_ID = process.env.COGNITO_USER_POOL_ID;
@@ -2621,6 +2622,36 @@ async function handleRpc(spec, claims) {
       return { ...post, userName: profile?.name || 'User', avatarUrl: profile?.avatar_url || '', verified: brokerProf.isVerified };
     }));
     return enriched;
+  }
+
+  // ── Broker Access Gate ──────────────────────────────────────────────────
+  // Whitelisted emails always get access. Others need hasBrokerPlan=true in BrokerProfiles.
+  const BROKER_WHITELIST_EMAILS = (process.env.BROKER_WHITELIST_EMAILS || 'tulasimosuru63@gmail.com').split(',').map(e => e.trim().toLowerCase()).filter(Boolean);
+
+  if (spec.name === 'broker_check_access') {
+    const TABLE_BROKER_PROFILES = 'BrokerProfiles';
+    const userId = claims.sub;
+    const email = String(claims.email || '').toLowerCase();
+    if (isAdmin(claims)) return { allowed: true, reason: 'admin' };
+    if (BROKER_WHITELIST_EMAILS.includes(email)) return { allowed: true, reason: 'whitelisted' };
+    const brokerProf = await brokerGetProfile(userId, TABLE_BROKER_PROFILES);
+    if (brokerProf.hasBrokerPlan) return { allowed: true, reason: 'plan' };
+    return { allowed: false, reason: 'no_access' };
+  }
+
+  if (spec.name === 'broker_buy_plan') {
+    const TABLE_BROKER_PROFILES = 'BrokerProfiles';
+    const userId = claims.sub;
+    const email = String(claims.email || '').toLowerCase();
+    if (isAdmin(claims)) return { alreadyHas: true };
+    if (BROKER_WHITELIST_EMAILS.includes(email)) return { alreadyHas: true };
+    const brokerProf = await brokerGetProfile(userId, TABLE_BROKER_PROFILES);
+    if (brokerProf.hasBrokerPlan) return { alreadyHas: true };
+    await brokerDdb.send(new PutItemCommand({
+      TableName: TABLE_BROKER_PROFILES,
+      Item: marshall({ userId, hasBrokerPlan: true, planPurchasedAt: new Date().toISOString(), isBroker: brokerProf.isBroker || false, isVerified: brokerProf.isVerified || false }, { removeUndefinedValues: true }),
+    }));
+    return { success: true, hasBrokerPlan: true };
   }
 
   // ── Broker helper functions (inline, not exported) ──────────────────────
