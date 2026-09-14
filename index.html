@@ -9696,7 +9696,7 @@
 </style>
 </head>
 
-<body>
+<body class="broker-gated">
   <canvas id="bgCanvas" aria-hidden="true"></canvas>
   <script>
     // ── Capture a referral code from a shared link before anything else runs ──
@@ -9759,10 +9759,10 @@
       <button class="mob-nav-item" onclick="closeMobSidebar();showPage('landing-page');setTimeout(function(){var el=document.getElementById('support');if(el)window.scrollTo({top:el.offsetTop-20,behavior:'smooth'});},400)">
         <span class="mob-nav-icon">🛟</span> Support
       </button>
-      <button class="mob-nav-item" onclick="closeMobSidebar();showPage('broker-page');if(typeof bpInit==='function')bpInit();">
+      <button class="mob-nav-item bp-gated" onclick="closeMobSidebar();showPage('broker-page');if(typeof bpInit==='function')bpInit();">
         <span class="mob-nav-icon">💼</span> Broker Panel
       </button>
-      <button class="mob-nav-item" onclick="closeMobSidebar();openCreditShop()">
+      <button class="mob-nav-item bp-gated" onclick="closeMobSidebar();openCreditShop()">
         <span class="mob-nav-icon">🛍️</span> Credit Shop
       </button>
     </div>
@@ -9794,10 +9794,10 @@
       <button class="mob-nav-item" onclick="closeMobSidebar();if(typeof showLeaderboard==='function')showLeaderboard()">
         <span class="mob-nav-icon">🏆</span> Leaderboard
       </button>
-      <button class="mob-nav-item" onclick="closeMobSidebar();showPage('broker-page');if(typeof bpInit==='function')bpInit();">
+      <button class="mob-nav-item bp-gated" onclick="closeMobSidebar();showPage('broker-page');if(typeof bpInit==='function')bpInit();">
         <span class="mob-nav-icon">💼</span> Broker Panel
       </button>
-      <button class="mob-nav-item" onclick="closeMobSidebar();openCreditShop()">
+      <button class="mob-nav-item bp-gated" onclick="closeMobSidebar();openCreditShop()">
         <span class="mob-nav-icon">🛍️</span> Credit Shop
       </button>
       <button class="mob-nav-item" onclick="closeMobSidebar();window.open('/language.html','_blank')">
@@ -14863,8 +14863,13 @@
         if (error || !anns) return;
 
         const now = new Date();
+        const DEFAULT_ANNOUNCEMENT_TTL = 7 * 24 * 60 * 60 * 1000; // 7 days
         const filtered = (uCreated ? anns.filter(a => !a.created_at || new Date(a.created_at) >= new Date(uCreated)) : anns)
-          .filter(a => !a.expires_at || new Date(a.expires_at) > now);
+          .filter(a => {
+            if (a.expires_at) return new Date(a.expires_at) > now;
+            if (a.created_at) return (now - new Date(a.created_at)) < DEFAULT_ANNOUNCEMENT_TTL;
+            return false;
+          });
         if (!filtered.length) return;
 
         const ids = filtered.map(a => a.id).filter(Boolean);
@@ -21751,6 +21756,11 @@
     .bp-connect-box .bp-confirm-yes{padding:14px;border:none;border-radius:12px;background:linear-gradient(135deg,#c2714f,#a85a3b);color:#fff;font-size:15px;font-weight:800;cursor:pointer;width:100%;margin-bottom:10px;transition:all .2s;}
     .bp-connect-box .bp-confirm-no{padding:12px;border:none;border-radius:10px;background:#f3f4f6;color:#6b7280;font-size:14px;font-weight:600;cursor:pointer;width:100%;transition:all .2s;}
     @media(max-width:640px){.bp-form-row{grid-template-columns:1fr;}.bp-card-details{grid-template-columns:1fr;}}
+
+    /* ── Broker access gate: hide buttons until server confirms access ── */
+    .broker-gated #nb-broker, .broker-gated #rnb-broker,
+    .broker-gated #mbn-shop, .broker-gated .bp-coins-display { display: none !important; }
+    .broker-gated .bp-gated { display: none !important; }
   </style>
 
   <div class="page" id="broker-page">
@@ -22161,13 +22171,17 @@
     var _bpBrokerAccess = null; // null = unknown, true/false after check
 
     function bpEnforceAccess() {
-      if (!window.user || _bpBrokerAccess !== null) return;
+      if (!window.user) return;
       bpRpc('broker_check_access').then(function(access) {
         _bpBrokerAccess = access.allowed;
-        bpToggleBrokerVisibility(access.allowed);
+        if (access.allowed) {
+          document.body.classList.remove('broker-gated');
+        } else {
+          document.body.classList.add('broker-gated');
+        }
       }).catch(function() {
         _bpBrokerAccess = false;
-        bpToggleBrokerVisibility(false);
+        document.body.classList.add('broker-gated');
       });
     }
 
