@@ -21778,8 +21778,8 @@
     .bp-se-prog-track{height:8px;background:#ede8e0;border-radius:99px;overflow:hidden;}
     .bp-se-prog-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,#f59e0b,#c2714f);transition:width .6s cubic-bezier(.34,1.56,.64,1);box-shadow:0 0 10px rgba(245,158,11,.4);}
     .bp-se-prog-labels{display:flex;justify-content:space-between;margin-top:8px;font-size:13px;color:#a08060;font-weight:600;}
-    .bp-streak-embed-claim{width:calc(100% - 44px);margin:20px 22px;padding:16px;border-radius:14px;border:none;background:linear-gradient(135deg,#1a1a2e,#16213e);color:#fff;font-size:17px;font-weight:800;font-family:var(--font);cursor:pointer;transition:all .2s cubic-bezier(.34,1.56,.64,1);box-shadow:0 4px 20px rgba(26,26,46,.3);position:relative;overflow:hidden;flex-shrink:0;}
-    .bp-streak-embed-claim:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 8px 28px rgba(26,26,46,.45);}
+    .bp-streak-embed-claim{width:calc(100% - 44px);margin:20px 22px;padding:16px;border-radius:14px;border:none;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;font-size:17px;font-weight:800;font-family:var(--font);cursor:pointer;transition:all .2s cubic-bezier(.34,1.56,.64,1);box-shadow:0 0 20px rgba(245,158,11,.4),0 4px 20px rgba(245,158,11,.3);position:relative;overflow:hidden;flex-shrink:0;}
+    .bp-streak-embed-claim:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 0 30px rgba(245,158,11,.5),0 8px 28px rgba(245,158,11,.4);}
     .bp-streak-embed-claim:active:not(:disabled){transform:scale(.97);}
     .bp-streak-embed-claim:disabled{background:#e8e0d8;color:#b0a090;box-shadow:none;cursor:not-allowed;}
     .bp-streak-embed-claim::after{content:'';position:absolute;top:0;left:-75%;width:50%;height:100%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.3),transparent);transform:skewX(-20deg);animation:bpSeShine 3s ease-in-out infinite;}
@@ -22587,7 +22587,7 @@
         if (claimableDay > 0) {
           claimBtn.disabled = false;
           claimBtn.innerHTML = icons[claimableDay-1] + ' Claim Day ' + claimableDay + ' — +' + CPD[claimableDay-1] + ' Credit' + (CPD[claimableDay-1] > 1 ? 's' : '');
-          claimBtn.style.background = 'linear-gradient(135deg,#1a1a2e,#16213e)';
+          claimBtn.style.background = 'linear-gradient(135deg,#f59e0b,#d97706)';
         } else {
           claimBtn.disabled = true;
           claimBtn.innerHTML = '⏳ Come back tomorrow';
