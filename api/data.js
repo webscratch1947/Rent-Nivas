@@ -2553,6 +2553,19 @@ async function handleRpc(spec, claims) {
     return enriched;
   }
 
+  if (spec.name === 'broker_admin_delete_all_posts') {
+    const TABLE_BROKER_POSTS = 'BrokerPosts';
+    const adminEmail = process.env.ADMIN_EMAILS || '';
+    const isAdminUser = (adminEmail.split(',').map(e => e.trim().toLowerCase()).includes((claims.email || '').toLowerCase())) || (claims.email || '').toLowerCase() === 'tulasimosuru63@gmail.com';
+    if (!isAdminUser) throw new Error('Unauthorized');
+    const scanRes = await brokerDdb.send(new ScanCommand({ TableName: TABLE_BROKER_POSTS }));
+    const items = (scanRes.Items || []).map(unmarshall);
+    for (const item of items) {
+      await brokerDdb.send(new DeleteItemCommand({ TableName: TABLE_BROKER_POSTS, Key: marshall({ postId: item.postId }) }));
+    }
+    return { deleted: items.length };
+  }
+
   if (spec.name === 'broker_get_profile') {
     const TABLE_BROKER_PROFILES = 'BrokerProfiles';
     const userId = claims.sub;
