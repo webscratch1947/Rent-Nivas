@@ -22210,20 +22210,25 @@
           var denied = document.getElementById('bp-access-denied');
           if (denied) {
             denied.style.display = '';
-            denied.innerHTML = '<div style="text-align:center;padding:60px 24px;"><div style="font-size:56px;margin-bottom:16px;">💼</div><div style="font-size:22px;font-weight:900;color:#111827;margin-bottom:8px;">Broker Network</div><div style="font-size:15px;color:#6b7280;margin-bottom:24px;line-height:1.7;max-width:380px;margin-left:auto;margin-right:auto;">Get access to the Broker Network to connect with verified brokers, post requirements, and list properties.</div><div style="background:linear-gradient(145deg,#fdf8f2,#f9efe3);border:1.5px solid rgba(168,90,59,.2);border-radius:18px;padding:24px 20px;max-width:340px;margin:0 auto 24px;"><div style="font-size:14px;font-weight:700;color:#8b5e3c;margin-bottom:4px;">Broker Plan</div><div style="font-size:36px;font-weight:900;color:#3d2b1f;margin-bottom:4px;">₹5,000</div><div style="font-size:12px;color:rgba(139,94,60,.5);margin-bottom:16px;">One-time purchase · Lifetime access</div><button onclick="brokerBuyNow()" style="width:100%;background:linear-gradient(135deg,#c2714f,#a85a3b);color:#fff;border:none;padding:14px;border-radius:12px;font-size:15px;font-weight:800;cursor:pointer;box-shadow:0 4px 16px rgba(194,113,79,.3);transition:all .2s;" onmouseenter="this.style.transform=\'translateY(-1px)\'' onmouseleave="this.style.transform=\'none\'">Buy Now</button></div><div style="font-size:11px;color:#9ca3af;">After payment, access is instant.</div></div>';
+            denied.innerHTML = '<div style="text-align:center;padding:60px 24px;"><div style="font-size:56px;margin-bottom:16px;">💼</div><div style="font-size:22px;font-weight:900;color:#111827;margin-bottom:8px;">Broker Network</div><div style="font-size:15px;color:#6b7280;margin-bottom:24px;line-height:1.7;max-width:380px;margin-left:auto;margin-right:auto;">Get access to the Broker Network to connect with verified brokers, post requirements, and list properties.</div><div style="background:linear-gradient(145deg,#fdf8f2,#f9efe3);border:1.5px solid rgba(168,90,59,.2);border-radius:18px;padding:24px 20px;max-width:340px;margin:0 auto 24px;"><div style="font-size:14px;font-weight:700;color:#8b5e3c;margin-bottom:4px;">Broker Plan</div><div style="font-size:36px;font-weight:900;color:#3d2b1f;margin-bottom:4px;">₹5,000</div><div style="font-size:12px;color:rgba(139,94,60,.5);margin-bottom:16px;">One-time purchase · Lifetime access</div><button onclick="brokerBuyNow()" style="width:100%;background:linear-gradient(135deg,#c2714f,#a85a3b);color:#fff;border:none;padding:14px;border-radius:12px;font-size:15px;font-weight:800;cursor:pointer;box-shadow:0 4px 16px rgba(194,113,79,.3);transition:all .2s;">Buy Now</button></div></div>';
           }
           return false;
         }
         document.getElementById('bp-feed-container').style.display = '';
         document.getElementById('bp-access-denied').style.display = 'none';
-        _bpProfile = await bpRpc('broker_get_profile');
-        _bpRole = _bpProfile.isBroker ? 1 : 0;
-        bpUpdateCoinsDisplay(_bpProfile.credits);
         bpLoadFeed();
+        try {
+          _bpProfile = await bpRpc('broker_get_profile');
+          _bpRole = _bpProfile.isBroker ? 1 : 0;
+          bpUpdateCoinsDisplay(_bpProfile.credits);
+        } catch(ep) {
+          console.warn('[Broker] Profile load failed:', ep.message);
+        }
         bpUpdateBrokerButtons();
       } catch(e) {
         console.error('[Broker] Init failed:', e);
         _bpRole = 0;
+        try { bpLoadFeed(); } catch(e2) {}
       }
       return true;
     }
@@ -22415,7 +22420,7 @@
     function goBackFromBroker() {
       var role = localStorage.getItem('nestly-role');
       if (role === 'rent') { showPage('rent-page'); }
-      else if (typeof switchToHost === 'function') { switchToHost(); }
+      else if (typeof switchToHost === 'function') { try { switchToHost(); } catch(e) { showPage('host-dashboard'); } }
       else { showPage('host-dashboard'); }
       mobBottomActive('mbn-home');
     }
