@@ -21713,7 +21713,9 @@
     .bp-topbar-sub{font-size:12px;color:#6b7280;margin-top:1px;}
     .bp-back-btn{display:flex;align-items:center;gap:6px;background:#f4f5f7;border:1.5px solid #e4e4ec;border-radius:8px;padding:8px 12px;font-size:13px;font-weight:600;color:#374151;cursor:pointer;transition:all .2s;}
     .bp-back-btn:hover{background:#e5e7eb;border-color:#d1d5db;}
-    .bp-body{padding:16px;max-width:640px;width:100%;margin:0 auto;}
+    .bp-body{padding:16px 20px;width:100%;}
+    .bp-main-grid{display:grid;grid-template-columns:280px 1fr;gap:20px;align-items:start;}
+    @media(max-width:768px){.bp-main-grid{grid-template-columns:1fr !important;}}
     .bp-post-type-tabs{display:flex;gap:8px;margin-bottom:16px;}
     .bp-post-tab{flex:1;padding:12px 8px;border-radius:14px;border:2px solid #e5e7eb;background:#fff;text-align:center;cursor:pointer;font-weight:700;font-size:14px;color:#6b7280;transition:all .25s;}
     .bp-post-tab.active{border-color:#c2714f;background:rgba(194,113,79,.06);color:#c2714f;}
@@ -21759,7 +21761,7 @@
     .bp-connect-box p{font-size:14px;color:#6b7280;line-height:1.6;margin-bottom:20px;}
     .bp-connect-box .bp-confirm-yes{padding:14px;border:none;border-radius:12px;background:linear-gradient(135deg,#c2714f,#a85a3b);color:#fff;font-size:15px;font-weight:800;cursor:pointer;width:100%;margin-bottom:10px;transition:all .2s;}
     .bp-connect-box .bp-confirm-no{padding:12px;border:none;border-radius:10px;background:#f3f4f6;color:#6b7280;font-size:14px;font-weight:600;cursor:pointer;width:100%;transition:all .2s;}
-    @media(max-width:640px){.bp-form-row{grid-template-columns:1fr;}.bp-card-details{grid-template-columns:1fr;}#bp-stats{grid-template-columns:repeat(2,1fr) !important;}}
+    @media(max-width:640px){.bp-form-row{grid-template-columns:1fr;}.bp-card-details{grid-template-columns:1fr;}#bp-stats{grid-template-columns:repeat(2,1fr) !important;}.bp-main-grid{grid-template-columns:1fr !important;}}
   </style>
 
   <div class="page" id="broker-page">
@@ -21785,8 +21787,10 @@
       <div id="bp-access-denied" style="display:none;"></div>
 
       <div id="bp-feed-container">
-      <!-- Stats Dashboard -->
-      <div id="bp-stats" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px;">
+      <div class="bp-main-grid">
+      <!-- Left: Stats -->
+      <div>
+      <div id="bp-stats" style="display:grid;grid-template-columns:1fr;gap:10px;">
         <div style="background:#fff;border:1.5px solid #e5e7eb;border-radius:14px;padding:14px 12px;text-align:center;">
           <div style="width:36px;height:36px;border-radius:10px;background:rgba(194,113,79,.08);display:flex;align-items:center;justify-content:center;margin:0 auto 8px;">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#c2714f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
@@ -21816,6 +21820,9 @@
           <div style="font-size:10px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;margin-top:2px;">Views</div>
         </div>
       </div>
+      </div>
+      <!-- Right: Forms -->
+      <div>
       <!-- Post Type Tabs -->
       <div class="bp-post-type-tabs">
         <div class="bp-post-tab active" id="bp-tab-need" onclick="bpSwitchTab('need')">
@@ -21907,9 +21914,13 @@
         </div>
       </div>
 
-      <!-- Feed -->
-      <div class="bp-feed-label">Broker Feed</div>
-      <div id="bp-feed"></div>
+      <!-- Broker Feed -->
+      <div style="margin-top:24px;">
+        <div class="bp-feed-label">Broker Feed</div>
+        <div id="bp-feed"></div>
+      </div>
+      </div>
+      </div><!-- /bp-main-grid -->
       </div><!-- /bp-feed-container -->
     </div>
   </div>
@@ -22266,7 +22277,6 @@
       } catch(e) {
         console.error('[Broker] Init failed:', e);
         _bpRole = 0;
-        try { bpLoadFeed(); } catch(e2) {}
       }
       return true;
     }
@@ -22288,13 +22298,13 @@
         _bpBrokerAccess = true;
         document.getElementById('bp-access-denied').style.display = 'none';
         document.getElementById('bp-feed-container').style.display = '';
+        bpLoadFeed();
         try {
           _bpProfile = await bpRpc('broker_get_profile');
           _bpRole = _bpProfile.isBroker ? 1 : 0;
           bpUpdateCoinsDisplay(_bpProfile.credits);
           bpUpdateStats(_bpProfile);
         } catch(ep) { console.warn('[Broker] Profile load after buy:', ep.message); }
-        bpLoadFeed();
         bpUpdateBrokerButtons();
         try {
           var stats = await bpRpc('broker_get_stats');
