@@ -10658,7 +10658,7 @@
                   <div class="pst-val" id="rent-pst-credits">0</div>
                   <div class="pst-lbl">Credits</div>
                 </div>
-                <div class="pst-item" id="rent-pst-streak-item" onclick="window.openStreakPopup&&window.openStreakPopup()" style="cursor:pointer;position:relative;" title="Click to claim daily reward">
+                <div class="pst-item" id="rent-pst-streak-item" onclick="window.openStreakPopup&&window.openStreakPopup()" style="cursor:pointer;position:relative;display:none;" title="Click to claim daily reward">
                   <div class="pst-val" id="rent-pst-days">🔥 —</div>
                   <div class="pst-lbl">Daily Streak</div>
                   <div id="rent-pst-streak-dot" style="display:none;position:absolute;top:6px;right:6px;width:8px;height:8px;border-radius:50%;background:#f59e0b;box-shadow:0 0 6px #f59e0b;"></div>
@@ -11520,7 +11520,7 @@
                   <div class="pst-val" id="pst-pub">0</div>
                   <div class="pst-lbl" data-i18n="kpi_pub">Published</div>
                 </div>
-                <div class="pst-item" id="pst-streak-item" onclick="window.openStreakPopup&&window.openStreakPopup()" style="cursor:pointer;position:relative;" title="Click to claim daily reward">
+                <div class="pst-item" id="pst-streak-item" onclick="window.openStreakPopup&&window.openStreakPopup()" style="cursor:pointer;position:relative;display:none;" title="Click to claim daily reward">
                   <div class="pst-val" id="pst-days">🔥 —</div>
                   <div class="pst-lbl">Daily Streak</div>
                   <div id="pst-streak-dot" style="display:none;position:absolute;top:6px;right:6px;width:8px;height:8px;border-radius:50%;background:#f59e0b;box-shadow:0 0 6px #f59e0b;"></div>
@@ -13003,6 +13003,46 @@
     // ── UPDATE LOG ──────────────────────────────────────────────────────────
     const _RN_UPDATES = [
       {
+        id: 'update-1-1',
+        version: 'UPDATE 1.1',
+        date: 'September 2026',
+        banner: 'update-1.1.png',
+        sections: [
+          {
+            emoji: '🔥',
+            title: 'DAILY STREAK — REWORKED',
+            items: [
+              'Daily Streak is now exclusive to Partner Panel and Broker Plan users.',
+              'Every day you log in and claim, you get 1 credit — consistent and fair.',
+              'Streak no longer escalates (previously 1→2→3→4→5→6→7). Now it\'s a flat 1 credit per day.',
+              'Complete the 7-day cycle for 7 total credits, then it resets.',
+              'Normal users no longer see the streak popup — cleaner experience for everyone.',
+            ]
+          },
+          {
+            emoji: '💼',
+            title: 'BROKER PANEL — NEW LAYOUT',
+            items: [
+              'Posting form now on the left, Daily Streak on the right — post and claim in one view.',
+              'New "All Posts Library" — browse every broker post in a beautiful Meta Ad Library–style grid.',
+              'Search posts by name, location, property type, or keyword.',
+              'Filter by post type (I Need / I Have) and location.',
+              'Your own posts are displayed in a scrollable grid below.',
+            ]
+          },
+          {
+            emoji: '🎨',
+            title: 'UI IMPROVEMENTS',
+            items: [
+              'Broker panel cards are bigger, with more detail and better spacing.',
+              'Compact card design fills the screen width — no wasted space.',
+              'Mobile topbar now wraps gracefully on smaller screens.',
+              'Streak sidebar items hidden for regular users to reduce clutter.',
+            ]
+          },
+        ]
+      },
+      {
         id: 'update-1',
         version: 'UPDATE 1',
         date: 'July 2026',
@@ -13044,7 +13084,7 @@
         ]
       }
     ];
-    const _UL_SEEN_KEY = 'rn_update_log_seen_update1';
+    const _UL_SEEN_KEY = 'rn_update_log_seen_update1_1';
 
     function openUpdateLog(e) {
       if (e) e.stopPropagation();
@@ -14110,6 +14150,13 @@
         setEl('pd-stat-reg',     regRefs);
         setEl('pd-stat-list',    listRefs);
         setEl('pd-stat-reg2',    totalRefs);
+
+        var pdStreakEl = document.getElementById('pd-streak-day');
+        if (pdStreakEl) {
+          var pdStreakDay = parseInt(prof?.daily_streak_day || '0', 10);
+          if (!pdStreakDay) { try { var _pds = JSON.parse(localStorage.getItem('rn-streak-v1') || 'null'); pdStreakDay = (_pds && _pds.day) || 0; } catch(e){} }
+          pdStreakEl.textContent = pdStreakDay > 0 ? pdStreakDay : '—';
+        }
 
         // Performance rings — signup/listing share of total referrals
         const signupPct = totalRefs > 0 ? Math.round((regRefs / totalRefs) * 100) : 0;
@@ -17735,16 +17782,16 @@
       const memberInfo = rnMemberSinceInfo(prof?.created_at);
       document.getElementById('pst-since').textContent = memberInfo.label;
       const daysEl = document.getElementById('pst-days');
+      const streakItem = document.getElementById('pst-streak-item');
       if (daysEl) {
-        // Show current streak day (0 = no streak yet)
         let streakDay = parseInt(prof?.daily_streak_day || '0', 10);
         if (!streakDay) { try { const _ls = JSON.parse(localStorage.getItem('rn-streak-v1') || 'null'); streakDay = (_ls && _ls.day) || 0; } catch(e){} }
         daysEl.textContent = streakDay > 0 ? '🔥 ' + streakDay + '/7' : '—';
-        // Show dot indicator if reward is claimable
         const dot = document.getElementById('pst-streak-dot');
         if (dot && typeof window.getClaimableDay === 'function') {
           dot.style.display = window.getClaimableDay() > 0 ? 'block' : 'none';
         }
+        if (streakItem && (window._partnerAccess || window._hasPartnerAccess)) streakItem.style.display = '';
       }
 
       const xp = parseInt(prof?.xp ?? prof?.partner_xp ?? 0, 10) || 0;
@@ -17816,6 +17863,7 @@
       const since = document.getElementById('rent-pst-since');
       if (since) since.textContent = memberInfo.label;
       const daysEl = document.getElementById('rent-pst-days');
+      const rentStreakItem = document.getElementById('rent-pst-streak-item');
       if (daysEl) {
         let streakDay = parseInt(prof?.daily_streak_day || '0', 10);
         if (!streakDay) { try { const _ls = JSON.parse(localStorage.getItem('rn-streak-v1') || 'null'); streakDay = (_ls && _ls.day) || 0; } catch(e){} }
@@ -17824,6 +17872,7 @@
         if (dot && typeof window.getClaimableDay === 'function') {
           dot.style.display = window.getClaimableDay() > 0 ? 'block' : 'none';
         }
+        if (rentStreakItem && (window._partnerAccess || window._hasPartnerAccess)) rentStreakItem.style.display = '';
       }
 
       const xp = parseInt(prof?.xp ?? prof?.partner_xp ?? 0, 10) || 0;
@@ -21714,6 +21763,16 @@
     .bp-back-btn{display:flex;align-items:center;gap:6px;background:#f4f5f7;border:1.5px solid #e4e4ec;border-radius:8px;padding:8px 12px;font-size:13px;font-weight:600;color:#374151;cursor:pointer;transition:all .2s;}
     .bp-back-btn:hover{background:#e5e7eb;border-color:#d1d5db;}
     .bp-body{padding:12px 16px;max-width:100%;width:100%;}
+    .bp-broker-layout{display:grid;grid-template-columns:1fr 320px;gap:20px;align-items:start;}
+    .bp-streak-box{background:linear-gradient(135deg,#fff7ed,#fef3c7);border:1.5px solid #f59e0b;border-radius:16px;padding:20px;text-align:center;position:sticky;top:80px;}
+    .bp-streak-box-title{font-size:16px;font-weight:800;color:#92400e;margin-bottom:4px;}
+    .bp-streak-box-sub{font-size:12px;color:#b45309;margin-bottom:16px;}
+    .bp-streak-day-display{font-size:48px;font-weight:900;color:#92400e;line-height:1;margin-bottom:4px;}
+    .bp-streak-day-label{font-size:12px;font-weight:600;color:#b45309;margin-bottom:14px;}
+    .bp-streak-claim-btn{width:100%;padding:12px;border:none;border-radius:10px;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;font-size:14px;font-weight:800;cursor:pointer;transition:all .2s;box-shadow:0 4px 12px rgba(245,158,11,.3);}
+    .bp-streak-claim-btn:hover{transform:translateY(-1px);box-shadow:0 6px 16px rgba(245,158,11,.4);}
+    .bp-streak-claim-btn:disabled{opacity:.5;cursor:not-allowed;transform:none;}
+    .bp-streak-info{font-size:11px;color:#92400e;margin-top:10px;line-height:1.5;}
     .bp-right-tabs{display:flex;gap:6px;margin-bottom:14px;}
     .bp-right-tab{flex:1;padding:10px 6px;border-radius:10px;border:1.5px solid #e5e7eb;background:#fff;text-align:center;cursor:pointer;font-weight:700;font-size:13px;color:#6b7280;transition:all .2s;}
     .bp-right-tab.active{border-color:#c2714f;background:rgba(194,113,79,.06);color:#c2714f;}
@@ -21722,27 +21781,27 @@
     .bp-my-posts-scroll::-webkit-scrollbar{width:5px;}
     .bp-my-posts-scroll::-webkit-scrollbar-track{background:transparent;}
     .bp-my-posts-scroll::-webkit-scrollbar-thumb{background:#d1d5db;border-radius:10px;}
-    .bp-my-posts-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;}
-    .bp-card{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px;transition:all .2s;box-shadow:0 1px 3px rgba(0,0,0,.04);display:flex;flex-direction:column;}
-    .bp-card:hover{border-color:#d1d5db;box-shadow:0 3px 10px rgba(0,0,0,.06);}
-    .bp-card-header{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
-    .bp-card-avatar{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:#fff;flex-shrink:0;}
+    .bp-my-posts-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;}
+    .bp-card{background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:16px;transition:all .2s;box-shadow:0 1px 4px rgba(0,0,0,.04);display:flex;flex-direction:column;}
+    .bp-card:hover{border-color:#d1d5db;box-shadow:0 4px 12px rgba(0,0,0,.06);}
+    .bp-card-header{display:flex;align-items:center;gap:10px;margin-bottom:12px;}
+    .bp-card-avatar{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:#fff;flex-shrink:0;}
     .bp-card-user-info{flex:1;min-width:0;}
-    .bp-card-username{font-size:13px;font-weight:700;color:#111827;display:flex;align-items:center;gap:4px;}
+    .bp-card-username{font-size:14px;font-weight:700;color:#111827;display:flex;align-items:center;gap:5px;}
     .bp-verified-badge{display:inline-flex;align-items:center;gap:3px;background:#eff6ff;color:#2563eb;font-size:9px;font-weight:800;padding:2px 6px;border-radius:99px;border:1px solid #bfdbfe;white-space:nowrap;}
     .bp-verified-badge svg{width:10px;height:10px;}
     .bp-card-time{font-size:11px;color:#9ca3af;}
-    .bp-card-type-badge{font-size:9px;font-weight:800;padding:2px 8px;border-radius:99px;text-transform:uppercase;letter-spacing:.5px;flex-shrink:0;}
+    .bp-card-type-badge{font-size:10px;font-weight:800;padding:3px 10px;border-radius:99px;text-transform:uppercase;letter-spacing:.5px;flex-shrink:0;}
     .bp-type-need{background:#fef2f2;color:#dc2626;border:1px solid #fecaca;}
     .bp-type-have{background:#f0fdf4;color:#16a34a;border:1px solid #bbf7d0;}
-    .bp-card-details{display:grid;grid-template-columns:1fr 1fr;gap:6px 10px;margin-bottom:10px;}
-    .bp-detail-item{display:flex;flex-direction:column;gap:1px;}
-    .bp-detail-label{font-size:9px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.3px;}
-    .bp-detail-value{font-size:13px;font-weight:700;color:#111827;}
-    .bp-connect-btn{width:100%;padding:10px;border:none;border-radius:8px;background:linear-gradient(135deg,#c2714f,#a85a3b);color:#fff;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center;gap:6px;margin-top:auto;}
+    .bp-card-details{display:grid;grid-template-columns:1fr 1fr;gap:8px 14px;margin-bottom:12px;}
+    .bp-detail-item{display:flex;flex-direction:column;gap:2px;}
+    .bp-detail-label{font-size:10px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.3px;}
+    .bp-detail-value{font-size:14px;font-weight:700;color:#111827;}
+    .bp-connect-btn{width:100%;padding:12px;border:none;border-radius:10px;background:linear-gradient(135deg,#c2714f,#a85a3b);color:#fff;font-size:13px;font-weight:800;cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center;gap:6px;margin-top:auto;}
     .bp-connect-btn:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(194,113,79,.25);}
     .bp-connect-btn:disabled{opacity:.5;cursor:not-allowed;transform:none;}
-    .bp-coins-cost{font-size:10px;font-weight:600;color:rgba(255,255,255,.75);}
+    .bp-coins-cost{font-size:11px;font-weight:600;color:rgba(255,255,255,.75);}
     .bp-empty{text-align:center;padding:40px 16px;color:#9ca3af;}
     .bp-empty-icon{font-size:36px;margin-bottom:8px;}
     .bp-empty-text{font-size:14px;font-weight:600;color:#6b7280;}
@@ -21753,12 +21812,11 @@
     .bp-library-filters{display:flex;gap:6px;margin-top:8px;}
     .bp-library-filters select{flex:1;padding:7px 10px;border:1.5px solid #e5e7eb;border-radius:8px;font-size:11px;font-weight:600;color:#6b7280;background:#f9fafb;cursor:pointer;box-sizing:border-box;}
     .bp-library-filters select:focus{outline:none;border-color:#c2714f;}
-    .bp-masonry{columns:4;column-gap:12px;}
-    .bp-masonry .bp-card{break-inside:avoid;margin-bottom:12px;display:inline-block;width:100%;}
+    .bp-masonry{columns:3;column-gap:14px;}
+    .bp-masonry .bp-card{break-inside:avoid;margin-bottom:14px;display:inline-block;width:100%;}
     .bp-lib-count{font-size:11px;font-weight:600;color:#9ca3af;margin-bottom:8px;}
-    @media(max-width:1200px){.bp-masonry{columns:3;}}
-    @media(max-width:900px){.bp-masonry{columns:2;}.bp-my-posts-grid{grid-template-columns:repeat(auto-fill,minmax(220px,1fr));}}
-    @media(max-width:768px){.bp-topbar-inner{flex-wrap:wrap;gap:8px;padding:10px 14px;}.bp-topbar-title{font-size:15px;}.bp-topbar-sub{display:none;}.bp-back-btn{padding:6px 10px;font-size:12px;}.bp-coins-display{font-size:11px;padding:6px 14px;}.bp-body{padding:10px 12px;}#bp-stats{grid-template-columns:repeat(2,1fr) !important;}.bp-my-posts-scroll{max-height:400px;}.bp-my-posts-grid{grid-template-columns:1fr;}.bp-form-card{padding:14px;}.bp-post-tab{padding:8px 4px;font-size:12px;}.bp-masonry{columns:1;}.bp-card{padding:12px;}}
+    @media(max-width:1024px){.bp-masonry{columns:2;}.bp-broker-layout{grid-template-columns:1fr;}.bp-streak-box{position:static;}}
+    @media(max-width:768px){.bp-topbar-inner{flex-wrap:wrap;gap:8px;padding:10px 14px;}.bp-topbar-title{font-size:15px;}.bp-topbar-sub{display:none;}.bp-back-btn{padding:6px 10px;font-size:12px;}.bp-coins-display{font-size:11px;padding:6px 14px;}.bp-body{padding:10px 12px;}#bp-stats{grid-template-columns:repeat(2,1fr) !important;}.bp-my-posts-scroll{max-height:400px;}.bp-my-posts-grid{grid-template-columns:1fr;}.bp-form-card{padding:14px;}.bp-post-tab{padding:8px 4px;font-size:12px;}.bp-masonry{columns:1;}.bp-card{padding:14px;}}
     .bp-post-type-tabs{display:flex;gap:8px;margin-bottom:16px;}
     .bp-post-tab{flex:1;padding:12px 8px;border-radius:14px;border:2px solid #e5e7eb;background:#fff;text-align:center;cursor:pointer;font-weight:700;font-size:14px;color:#6b7280;transition:all .25s;}
     .bp-post-tab.active{border-color:#c2714f;background:rgba(194,113,79,.06);color:#c2714f;}
@@ -21836,8 +21894,10 @@
         </div>
       </div>
 
-      <!-- Forms (full width on top) -->
-      <div style="max-width:700px;margin:0 auto 20px;">
+      <!-- Broker Layout: Form Left + Streak Right -->
+      <div class="bp-broker-layout">
+      <!-- Left: Post Forms -->
+      <div>
       <!-- Post Type Tabs -->
       <div class="bp-post-type-tabs">
         <div class="bp-post-tab active" id="bp-tab-need" onclick="bpSwitchTab('need')">
@@ -21930,8 +21990,22 @@
       </div>
       </div>
 
-      <!-- Your Posts + Library Tabs (below form, full width) -->
-      <div class="bp-right-tabs">
+      <!-- Right: Daily Streak Box -->
+      <div>
+        <div class="bp-streak-box">
+          <div style="font-size:32px;margin-bottom:8px;">🔥</div>
+          <div class="bp-streak-box-title">Daily Streak</div>
+          <div class="bp-streak-box-sub">Claim your daily reward</div>
+          <div class="bp-streak-day-display" id="bp-streak-day">—</div>
+          <div class="bp-streak-day-label">Day of streak</div>
+          <button class="bp-streak-claim-btn" id="bp-streak-claim-btn" onclick="openStreakPopup()">🔥 Claim Reward</button>
+          <div class="bp-streak-info">Come back every day to earn credits. Consistent brokers get rewarded!</div>
+        </div>
+      </div>
+      </div><!-- /bp-broker-layout -->
+
+      <!-- Your Posts + Library Tabs (below, full width) -->
+      <div class="bp-right-tabs" style="margin-top:20px;">
         <div class="bp-right-tab active" onclick="bpSwitchRightTab('myposts')">📋 Your Posts</div>
         <div class="bp-right-tab" onclick="bpSwitchRightTab('library')">📚 All Posts Library</div>
       </div>
@@ -22314,6 +22388,14 @@
         } catch(es) {
           console.warn('[Broker] Stats load failed:', es.message);
         }
+        try {
+          var streakEl = document.getElementById('bp-streak-day');
+          if (streakEl) {
+            var streakDay = parseInt((_bpProfile && _bpProfile.daily_streak_day) || '0', 10);
+            if (!streakDay) { try { var _ls = JSON.parse(localStorage.getItem('rn-streak-v1') || 'null'); streakDay = (_ls && _ls.day) || 0; } catch(e2){} }
+            streakEl.textContent = streakDay > 0 ? streakDay : '—';
+          }
+        } catch(e3) {}
       } catch(e) {
         console.error('[Broker] Init failed:', e);
         _bpRole = 0;
@@ -23329,6 +23411,20 @@
               </div>
             </div>
 
+            <!-- Daily Streak -->
+            <div class="pdn-card" id="pdn-sec-streak">
+              <div class="pdn-card-head">
+                <div class="pdn-card-title">🔥 Daily Streak</div>
+              </div>
+              <div class="pdn-card-body" style="text-align:center;">
+                <div style="font-size:36px;margin-bottom:6px;">🔥</div>
+                <div style="font-size:28px;font-weight:900;color:#92400e;" id="pd-streak-day">—</div>
+                <div style="font-size:12px;color:#b45309;margin-bottom:12px;">Day of streak</div>
+                <button onclick="openStreakPopup()" style="width:100%;padding:11px;border:none;border-radius:10px;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;font-size:13px;font-weight:800;cursor:pointer;box-shadow:0 4px 12px rgba(245,158,11,.3);">🔥 Claim Reward</button>
+                <div style="font-size:11px;color:#92400e;margin-top:8px;line-height:1.4;">1 credit per day. 7-day cycle.</div>
+              </div>
+            </div>
+
             <!-- My Tasks -->
             <div class="pdn-card" id="pdn-sec-tasks">
               <div class="pdn-card-head">
@@ -23818,7 +23914,7 @@
         </div>
         <div class="streak-progress-label">
           <span id="streak-progress-left">Day 0 / 7</span>
-          <span id="streak-progress-right">7 credits on Day 7!</span>
+          <span id="streak-progress-right">1 credit per day</span>
         </div>
       </div>
 
@@ -24564,7 +24660,7 @@
         try { localStorage.removeItem('rn-streak-v1'); } catch(e) {}
         STREAK_KEY = userKey;
       };
-      var CREDITS_PER_DAY = [1, 2, 3, 4, 5, 6, 7]; // Day 1=1 Day 2=2 … Day 7=7 credits
+      var CREDITS_PER_DAY = [1, 1, 1, 1, 1, 1, 1]; // Day 1=1 Day 2=2 … Day 7=7 credits
       var DAY_MS = 24 * 60 * 60 * 1000;
       // Expose getClaimableDay globally so profile stat dot can check it
       window.getClaimableDay = function() { return typeof getClaimableDay === 'function' ? getClaimableDay() : 0; };
@@ -24686,11 +24782,11 @@
         var subEl    = document.getElementById('streak-celebrate-sub');
         if (!overlay) return;
 
-        if (titleEl) titleEl.textContent = day + (day === 1 ? ' Day Streak!' : ' Days Streak!');
+        if (titleEl) titleEl.textContent = day + (day === 1 ? ' Day Streak!' : ' Day Streak!');
         if (subEl) {
           subEl.textContent = day >= 7
-            ? '+' + credits + ' credits — full week claimed! Streak resets to Day 1 tomorrow 🎉'
-            : 'Almost a 7 day streak with Rent Nivas — +' + credits + ' credit' + (credits > 1 ? 's' : '') + ' earned';
+            ? '+1 credit claimed! Full week completed — streak resets tomorrow 🎉'
+            : 'Keep going! +1 credit earned. Come back tomorrow for more!';
         }
 
         // Spawn confetti pieces
@@ -24898,8 +24994,9 @@
           } catch (_) { return false; }
         })();
         if (!isLoggedIn) return;
+        var hasAccess = window._bpBrokerAccess || window._partnerAccess || window._hasPartnerAccess;
+        if (!hasAccess) return;
         var bg = document.getElementById('streak-popup-bg');
-        // Don't double-open if it's already visible
         if (bg && bg.style.display === 'flex' && parseFloat(bg.style.opacity) > 0) return;
         if (window.openStreakPopup) window.openStreakPopup();
       };
