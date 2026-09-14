@@ -22402,6 +22402,7 @@
         }
         document.getElementById('bp-feed-container').style.display = '';
         document.getElementById('bp-access-denied').style.display = 'none';
+        if (window.syncStreakFromServer) { await window.syncStreakFromServer(); }
         bpRenderEmbeddedStreak('bp');
         bpLoadFeed();
         try {
@@ -22627,12 +22628,19 @@
 
     async function bpClaimStreak() {
       var claimableDay = window.getClaimableDay();
-      if (claimableDay === 0) return;
+      if (claimableDay === 0) {
+        var bpClaimBtn = document.getElementById('bp-se-claim');
+        var pdClaimBtn = document.getElementById('pd-se-claim');
+        if (bpClaimBtn) { bpClaimBtn.disabled = true; bpClaimBtn.innerHTML = '⏳ Come back tomorrow'; bpClaimBtn.style.background = '#e8e0d8'; }
+        if (pdClaimBtn) { pdClaimBtn.disabled = true; pdClaimBtn.innerHTML = '⏳ Come back tomorrow'; pdClaimBtn.style.background = '#e8e0d8'; }
+        return;
+      }
       var bpClaimBtn = document.getElementById('bp-se-claim');
       var pdClaimBtn = document.getElementById('pd-se-claim');
       if (bpClaimBtn) { bpClaimBtn.disabled = true; bpClaimBtn.innerHTML = '⏳ Claiming...'; }
       if (pdClaimBtn) { pdClaimBtn.disabled = true; pdClaimBtn.innerHTML = '⏳ Claiming...'; }
       if (typeof claimStreakDay === 'function') await claimStreakDay();
+      if (window.syncStreakFromServer) await window.syncStreakFromServer();
       bpRenderEmbeddedStreak('bp');
       bpRenderEmbeddedStreak('pd');
     }
