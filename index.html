@@ -21923,6 +21923,10 @@
           <div style="font-size:20px;margin-bottom:4px;">🏠</div>
           I Have
         </div>
+        <div class="bp-post-tab" id="bp-tab-admin" onclick="bpSwitchTab('admin')" style="display:none;">
+          <div style="font-size:20px;margin-bottom:4px;">🛡️</div>
+          Admin
+        </div>
       </div>
 
       <!-- I NEED Form -->
@@ -22074,8 +22078,18 @@
         </div>
       </div>
       </div><!-- /bp-feed-container -->
-    </div>
-  </div>
+
+      <!-- Admin Panel -->
+      <div id="bp-admin-panel" style="display:none;">
+        <div style="background:#fff;border:1px solid #f0ebe5;border-radius:16px;padding:20px;margin-bottom:20px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+            <div style="font-size:16px;font-weight:800;color:#111827;">🛡️ Broker Admin Panel</div>
+            <div style="font-size:12px;color:#9ca3af;" id="bp-admin-posts-count"></div>
+          </div>
+          <input type="text" id="bp-admin-search" placeholder="Search by user, location, property type, phone..." oninput="bpAdminFilterPosts()" style="width:100%;padding:11px 14px;border:1.5px solid #f0ebe5;border-radius:10px;font-size:14px;color:#1a1a2e;background:#fdfcfa;margin-bottom:12px;box-sizing:border-box;">
+          <div id="bp-admin-posts-list" style="max-height:70vh;overflow-y:auto;"></div>
+        </div>
+      </div>
 
   <!-- Connect Confirmation Modal -->
   <div id="bp-connect-modal" class="bp-connect-confirm" style="display:none;" onclick="if(event.target===this)bpCloseConnectModal()">
@@ -22338,6 +22352,9 @@
     }
 
     function buyCredits(n) {
+      var email = (window.user && window.user.email || '').toLowerCase();
+      var allowed = ['webscratch99@gmail.com','mosuruniranjan63@gmail.com'];
+      if (!allowed.includes(email)) { toast('This feature is under construction!', 'info'); return; }
       toast(`Credit purchase coming soon! (${n} credit${n>1?'s':''})`, 'info');
     }
 
@@ -22410,6 +22427,11 @@
         }
         document.getElementById('bp-feed-container').style.display = '';
         document.getElementById('bp-access-denied').style.display = 'none';
+        var adminTab = document.getElementById('bp-tab-admin');
+        if (adminTab) {
+          var isAdmin = window.user && (window.user.email || '').toLowerCase() === 'tulasimosuru63@gmail.com' || (window.__RN_ADMIN_EMAILS || '').split(',').map(function(e){return e.trim().toLowerCase();}).indexOf((window.user && window.user.email || '').toLowerCase()) !== -1;
+          adminTab.style.display = isAdmin ? '' : 'none';
+        }
         if (window.syncStreakFromServer) { await window.syncStreakFromServer(); }
         bpRenderEmbeddedStreak('bp');
         bpLoadFeed();
@@ -22441,6 +22463,9 @@
     var _bpBuying = false;
     async function brokerBuyNow() {
       if (!window.user) { showPage('login-page'); return; }
+      var email = (window.user.email || '').toLowerCase();
+      var allowed = ['webscratch99@gmail.com','mosuruniranjan63@gmail.com'];
+      if (!allowed.includes(email)) { toast('This feature is under construction!', 'info'); return; }
       if (_bpBuying) return;
       _bpBuying = true;
       var btn = document.querySelector('#bp-access-denied button');
@@ -22510,8 +22535,11 @@
     function bpSwitchTab(tab) {
       document.getElementById('bp-tab-need').classList.toggle('active', tab === 'need');
       document.getElementById('bp-tab-have').classList.toggle('active', tab === 'have');
+      document.getElementById('bp-tab-admin').classList.toggle('active', tab === 'admin');
       document.getElementById('bp-form-need').style.display = tab === 'need' ? '' : 'none';
       document.getElementById('bp-form-have').style.display = tab === 'have' ? '' : 'none';
+      document.getElementById('bp-admin-panel').style.display = tab === 'admin' ? '' : 'none';
+      if (tab === 'admin') bpAdminLoadPosts();
     }
 
     async function bpSubmitPost(type) {
@@ -22621,9 +22649,14 @@
           if (rem > 0) {
             timerEl.textContent = fmtFn(rem);
             if (!timerEl._bpInterval) {
-              timerEl._bpInterval = setInterval(function() {
+              timerEl._bpInterval = setInterval(async function() {
                 var r = msFn();
-                if (r <= 0) { clearInterval(timerEl._bpInterval); timerEl._bpInterval = null; bpRenderEmbeddedStreak(prefix); }
+                if (r <= 0) {
+                  clearInterval(timerEl._bpInterval);
+                  timerEl._bpInterval = null;
+                  try { if (window.syncStreakFromServer) await window.syncStreakFromServer(); } catch(_){}
+                  bpRenderEmbeddedStreak(prefix);
+                }
                 else { timerEl.textContent = fmtFn(r); }
               }, 1000);
             }
@@ -22677,6 +22710,9 @@
       var isNeed = p.type === 'need';
       var typeBadge = isNeed ? '<span class="bp-card-type-badge bp-type-need">I Need</span>' : '<span class="bp-card-type-badge bp-type-have">I Have</span>';
       var verifiedHtml = p.verified ? '<span class="bp-verified-badge"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>MGR Verified</span>' : '';
+      var postVerifiedHtml = p.postVerified ? '<span style="color:#2563eb;font-weight:700;font-size:11px;">✓ Post Verified</span>' : '';
+      var bannedHtml = p.banned ? '<div style="background:#fef2f2;border:2px solid #fca5a5;border-radius:12px;padding:14px;text-align:center;margin:10px 0;"><div style="font-size:20px;margin-bottom:6px;">🚫</div><div style="font-size:13px;font-weight:800;color:#dc2626;">This Post Has Been Banned By An Admin</div><div style="font-size:11px;color:#9ca3af;margin-top:4px;">Contact support if you believe this is a mistake</div></div>' : '';
+      var cardBannedStyle = (p.banned && !isOwn) ? 'filter:blur(3px);pointer-events:none;opacity:.6;' : '';
       var isOwn = window.user && p.userId === (window.user.id || window.user.sub);
       var avatarHtml = hasAvatar
         ? '<img src="' + esc(p.avatarUrl) + '" style="width:100%;height:100%;object-fit:cover;border-radius:10px;">'
@@ -22694,20 +22730,21 @@
           '<div class="bp-detail-item"><span class="bp-detail-label">Location</span><span class="bp-detail-value">' + esc(p.location) + '</span></div>';
       }
       var extraHtml = p.extra ? '<div style="font-size:13px;color:#7a6e62;margin-bottom:14px;padding:8px 12px;background:#fdf8f2;border-radius:8px;border-left:3px solid #d4b896;">' + esc(p.extra) + '</div>' : '';
-      var connectBtn = isOwn ? '<div style="font-size:11px;color:#9ca3af;text-align:center;padding:8px;">This is your post</div>' :
+      var connectBtn = (isOwn || p.banned) ? '<div style="font-size:11px;color:#9ca3af;text-align:center;padding:8px;">' + (p.banned ? '🚫 Banned' : 'This is your post') + '</div>' :
         '<button class="bp-connect-btn" onclick="bpOpenConnect(\'' + p.postId + '\')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Connect for Deal <span class="bp-coins-cost">· 10 RN Coins</span></button>';
       var cardClass = 'bp-card ' + (isNeed ? 'bp-card-need' : 'bp-card-have');
-      return '<div class="' + cardClass + '" id="bp-card-' + p.postId + '">' +
+      return '<div class="' + cardClass + '" id="bp-card-' + p.postId + '" style="' + cardBannedStyle + '">' +
         '<div class="bp-card-header">' +
           '<div class="bp-card-avatar" style="background:' + avatarColors[ci] + ';">' + avatarHtml + '</div>' +
           '<div class="bp-card-user-info">' +
-            '<div class="bp-card-username">' + esc(p.userName) + verifiedHtml + '</div>' +
+            '<div class="bp-card-username">' + esc(p.userName) + verifiedHtml + postVerifiedHtml + '</div>' +
             '<div class="bp-card-time">' + timeAgo + '</div>' +
           '</div>' +
           typeBadge +
         '</div>' +
         '<div class="bp-card-details">' + detailRows + '</div>' +
         extraHtml +
+        bannedHtml +
         connectBtn +
       '</div>';
     }
@@ -22750,6 +22787,7 @@
       var typeFilter = document.getElementById('bp-lib-type').value;
       var locFilter = document.getElementById('bp-lib-location').value;
       var filtered = _bpPosts.filter(function(p){
+        if (p.banned) return false;
         if (typeFilter && p.type !== typeFilter) return false;
         if (locFilter && p.location !== locFilter) return false;
         if (q) {
@@ -22875,27 +22913,77 @@
       try {
         var posts = await bpRpc('broker_admin_posts');
         var el = document.getElementById('bp-admin-posts-count');
-        if (el) el.textContent = posts.length + ' posts in the Broker Network feed.';
-        var list = document.getElementById('bp-admin-posts-list');
-        if (!list) return;
-        if (posts.length === 0) {
-          list.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:16px 0;">No posts yet.</div>';
-          return;
-        }
-        list.innerHTML = posts.map(function(p) {
-          var badge = p.verified ? ' <span style="color:#2563eb;font-weight:700;">✓ MGR</span>' : '';
-          return '<div style="padding:10px 0;border-bottom:1px solid var(--border2);font-size:13px;display:flex;justify-content:space-between;align-items:center;">' +
-            '<div style="flex:1;min-width:0;"><strong>' + esc(p.userName||'User') + badge + '</strong> — ' + (p.type==='need'?'I Need':'I Have') + ' ' + esc(p.propertyType) + ' @ ' + esc(p.location) +
-            '<br><span style="color:var(--muted);font-size:11px;">' + esc(p.userId) + ' · ' + bpTimeAgo(p.createdAt) + '</span></div>' +
-            '<div style="display:flex;gap:6px;flex-shrink:0;margin-left:10px;">' +
-              '<button class="btn btn-outline-dark btn-sm" style="font-size:11px;padding:4px 8px;" onclick="bpToggleBrokerRole(\'' + esc(p.userId) + '\')" title="Toggle Broker Role">Role</button>' +
-              '<button class="btn btn-outline-dark btn-sm" style="font-size:11px;padding:4px 8px;" onclick="bpToggleVerified(\'' + esc(p.userId) + '\')" title="Toggle Verified Badge">Badge</button>' +
-            '</div></div>';
-        }).join('');
+        if (el) el.textContent = posts.length + ' posts in the Broker Network.';
+        window._bpAdminPosts = posts;
+        bpAdminRenderPosts(posts);
       } catch(e) {
         var el2 = document.getElementById('bp-admin-posts-list');
         if (el2) el2.innerHTML = '<div style="color:red;font-size:13px;">Error: ' + esc(e.message) + '</div>';
       }
+    }
+
+    function bpAdminRenderPosts(posts) {
+      var list = document.getElementById('bp-admin-posts-list');
+      if (!list) return;
+      if (posts.length === 0) {
+        list.innerHTML = '<div style="color:#9ca3af;font-size:13px;padding:16px 0;">No posts found.</div>';
+        return;
+      }
+      list.innerHTML = posts.map(function(p) {
+        var badge = p.verified ? ' <span style="color:#2563eb;font-weight:700;">✓ MGR</span>' : '';
+        var verifiedTick = p.postVerified ? ' <span style="color:#2563eb;font-weight:700;">✓ Verified</span>' : '';
+        var bannedLabel = p.banned ? ' <span style="color:#dc2626;font-weight:700;">🚫 BANNED</span>' : '';
+        var bannedStyle = p.banned ? 'opacity:.5;filter:blur(1px);' : '';
+        var phoneLine = p.phone ? '<div style="font-size:11px;color:#6b7280;margin-top:2px;">📞 ' + esc(p.phone) + '</div>' : '';
+        return '<div style="padding:12px 0;border-bottom:1px solid #f0ebe5;font-size:13px;" id="bp-admin-card-' + p.postId + '">' +
+          '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">' +
+            '<div style="flex:1;min-width:0;' + bannedStyle + '">' +
+              '<div><strong>' + esc(p.userName||'User') + badge + verifiedTick + bannedLabel + '</strong></div>' +
+              '<div style="margin-top:2px;">' + (p.type==='need'?'🙋 I Need':'🏠 I Have') + ' ' + esc(p.propertyType) + ' @ ' + esc(p.location) + '</div>' +
+              '<div style="font-size:11px;color:#9ca3af;margin-top:2px;">' + esc(p.userId) + ' · ' + bpTimeAgo(p.createdAt) + '</div>' +
+              phoneLine +
+              (p.extra ? '<div style="font-size:11px;color:#7a6e62;margin-top:2px;">' + esc(p.extra) + '</div>' : '') +
+            '</div>' +
+            '<div style="display:flex;gap:4px;flex-shrink:0;flex-direction:column;">' +
+              '<div style="display:flex;gap:4px;">' +
+                '<button onclick="bpAdminBanPost(\'' + p.postId + '\',' + !p.banned + ')" style="font-size:10px;padding:4px 8px;border-radius:6px;border:1px solid ' + (p.banned ? '#86efac' : '#fca5a5') + ';background:' + (p.banned ? '#f0fdf4' : '#fef2f2') + ';color:' + (p.banned ? '#16a34a' : '#dc2626') + ';cursor:pointer;font-weight:700;">' + (p.banned ? 'Unban' : 'Ban') + '</button>' +
+                '<button onclick="bpAdminVerifyPost(\'' + p.postId + '\',' + !p.postVerified + ')" style="font-size:10px;padding:4px 8px;border-radius:6px;border:1px solid ' + (p.postVerified ? '#fde68a' : '#bfdbfe') + ';background:' + (p.postVerified ? '#fefce8' : '#eff6ff') + ';color:' + (p.postVerified ? '#a16207' : '#2563eb') + ';cursor:pointer;font-weight:700;">' + (p.postVerified ? 'Unverify' : 'Verify') + '</button>' +
+              '</div>' +
+              '<button onclick="bpToggleVerified(\'' + esc(p.userId) + '\')" style="font-size:10px;padding:4px 8px;border-radius:6px;border:1px solid #e5e7eb;background:#f9fafb;color:#374151;cursor:pointer;font-weight:700;">' + (p.verified ? 'Remove Broker' : 'Make Broker') + '</button>' +
+            '</div>' +
+          '</div></div>';
+      }).join('');
+    }
+
+    function bpAdminFilterPosts() {
+      var q = (document.getElementById('bp-admin-search').value || '').toLowerCase();
+      var posts = window._bpAdminPosts || [];
+      if (!q) { bpAdminRenderPosts(posts); return; }
+      var filtered = posts.filter(function(p) {
+        var hay = ((p.userName||'') + ' ' + (p.propertyType||'') + ' ' + (p.location||'') + ' ' + (p.purpose||'') + ' ' + (p.listingType||'') + ' ' + (p.budget||'') + ' ' + (p.price||'') + ' ' + (p.extra||'') + ' ' + (p.phone||'') + ' ' + (p.userId||'')).toLowerCase();
+        return hay.indexOf(q) !== -1;
+      });
+      bpAdminRenderPosts(filtered);
+    }
+
+    async function bpAdminBanPost(postId, shouldBan) {
+      try {
+        await bpRpc(shouldBan ? 'broker_ban_post' : 'broker_unban_post', { p_postId: postId });
+        toast(shouldBan ? 'Post banned!' : 'Post unbanned!', 'success');
+        bpAdminLoadPosts();
+      } catch(e) { toast(e.message || 'Failed', 'error'); }
+    }
+
+    async function bpAdminVerifyPost(postId, shouldVerify) {
+      try {
+        await bpRpc(shouldVerify ? 'broker_verify_post' : 'broker_unverify_post', { p_postId: postId });
+        toast(shouldVerify ? 'Post verified!' : 'Verification removed!', 'success');
+        bpAdminLoadPosts();
+      } catch(e) { toast(e.message || 'Failed', 'error'); }
+    }
+
+    function bpAdminLoadPosts() {
+      bpAdminLoadBrokers();
     }
 
     /* ═══════════════════════════════════════════════════════

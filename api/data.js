@@ -2549,7 +2549,7 @@ async function handleRpc(spec, claims) {
       const profile = await brokerGetUserProfile(post.userId);
       const brokerProf = await brokerGetProfile(post.userId, TABLE_BROKER_PROFILES);
       const { phone: _phone, ...postSafe } = post;
-      return { ...postSafe, userName: profile?.name || 'User', avatarUrl: profile?.avatar_url || '', verified: brokerProf.isVerified };
+      return { ...postSafe, banned: !!post.banned, postVerified: !!post.postVerified, userName: profile?.name || 'User', avatarUrl: profile?.avatar_url || '', verified: brokerProf.isVerified };
     }));
     return enriched;
   }
@@ -2613,15 +2613,18 @@ async function handleRpc(spec, claims) {
     }));
     if (existingConn.Items && existingConn.Items.length > 0) throw new Error('Already connected');
     const credits = await brokerGetCredits(userId);
-    if (credits < 10) throw new Error('Not enough credits. You need 10 credits to connect.');
-    await brokerSetCredits(userId, credits - 10);
+    const isAdminUser = isAdmin(claims);
+    if (!isAdminUser) {
+      if (credits < 10) throw new Error('Not enough credits. You need 10 credits to connect.');
+      await brokerSetCredits(userId, credits - 10);
+    }
     const connectionId = 'conn-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6);
     await brokerDdb.send(new PutItemCommand({
       TableName: TABLE_BROKER_CONNECTIONS,
-      Item: marshall({ connectionId, userId, targetUserId: post.userId, postId, coinsSpent: 10, createdAt: new Date().toISOString() }),
+      Item: marshall({ connectionId, userId, targetUserId: post.userId, postId, coinsSpent: isAdminUser ? 0 : 10, createdAt: new Date().toISOString() }),
     }));
     const targetProfile = await brokerGetUserProfile(post.userId);
-    return { connectionId, targetEmail: targetProfile?.email || '', targetName: targetProfile?.name || 'User', targetPhone: post.phone || '', remainingCredits: credits - 10 };
+    return { connectionId, targetEmail: targetProfile?.email || '', targetName: targetProfile?.name || 'User', targetPhone: post.phone || '', remainingCredits: isAdminUser ? credits : credits - 10 };
   }
 
   if (spec.name === 'broker_toggle_role') {
@@ -2660,12 +2663,77 @@ async function handleRpc(spec, claims) {
     if (!isAdmin(claims)) throw new Error('Admin access required');
     const brokerScanRes = await brokerDdb.send(new ScanCommand({ TableName: TABLE_BROKER_POSTS }));
     const posts = (brokerScanRes.Items || []).map(unmarshall).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-    const enriched = await Promise.all(posts.slice(0, 50).map(async (post) => {
+    const enriched = await Promise.all(posts.map(async (post) => {
       const profile = await brokerGetUserProfile(post.userId);
       const brokerProf = await brokerGetProfile(post.userId, TABLE_BROKER_PROFILES);
-      return { ...post, userName: profile?.name || 'User', avatarUrl: profile?.avatar_url || '', verified: brokerProf.isVerified };
+      return { ...post, phone: post.phone || '', banned: !!post.banned, postVerified: !!post.postVerified, userName: profile?.name || 'User', avatarUrl: profile?.avatar_url || '', verified: brokerProf.isVerified };
     }));
     return enriched;
+  }
+
+  if (spec.name === 'broker_ban_post') {
+    const TABLE_BROKER_POSTS = 'BrokerPosts';
+    if (!isAdmin(claims)) throw new Error('Admin access required');
+    const postId = String((spec.params || {}).p_postId || '').trim();
+    if (!postId) throw new Error('Missing postId');
+    const res = await brokerDdb.send(new GetItemCommand({ TableName: TABLE_BROKER_POSTS, Key: marshall({ postId }) }));
+    if (!res.Item) throw new Error('Post not found');
+    const post = unmarshall(res.Item);
+    await brokerDdb.send(new PutItemCommand({
+      TableName: TABLE_BROKER_POSTS,
+      Item: marshall({ ...post, banned: true, bannedAt: new Date().toISOString(), bannedBy: claims.sub }, { removeUndefinedValues: true }),
+    }));
+    return { success: true, banned: true };
+  }
+
+  if (spec.name === 'broker_unban_post') {
+    const TABLE_BROKER_POSTS = 'BrokerPosts';
+    if (!isAdmin(claims)) throw new Error('Admin access required');
+    const postId = String((spec.params || {}).p_postId || '').trim();
+    if (!postId) throw new Error('Missing postId');
+    const res = await brokerDdb.send(new GetItemCommand({ TableName: TABLE_BROKER_POSTS, Key: marshall({ postId }) }));
+    if (!res.Item) throw new Error('Post not found');
+    const post = unmarshall(res.Item);
+    delete post.banned;
+    delete post.bannedAt;
+    delete post.bannedBy;
+    await brokerDdb.send(new PutItemCommand({
+      TableName: TABLE_BROKER_POSTS,
+      Item: marshall(post, { removeUndefinedValues: true }),
+    }));
+    return { success: true, banned: false };
+  }
+
+  if (spec.name === 'broker_verify_post') {
+    const TABLE_BROKER_POSTS = 'BrokerPosts';
+    if (!isAdmin(claims)) throw new Error('Admin access required');
+    const postId = String((spec.params || {}).p_postId || '').trim();
+    if (!postId) throw new Error('Missing postId');
+    const res = await brokerDdb.send(new GetItemCommand({ TableName: TABLE_BROKER_POSTS, Key: marshall({ postId }) }));
+    if (!res.Item) throw new Error('Post not found');
+    const post = unmarshall(res.Item);
+    await brokerDdb.send(new PutItemCommand({
+      TableName: TABLE_BROKER_POSTS,
+      Item: marshall({ ...post, postVerified: true, postVerifiedAt: new Date().toISOString() }, { removeUndefinedValues: true }),
+    }));
+    return { success: true, postVerified: true };
+  }
+
+  if (spec.name === 'broker_unverify_post') {
+    const TABLE_BROKER_POSTS = 'BrokerPosts';
+    if (!isAdmin(claims)) throw new Error('Admin access required');
+    const postId = String((spec.params || {}).p_postId || '').trim();
+    if (!postId) throw new Error('Missing postId');
+    const res = await brokerDdb.send(new GetItemCommand({ TableName: TABLE_BROKER_POSTS, Key: marshall({ postId }) }));
+    if (!res.Item) throw new Error('Post not found');
+    const post = unmarshall(res.Item);
+    delete post.postVerified;
+    delete post.postVerifiedAt;
+    await brokerDdb.send(new PutItemCommand({
+      TableName: TABLE_BROKER_POSTS,
+      Item: marshall(post, { removeUndefinedValues: true }),
+    }));
+    return { success: true, postVerified: false };
   }
 
   // ── Broker Access Gate ──────────────────────────────────────────────────
@@ -2694,6 +2762,8 @@ async function handleRpc(spec, claims) {
     const email = String(claims.email || '').toLowerCase();
     if (isAdmin(claims)) return { alreadyHas: true };
     if (BROKER_WHITELIST_EMAILS.includes(email)) return { alreadyHas: true };
+    const allowedPurchasers = ['webscratch99@gmail.com','mosuruniranjan63@gmail.com'];
+    if (!allowedPurchasers.includes(email)) throw new Error('This feature is under construction');
     const brokerProf = await brokerGetProfile(userId, TABLE_BROKER_PROFILES);
     if (brokerProf.hasBrokerPlan) return { alreadyHas: true };
     await brokerDdb.send(new PutItemCommand({
