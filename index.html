@@ -22007,20 +22007,20 @@
 
       <!-- Right: Daily Streak Embed (full popup-style UI) -->
       <div>
-        <div class="bp-streak-embed" id="bp-streak-embed" style="opacity:0;transition:opacity .2s;">
+        <div class="bp-streak-embed" id="bp-streak-embed">
           <div class="bp-streak-embed-header">
             <div class="bp-streak-embed-flame">🔥</div>
             <div>
-              <div class="bp-streak-embed-title" id="bp-se-title">Daily Streak</div>
-              <div class="bp-streak-embed-sub" id="bp-se-sub">Claim your daily reward</div>
+              <div class="bp-streak-embed-title" id="bp-se-title"></div>
+              <div class="bp-streak-embed-sub" id="bp-se-sub"></div>
             </div>
           </div>
           <div class="bp-streak-embed-days" id="bp-se-days"></div>
           <div class="bp-streak-embed-progress">
             <div class="bp-se-prog-track"><div class="bp-se-prog-fill" id="bp-se-prog" style="width:0%"></div></div>
-            <div class="bp-se-prog-labels"><span id="bp-se-prog-label">0 / 7 days</span><span id="bp-se-coins-label">0 coins</span></div>
+            <div class="bp-se-prog-labels"><span id="bp-se-prog-label"></span><span id="bp-se-coins-label"></span></div>
           </div>
-          <button class="bp-streak-embed-claim" id="bp-se-claim" onclick="bpClaimStreak()">🔥 Claim Day</button>
+          <button class="bp-streak-embed-claim" id="bp-se-claim" onclick="bpClaimStreak()"></button>
           <div class="bp-streak-embed-timer" id="bp-se-timer"></div>
         </div>
       </div>
@@ -22614,8 +22614,6 @@
           timerEl.textContent = '';
         }
       }
-      var embedEl = document.getElementById(prefix + '-streak-embed') || (daysEl && daysEl.closest('.bp-streak-embed'));
-      if (embedEl) { embedEl.style.opacity = '1'; }
     }
 
     async function bpClaimStreak() {
@@ -23532,20 +23530,20 @@
                 <div class="pdn-card-title">🔥 Daily Streak</div>
               </div>
               <div class="pdn-card-body" style="padding:0 !important;overflow:hidden;">
-                <div class="bp-streak-embed" id="pd-streak-embed" style="border-radius:14px;margin:0;position:static;box-shadow:none;opacity:0;transition:opacity .2s;">
+                <div class="bp-streak-embed" id="pd-streak-embed" style="border-radius:14px;margin:0;position:static;box-shadow:none;">
                   <div class="bp-streak-embed-header">
                     <div class="bp-streak-embed-flame">🔥</div>
                     <div>
-                      <div class="bp-streak-embed-title" id="pd-se-title">Daily Streak</div>
-                      <div class="bp-streak-embed-sub" id="pd-se-sub">Claim your daily reward</div>
+                      <div class="bp-streak-embed-title" id="pd-se-title"></div>
+                      <div class="bp-streak-embed-sub" id="pd-se-sub"></div>
                     </div>
                   </div>
                   <div class="bp-streak-embed-days" id="pd-se-days"></div>
                   <div class="bp-streak-embed-progress">
                     <div class="bp-se-prog-track"><div class="bp-se-prog-fill" id="pd-se-prog" style="width:0%"></div></div>
-                    <div class="bp-se-prog-labels"><span id="pd-se-prog-label">0 / 7 days</span><span id="pd-se-coins-label">0 coins</span></div>
+                    <div class="bp-se-prog-labels"><span id="pd-se-prog-label"></span><span id="pd-se-coins-label"></span></div>
                   </div>
-                  <button class="bp-streak-embed-claim" id="pd-se-claim" onclick="bpClaimStreak()">🔥 Claim Day</button>
+                  <button class="bp-streak-embed-claim" id="pd-se-claim" onclick="bpClaimStreak()"></button>
                   <div class="bp-streak-embed-timer" id="pd-se-timer"></div>
                 </div>
               </div>
