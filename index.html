@@ -21759,7 +21759,7 @@
     .bp-connect-box p{font-size:14px;color:#6b7280;line-height:1.6;margin-bottom:20px;}
     .bp-connect-box .bp-confirm-yes{padding:14px;border:none;border-radius:12px;background:linear-gradient(135deg,#c2714f,#a85a3b);color:#fff;font-size:15px;font-weight:800;cursor:pointer;width:100%;margin-bottom:10px;transition:all .2s;}
     .bp-connect-box .bp-confirm-no{padding:12px;border:none;border-radius:10px;background:#f3f4f6;color:#6b7280;font-size:14px;font-weight:600;cursor:pointer;width:100%;transition:all .2s;}
-    @media(max-width:640px){.bp-form-row{grid-template-columns:1fr;}.bp-card-details{grid-template-columns:1fr;}}
+    @media(max-width:640px){.bp-form-row{grid-template-columns:1fr;}.bp-card-details{grid-template-columns:1fr;}#bp-stats{grid-template-columns:repeat(2,1fr) !important;}}
   </style>
 
   <div class="page" id="broker-page">
@@ -21785,6 +21785,37 @@
       <div id="bp-access-denied" style="display:none;"></div>
 
       <div id="bp-feed-container">
+      <!-- Stats Dashboard -->
+      <div id="bp-stats" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px;">
+        <div style="background:#fff;border:1.5px solid #e5e7eb;border-radius:14px;padding:14px 12px;text-align:center;">
+          <div style="width:36px;height:36px;border-radius:10px;background:rgba(194,113,79,.08);display:flex;align-items:center;justify-content:center;margin:0 auto 8px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#c2714f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+          </div>
+          <div style="font-size:20px;font-weight:900;color:#111827;" id="bp-stat-posts">0</div>
+          <div style="font-size:10px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;margin-top:2px;">My Posts</div>
+        </div>
+        <div style="background:#fff;border:1.5px solid #e5e7eb;border-radius:14px;padding:14px 12px;text-align:center;">
+          <div style="width:36px;height:36px;border-radius:10px;background:rgba(194,113,79,.08);display:flex;align-items:center;justify-content:center;margin:0 auto 8px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#c2714f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          </div>
+          <div style="font-size:20px;font-weight:900;color:#111827;" id="bp-stat-connections">0</div>
+          <div style="font-size:10px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;margin-top:2px;">Connections</div>
+        </div>
+        <div style="background:#fff;border:1.5px solid #e5e7eb;border-radius:14px;padding:14px 12px;text-align:center;">
+          <div style="width:36px;height:36px;border-radius:10px;background:rgba(194,113,79,.08);display:flex;align-items:center;justify-content:center;margin:0 auto 8px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#c2714f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v12M8 8.5c0-1.1 1.8-2 4-2s4 .9 4 2-1.8 2-4 2-4 .9-4 2 1.8 2 4 2 4-.9 4-2"/></svg>
+          </div>
+          <div style="font-size:20px;font-weight:900;color:#111827;" id="bp-stat-coins">0</div>
+          <div style="font-size:10px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;margin-top:2px;">RN Coins</div>
+        </div>
+        <div style="background:#fff;border:1.5px solid #e5e7eb;border-radius:14px;padding:14px 12px;text-align:center;">
+          <div style="width:36px;height:36px;border-radius:10px;background:rgba(194,113,79,.08);display:flex;align-items:center;justify-content:center;margin:0 auto 8px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#c2714f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          </div>
+          <div style="font-size:20px;font-weight:900;color:#111827;" id="bp-stat-views">0</div>
+          <div style="font-size:10px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;margin-top:2px;">Views</div>
+        </div>
+      </div>
       <!-- Post Type Tabs -->
       <div class="bp-post-type-tabs">
         <div class="bp-post-tab active" id="bp-tab-need" onclick="bpSwitchTab('need')">
@@ -22221,10 +22252,17 @@
           _bpProfile = await bpRpc('broker_get_profile');
           _bpRole = _bpProfile.isBroker ? 1 : 0;
           bpUpdateCoinsDisplay(_bpProfile.credits);
+          bpUpdateStats(_bpProfile);
         } catch(ep) {
           console.warn('[Broker] Profile load failed:', ep.message);
         }
         bpUpdateBrokerButtons();
+        try {
+          var stats = await bpRpc('broker_get_stats');
+          if (stats) bpPopulateStats(stats);
+        } catch(es) {
+          console.warn('[Broker] Stats load failed:', es.message);
+        }
       } catch(e) {
         console.error('[Broker] Init failed:', e);
         _bpRole = 0;
@@ -22233,21 +22271,62 @@
       return true;
     }
 
+    var _bpBuying = false;
     async function brokerBuyNow() {
       if (!window.user) { showPage('login-page'); return; }
+      if (_bpBuying) return;
+      _bpBuying = true;
+      var btn = document.querySelector('#bp-access-denied button');
+      if (btn) { btn.textContent = 'Processing...'; btn.disabled = true; btn.style.opacity = '.6'; }
       try {
         var result = await bpRpc('broker_buy_plan');
-        toast('Broker Plan activated! Welcome to the Broker Network.', 'success');
+        if (result.alreadyHas) {
+          toast('You already have Broker Plan access!', 'info');
+        } else if (result.success) {
+          toast('Broker Plan activated! Welcome to the Broker Network.', 'success');
+        }
         _bpBrokerAccess = true;
-        bpInit();
+        document.getElementById('bp-access-denied').style.display = 'none';
+        document.getElementById('bp-feed-container').style.display = '';
+        try {
+          _bpProfile = await bpRpc('broker_get_profile');
+          _bpRole = _bpProfile.isBroker ? 1 : 0;
+          bpUpdateCoinsDisplay(_bpProfile.credits);
+          bpUpdateStats(_bpProfile);
+        } catch(ep) { console.warn('[Broker] Profile load after buy:', ep.message); }
+        bpLoadFeed();
+        bpUpdateBrokerButtons();
+        try {
+          var stats = await bpRpc('broker_get_stats');
+          if (stats) bpPopulateStats(stats);
+        } catch(es) { console.warn('[Broker] Stats load after buy failed:', es.message); }
       } catch(e) {
         toast('Payment failed: ' + e.message, 'error');
+        if (btn) { btn.textContent = 'Buy for ₹5,000'; btn.disabled = false; btn.style.opacity = '1'; }
       }
+      _bpBuying = false;
     }
 
     function bpUpdateCoinsDisplay(credits) {
       var el = document.getElementById('bp-coins-count');
       if (el) el.textContent = credits !== undefined ? credits : '—';
+    }
+
+    function bpUpdateStats(profile) {
+      if (!profile) return;
+      var coinsEl = document.getElementById('bp-stat-coins');
+      if (coinsEl) coinsEl.textContent = profile.credits !== undefined ? profile.credits : 0;
+    }
+
+    function bpPopulateStats(stats) {
+      var postsEl = document.getElementById('bp-stat-posts');
+      var connEl = document.getElementById('bp-stat-connections');
+      var coinsEl = document.getElementById('bp-stat-coins');
+      var viewsEl = document.getElementById('bp-stat-views');
+      if (postsEl && stats.posts !== undefined) postsEl.textContent = stats.posts;
+      if (connEl && stats.connections !== undefined) connEl.textContent = stats.connections;
+      if (coinsEl && stats.coins !== undefined) coinsEl.textContent = stats.coins;
+      if (viewsEl && stats.views !== undefined) viewsEl.textContent = stats.views;
     }
 
     function bpUpdateBrokerButtons() {

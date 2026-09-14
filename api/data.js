@@ -2511,6 +2511,35 @@ async function handleRpc(spec, claims) {
   }
 
   // ── Broker Network RPCs ───────────────────────────────────────────────
+  if (spec.name === 'broker_get_stats') {
+    const TABLE_BROKER_POSTS = 'BrokerPosts';
+    const TABLE_BROKER_CONNECTIONS = 'BrokerConnections';
+    const userId = claims.sub;
+    let posts = 0, connections = 0, coins = 0, views = 0;
+    try {
+      const postScan = await brokerDdb.send(new ScanCommand({
+        TableName: TABLE_BROKER_POSTS,
+        FilterExpression: 'userId = :uid',
+        ExpressionAttributeValues: marshall({ ':uid': userId }),
+      }));
+      posts = (postScan.Items || []).length;
+      const allPosts = (postScan.Items || []).map(unmarshall);
+      views = allPosts.reduce((sum, p) => sum + (parseInt(p.views) || 0), 0);
+    } catch (e) { console.warn('[Broker] stats posts:', e.message); }
+    try {
+      const connScan = await brokerDdb.send(new ScanCommand({
+        TableName: TABLE_BROKER_CONNECTIONS,
+        FilterExpression: 'userId = :uid',
+        ExpressionAttributeValues: marshall({ ':uid': userId }),
+      }));
+      connections = (connScan.Items || []).length;
+    } catch (e) { console.warn('[Broker] stats connections:', e.message); }
+    try {
+      coins = await brokerGetCredits(userId);
+    } catch (e) {}
+    return { posts, connections, coins, views };
+  }
+
   if (spec.name === 'broker_get_feed') {
     const TABLE_BROKER_POSTS = 'BrokerPosts';
     const TABLE_BROKER_PROFILES = 'BrokerProfiles';
@@ -2636,6 +2665,11 @@ async function handleRpc(spec, claims) {
     if (BROKER_WHITELIST_EMAILS.includes(email)) return { allowed: true, reason: 'whitelisted' };
     const brokerProf = await brokerGetProfile(userId, TABLE_BROKER_PROFILES);
     if (brokerProf.hasBrokerPlan) return { allowed: true, reason: 'plan' };
+    // Fallback: check main Users table
+    try {
+      const userRes = await ddb.send(new GetItemCommand({ TableName: TABLES.profiles, Key: marshall({ userId }), ProjectionExpression: 'hasBrokerPlan' }));
+      if (userRes.Item && unmarshall(userRes.Item).hasBrokerPlan) return { allowed: true, reason: 'plan' };
+    } catch (e) {}
     return { allowed: false, reason: 'no_access' };
   }
 
@@ -2651,6 +2685,14 @@ async function handleRpc(spec, claims) {
       TableName: TABLE_BROKER_PROFILES,
       Item: marshall({ userId, hasBrokerPlan: true, planPurchasedAt: new Date().toISOString(), isBroker: brokerProf.isBroker || false, isVerified: brokerProf.isVerified || false }, { removeUndefinedValues: true }),
     }));
+    // Also store on main Users table for resilient access checks
+    try {
+      await ddb.send(new UpdateItemCommand({
+        TableName: TABLES.profiles, Key: marshall({ userId }),
+        UpdateExpression: 'SET hasBrokerPlan = :v',
+        ExpressionAttributeValues: marshall({ ':v': true }),
+      }));
+    } catch (e) { console.warn('[Broker] Failed to write hasBrokerPlan to Users:', e.message); }
     return { success: true, hasBrokerPlan: true };
   }
 
