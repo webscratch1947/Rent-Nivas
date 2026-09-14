@@ -22394,6 +22394,7 @@
         }
         document.getElementById('bp-feed-container').style.display = '';
         document.getElementById('bp-access-denied').style.display = 'none';
+        bpRenderEmbeddedStreak('bp');
         bpLoadFeed();
         try {
           _bpProfile = await bpRpc('broker_get_profile');
