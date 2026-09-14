@@ -21781,7 +21781,7 @@
     .bp-streak-embed-claim{width:calc(100% - 44px);margin:20px 22px;padding:16px;border-radius:14px;border:none;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;font-size:17px;font-weight:800;font-family:var(--font);cursor:pointer;transition:all .2s cubic-bezier(.34,1.56,.64,1);box-shadow:0 0 20px rgba(245,158,11,.4),0 4px 20px rgba(245,158,11,.3);position:relative;overflow:hidden;flex-shrink:0;}
     .bp-streak-embed-claim:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 0 30px rgba(245,158,11,.5),0 8px 28px rgba(245,158,11,.4);}
     .bp-streak-embed-claim:active:not(:disabled){transform:scale(.97);}
-    .bp-streak-embed-claim:disabled{background:#e8e0d8;color:#b0a090;box-shadow:none;cursor:not-allowed;}
+    .bp-streak-embed-claim:disabled{background:#e0e0e0;color:#555;box-shadow:none;cursor:not-allowed;}
     .bp-streak-embed-claim::after{content:'';position:absolute;top:0;left:-75%;width:50%;height:100%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.3),transparent);transform:skewX(-20deg);animation:bpSeShine 3s ease-in-out infinite;}
     .bp-streak-embed-claim:disabled::after{display:none;}
     @keyframes bpSeShine{0%,70%,100%{left:-75%}40%{left:125%}}
@@ -23541,6 +23541,8 @@
               </div>
             </div>
 
+            <!-- Right Column: Streak + Tasks side by side -->
+            <div style="display:flex;flex-direction:column;gap:16px;">
             <!-- Daily Streak -->
             <div class="pdn-card" id="pdn-sec-streak">
               <div class="pdn-card-head">
@@ -23588,6 +23590,7 @@
                 </div>
               </div>
             </div>
+            </div><!-- /right column wrapper -->
           </div>
 
           <!-- PERFORMANCE RINGS -->
