@@ -9696,7 +9696,7 @@
 </style>
 </head>
 
-<body class="broker-gated">
+<body>
   <canvas id="bgCanvas" aria-hidden="true"></canvas>
   <script>
     // ── Capture a referral code from a shared link before anything else runs ──
@@ -9759,10 +9759,10 @@
       <button class="mob-nav-item" onclick="closeMobSidebar();showPage('landing-page');setTimeout(function(){var el=document.getElementById('support');if(el)window.scrollTo({top:el.offsetTop-20,behavior:'smooth'});},400)">
         <span class="mob-nav-icon">🛟</span> Support
       </button>
-      <button class="mob-nav-item bp-gated" onclick="closeMobSidebar();showPage('broker-page');if(typeof bpInit==='function')bpInit();">
+      <button class="mob-nav-item" onclick="closeMobSidebar();showPage('broker-page');if(typeof bpInit==='function')bpInit();">
         <span class="mob-nav-icon">💼</span> Broker Panel
       </button>
-      <button class="mob-nav-item bp-gated" onclick="closeMobSidebar();openCreditShop()">
+      <button class="mob-nav-item" onclick="closeMobSidebar();openCreditShop()">
         <span class="mob-nav-icon">🛍️</span> Credit Shop
       </button>
     </div>
@@ -9794,10 +9794,10 @@
       <button class="mob-nav-item" onclick="closeMobSidebar();if(typeof showLeaderboard==='function')showLeaderboard()">
         <span class="mob-nav-icon">🏆</span> Leaderboard
       </button>
-      <button class="mob-nav-item bp-gated" onclick="closeMobSidebar();showPage('broker-page');if(typeof bpInit==='function')bpInit();">
+      <button class="mob-nav-item" onclick="closeMobSidebar();showPage('broker-page');if(typeof bpInit==='function')bpInit();">
         <span class="mob-nav-icon">💼</span> Broker Panel
       </button>
-      <button class="mob-nav-item bp-gated" onclick="closeMobSidebar();openCreditShop()">
+      <button class="mob-nav-item" onclick="closeMobSidebar();openCreditShop()">
         <span class="mob-nav-icon">🛍️</span> Credit Shop
       </button>
       <button class="mob-nav-item" onclick="closeMobSidebar();window.open('/language.html','_blank')">
@@ -21675,7 +21675,7 @@
 
       <!-- Broker Plan Card -->
       <div style="padding:16px 0 0;">
-        <div id="cs-broker-plan" onclick="brokerPlanApply()" style="background:linear-gradient(145deg,#f9f3ec 0%,#f2e8dc 40%,#f9f3ec 100%);border:1.5px solid rgba(168,90,59,.2);border-radius:20px;padding:24px 20px;position:relative;overflow:hidden;cursor:pointer;box-shadow:0 8px 32px rgba(168,90,59,.07),inset 0 1px 0 rgba(255,255,255,.6);transition:all .3s;" onmouseenter="this.style.borderColor='rgba(168,90,59,.4)';this.style.boxShadow='0 8px 40px rgba(168,90,59,.12)'" onmouseleave="this.style.borderColor='rgba(168,90,59,.2)';this.style.boxShadow='0 8px 32px rgba(168,90,59,.07)'">
+        <div id="cs-broker-plan" onclick="brokerBuyNow()" style="background:linear-gradient(145deg,#f9f3ec 0%,#f2e8dc 40%,#f9f3ec 100%);border:1.5px solid rgba(168,90,59,.2);border-radius:20px;padding:24px 20px;position:relative;overflow:hidden;cursor:pointer;box-shadow:0 8px 32px rgba(168,90,59,.07),inset 0 1px 0 rgba(255,255,255,.6);transition:all .3s;" onmouseenter="this.style.borderColor='rgba(168,90,59,.4)';this.style.boxShadow='0 8px 40px rgba(168,90,59,.12)'" onmouseleave="this.style.borderColor='rgba(168,90,59,.2)';this.style.boxShadow='0 8px 32px rgba(168,90,59,.07)'">
           <div style="position:absolute;top:0;right:0;background:linear-gradient(135deg,#c2714f,#8b5e3c);color:#fff;font-size:10px;font-weight:800;padding:6px 14px;border-radius:0 20px 0 16px;text-transform:uppercase;letter-spacing:.8px;">New</div>
           <div style="display:flex;align-items:center;gap:16px;">
             <div style="width:72px;height:72px;border-radius:16px;background:linear-gradient(135deg,rgba(168,90,59,.12),rgba(168,90,59,.04));display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:36px;">
@@ -21685,8 +21685,12 @@
               <div style="font-size:20px;font-weight:900;color:#6b4226;line-height:1;">Broker Plan</div>
               <div style="font-size:13px;color:rgba(107,66,38,.5);margin-top:6px;">Unlock access to the Broker Network</div>
             </div>
+            <div style="text-align:right;flex-shrink:0;">
+              <div style="font-size:22px;font-weight:900;color:#8b5e3c;">₹5,000</div>
+              <div style="font-size:10px;color:rgba(139,94,60,.45);margin-top:2px;">one-time</div>
+            </div>
           </div>
-          <div style="margin-top:18px;background:linear-gradient(135deg,#c2714f,#8b5e3c);color:#fff;text-align:center;padding:15px;border-radius:14px;font-size:16px;font-weight:800;letter-spacing:.3px;box-shadow:0 6px 20px rgba(168,90,59,.2);transition:transform .2s;" onmouseenter="this.style.transform='translateY(-1px)'" onmouseleave="this.style.transform='translateY(0)'">Apply for Access</div>
+          <div style="margin-top:18px;background:linear-gradient(135deg,#c2714f,#8b5e3c);color:#fff;text-align:center;padding:15px;border-radius:14px;font-size:16px;font-weight:800;letter-spacing:.3px;box-shadow:0 6px 20px rgba(168,90,59,.2);transition:transform .2s;" onmouseenter="this.style.transform='translateY(-1px)'" onmouseleave="this.style.transform='translateY(0)'">Buy for ₹5,000</div>
         </div>
       </div>
 
@@ -21756,11 +21760,6 @@
     .bp-connect-box .bp-confirm-yes{padding:14px;border:none;border-radius:12px;background:linear-gradient(135deg,#c2714f,#a85a3b);color:#fff;font-size:15px;font-weight:800;cursor:pointer;width:100%;margin-bottom:10px;transition:all .2s;}
     .bp-connect-box .bp-confirm-no{padding:12px;border:none;border-radius:10px;background:#f3f4f6;color:#6b7280;font-size:14px;font-weight:600;cursor:pointer;width:100%;transition:all .2s;}
     @media(max-width:640px){.bp-form-row{grid-template-columns:1fr;}.bp-card-details{grid-template-columns:1fr;}}
-
-    /* ── Broker access gate: hide buttons until server confirms access ── */
-    .broker-gated #nb-broker, .broker-gated #rnb-broker,
-    .broker-gated #mbn-shop, .broker-gated .bp-coins-display { display: none !important; }
-    .broker-gated .bp-gated { display: none !important; }
   </style>
 
   <div class="page" id="broker-page">
@@ -22119,22 +22118,6 @@
       mobBottomActive('mbn-home');
     }
 
-    async function brokerPlanApply() {
-      if (!window.user) { showPage('login-page'); return; }
-      try {
-        var result = await bpRpc('broker_buy_plan');
-        if (result.alreadyHas) {
-          toast('You already have Broker Plan access!', 'info');
-        } else if (result.success) {
-          toast('Broker Plan activated! Welcome to the Broker Network.', 'success');
-          showPage('broker-page');
-          bpInit();
-        }
-      } catch(e) {
-        toast('Failed to activate: ' + e.message, 'error');
-      }
-    }
-
     function renderCreditShopPlans() {
       const plans = [
         { credits: 1, price: 10, badge: '' },
@@ -22174,14 +22157,8 @@
       if (!window.user) return;
       bpRpc('broker_check_access').then(function(access) {
         _bpBrokerAccess = access.allowed;
-        if (access.allowed) {
-          document.body.classList.remove('broker-gated');
-        } else {
-          document.body.classList.add('broker-gated');
-        }
       }).catch(function() {
         _bpBrokerAccess = false;
-        document.body.classList.add('broker-gated');
       });
     }
 
@@ -22229,30 +22206,37 @@
       try {
         var access = await bpRpc('broker_check_access');
         if (!access.allowed) {
-          bpShowAccessDenied();
+          document.getElementById('bp-feed-container').style.display = 'none';
+          var denied = document.getElementById('bp-access-denied');
+          if (denied) {
+            denied.style.display = '';
+            denied.innerHTML = '<div style="text-align:center;padding:60px 24px;"><div style="font-size:56px;margin-bottom:16px;">💼</div><div style="font-size:22px;font-weight:900;color:#111827;margin-bottom:8px;">Broker Network</div><div style="font-size:15px;color:#6b7280;margin-bottom:24px;line-height:1.7;max-width:380px;margin-left:auto;margin-right:auto;">Get access to the Broker Network to connect with verified brokers, post requirements, and list properties.</div><div style="background:linear-gradient(145deg,#fdf8f2,#f9efe3);border:1.5px solid rgba(168,90,59,.2);border-radius:18px;padding:24px 20px;max-width:340px;margin:0 auto 24px;"><div style="font-size:14px;font-weight:700;color:#8b5e3c;margin-bottom:4px;">Broker Plan</div><div style="font-size:36px;font-weight:900;color:#3d2b1f;margin-bottom:4px;">₹5,000</div><div style="font-size:12px;color:rgba(139,94,60,.5);margin-bottom:16px;">One-time purchase · Lifetime access</div><button onclick="brokerBuyNow()" style="width:100%;background:linear-gradient(135deg,#c2714f,#a85a3b);color:#fff;border:none;padding:14px;border-radius:12px;font-size:15px;font-weight:800;cursor:pointer;box-shadow:0 4px 16px rgba(194,113,79,.3);transition:all .2s;" onmouseenter="this.style.transform=\'translateY(-1px)\'' onmouseleave="this.style.transform=\'none\'">Buy Now</button></div><div style="font-size:11px;color:#9ca3af;">After payment, access is instant.</div></div>';
+          }
           return false;
         }
+        document.getElementById('bp-feed-container').style.display = '';
+        document.getElementById('bp-access-denied').style.display = 'none';
         _bpProfile = await bpRpc('broker_get_profile');
         _bpRole = _bpProfile.isBroker ? 1 : 0;
         bpUpdateCoinsDisplay(_bpProfile.credits);
-        document.getElementById('bp-feed-container').style.display = '';
-        document.getElementById('bp-access-denied').style.display = 'none';
         bpLoadFeed();
         bpUpdateBrokerButtons();
       } catch(e) {
         console.error('[Broker] Init failed:', e);
         _bpRole = 0;
-        bpLoadFeed();
       }
       return true;
     }
 
-    function bpShowAccessDenied() {
-      document.getElementById('bp-feed-container').style.display = 'none';
-      var denied = document.getElementById('bp-access-denied');
-      if (denied) {
-        denied.style.display = '';
-        denied.innerHTML = '<div style="text-align:center;padding:60px 24px;"><div style="font-size:48px;margin-bottom:16px;">🔒</div><div style="font-size:20px;font-weight:800;color:#111827;margin-bottom:8px;">Broker Access Required</div><div style="font-size:14px;color:#6b7280;margin-bottom:24px;line-height:1.6;">You need a Broker Plan to access the Broker Network.<br>Purchase a plan from the Credit Shop to get started.</div><button onclick="openCreditShop()" style="background:linear-gradient(135deg,#c2714f,#a85a3b);color:#fff;border:none;padding:14px 32px;border-radius:12px;font-size:15px;font-weight:800;cursor:pointer;box-shadow:0 4px 16px rgba(194,113,79,.3);">Open Credit Shop</button></div>';
+    async function brokerBuyNow() {
+      if (!window.user) { showPage('login-page'); return; }
+      try {
+        var result = await bpRpc('broker_buy_plan');
+        toast('Broker Plan activated! Welcome to the Broker Network.', 'success');
+        _bpBrokerAccess = true;
+        bpInit();
+      } catch(e) {
+        toast('Payment failed: ' + e.message, 'error');
       }
     }
 
