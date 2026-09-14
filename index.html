@@ -21959,9 +21959,13 @@
               <input type="text" id="bp-need-location" placeholder="e.g. Tollygunge, Kolkata">
             </div>
           </div>
-          <div class="bp-form-full">
-            <label>Additional Details (optional)</label>
-            <input type="text" id="bp-need-extra" placeholder="e.g. Furnished, near metro, etc.">
+          <div class="bp-form-row">
+            <div><label>Additional Details</label>
+              <input type="text" id="bp-need-extra" placeholder="e.g. Furnished, near metro, etc.">
+            </div>
+            <div><label>Phone Number</label>
+              <input type="tel" id="bp-need-phone" placeholder="e.g. +91 98765 43210" maxlength="20">
+            </div>
           </div>
           <button class="bp-submit-btn" onclick="bpSubmitPost('need')">Post Requirement</button>
         </div>
@@ -21996,9 +22000,13 @@
               <input type="text" id="bp-have-location" placeholder="e.g. Main Road, Salt Lake">
             </div>
           </div>
-          <div class="bp-form-full">
-            <label>Additional Details (optional)</label>
-            <input type="text" id="bp-have-extra" placeholder="e.g. Furnished, parking, etc.">
+          <div class="bp-form-row">
+            <div><label>Additional Details</label>
+              <input type="text" id="bp-have-extra" placeholder="e.g. Furnished, parking, etc.">
+            </div>
+            <div><label>Phone Number</label>
+              <input type="tel" id="bp-have-phone" placeholder="e.g. +91 98765 43210" maxlength="20">
+            </div>
           </div>
           <button class="bp-submit-btn" onclick="bpSubmitPost('have')">Post Property</button>
         </div>
@@ -22515,16 +22523,18 @@
         var bud = document.getElementById('bp-need-budget').value;
         var loc = document.getElementById('bp-need-location').value.trim();
         var ext = document.getElementById('bp-need-extra').value.trim();
-        if (!tp || !pur || !loc) { toast('Please fill property type, purpose & location','error'); return; }
-        params = { p_type:'need', p_propertyType:tp, p_purpose:pur, p_budget:bud||'Not specified', p_location:loc, p_extra:ext };
+        var phn = document.getElementById('bp-need-phone').value.trim();
+        if (!tp || !pur || !bud || !loc || !ext || !phn) { toast('Please fill all fields including phone number','error'); return; }
+        params = { p_type:'need', p_propertyType:tp, p_purpose:pur, p_budget:bud, p_location:loc, p_extra:ext, p_phone:phn };
       } else {
         var ht = document.getElementById('bp-have-type').value;
         var hl = document.getElementById('bp-have-listing').value;
         var hp = document.getElementById('bp-have-price').value.trim();
         var hloc = document.getElementById('bp-have-location').value.trim();
         var hex = document.getElementById('bp-have-extra').value.trim();
-        if (!ht || !hl || !hloc) { toast('Please fill property type, listing type & location','error'); return; }
-        params = { p_type:'have', p_propertyType:ht, p_listingType:hl, p_price:hp||'Not specified', p_location:hloc, p_extra:hex };
+        var hphn = document.getElementById('bp-have-phone').value.trim();
+        if (!ht || !hl || !hp || !hloc || !hex || !hphn) { toast('Please fill all fields including phone number','error'); return; }
+        params = { p_type:'have', p_propertyType:ht, p_listingType:hl, p_price:hp, p_location:hloc, p_extra:hex, p_phone:hphn };
       }
       try {
         var newPost = await bpRpc('broker_create_post', params);
@@ -22533,8 +22543,8 @@
         bpRenderLibrary();
         bpPopulateLocationFilter();
         toast('Posted to Broker Network!', 'success');
-        ['bp-need-type','bp-need-purpose','bp-need-budget','bp-need-location','bp-need-extra',
-         'bp-have-type','bp-have-listing','bp-have-price','bp-have-location','bp-have-extra'].forEach(function(id) {
+        ['bp-need-type','bp-need-purpose','bp-need-budget','bp-need-location','bp-need-extra','bp-need-phone',
+         'bp-have-type','bp-have-listing','bp-have-price','bp-have-location','bp-have-extra','bp-have-phone'].forEach(function(id) {
           var el = document.getElementById(id);
           if (el) el.value = el.tagName === 'SELECT' ? '' : '';
         });
@@ -22807,9 +22817,11 @@
         if (card) {
           var btnWrap = card.querySelector('.bp-connect-btn');
           if (btnWrap) {
+            var phoneLine = result.targetPhone ? '<div style="font-size:14px;font-weight:800;color:#111827;margin-top:4px;">📞 ' + esc(result.targetPhone) + '</div>' : '';
             btnWrap.outerHTML = '<div style="margin-top:12px;padding:14px;background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:12px;text-align:center;">' +
               '<div style="font-size:13px;font-weight:700;color:#16a34a;margin-bottom:4px;">✅ Connected!</div>' +
               '<div style="font-size:14px;font-weight:800;color:#111827;">' + esc(result.targetEmail || 'Contact revealed') + '</div>' +
+              phoneLine +
               '<div style="font-size:12px;color:#6b7280;margin-top:4px;">Contact the broker to proceed</div></div>';
           }
         }

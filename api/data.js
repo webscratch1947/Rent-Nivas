@@ -2548,7 +2548,8 @@ async function handleRpc(spec, claims) {
     const enriched = await Promise.all(posts.map(async (post) => {
       const profile = await brokerGetUserProfile(post.userId);
       const brokerProf = await brokerGetProfile(post.userId, TABLE_BROKER_PROFILES);
-      return { ...post, userName: profile?.name || 'User', avatarUrl: profile?.avatar_url || '', verified: brokerProf.isVerified };
+      const { phone: _phone, ...postSafe } = post;
+      return { ...postSafe, userName: profile?.name || 'User', avatarUrl: profile?.avatar_url || '', verified: brokerProf.isVerified };
     }));
     return enriched;
   }
@@ -2585,6 +2586,7 @@ async function handleRpc(spec, claims) {
       purpose: p.p_purpose || '', listingType: p.p_listingType || '',
       budget: p.p_budget || '', price: p.p_price || '',
       location: p.p_location || '', extra: p.p_extra || '',
+      phone: p.p_phone || '',
       userId, createdAt: Date.now(),
     };
     await brokerDdb.send(new PutItemCommand({ TableName: TABLE_BROKER_POSTS, Item: marshall(item, { removeUndefinedValues: true }) }));
@@ -2619,7 +2621,7 @@ async function handleRpc(spec, claims) {
       Item: marshall({ connectionId, userId, targetUserId: post.userId, postId, coinsSpent: 10, createdAt: new Date().toISOString() }),
     }));
     const targetProfile = await brokerGetUserProfile(post.userId);
-    return { connectionId, targetEmail: targetProfile?.email || '', targetName: targetProfile?.name || 'User', remainingCredits: credits - 10 };
+    return { connectionId, targetEmail: targetProfile?.email || '', targetName: targetProfile?.name || 'User', targetPhone: post.phone || '', remainingCredits: credits - 10 };
   }
 
   if (spec.name === 'broker_toggle_role') {
