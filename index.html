@@ -9617,7 +9617,7 @@
     }
   </style>
 <style id="rn-tut-styles">
-  #rn-tutorial{position:fixed;inset:0;z-index:9999;pointer-events:none;}
+  #rn-tutorial{position:fixed;inset:0;z-index:9999;pointer-events:none;display:block;}
   /* Toast above tutorial during tutorial, back to bottom after */
   body.rn-tut-open #toast-wrap{top:16px!important;bottom:auto!important;z-index:25000!important;}
   #rn-tutorial.rn-hidden{display:none!important;}
@@ -13189,7 +13189,7 @@
     // ══ PAGE ROUTING ══
     function showPage(id) {
       // Save navigation for refresh-restore (skip overlay pages)
-      try { if(id && id !== 'landing-page') localStorage.setItem('rn-last-nav', JSON.stringify({page:id,section:null})); } catch(e){}
+      try { if(id && id !== 'landing-page' && id !== 'role-page') localStorage.setItem('rn-last-nav', JSON.stringify({page:id,section:null})); } catch(e){}
       closeNotif();
       // If user is temp-banned, block all navigation except logout/landing.
       // Also block login-page — if the ban overlay is currently visible, showing
@@ -13840,6 +13840,10 @@
 
     async function loadPartnerDashboard() {
       if (!user) { showPage('login-page'); return; }
+      if (!window._partnerAccess && !window._hasPartnerAccess && localStorage.getItem('nestly-role') !== 'partner') {
+        showPage('partner-page');
+        return;
+      }
       const name = user.user_metadata?.name || user.email?.split('@')[0] || 'Partner';
       const g = document.getElementById('pd-greeting');
       if (g) g.textContent = `Welcome, ${name} 🎉`;
@@ -22077,9 +22081,8 @@
           <div style="text-align:center;padding:40px;color:#9ca3af;grid-column:1/-1;"><div style="font-size:24px;margin-bottom:8px;">⏳</div>Loading all posts...</div>
         </div>
       </div>
-      </div><!-- /bp-feed-container -->
 
-      <!-- Admin Panel -->
+      <!-- Admin Panel (inside feed container for tab switching) -->
       <div id="bp-admin-panel" style="display:none;">
         <div style="background:#fff;border:1px solid #f0ebe5;border-radius:16px;padding:20px;margin-bottom:20px;">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
@@ -22090,6 +22093,8 @@
           <div id="bp-admin-posts-list" style="max-height:70vh;overflow-y:auto;"></div>
         </div>
       </div>
+
+      </div><!-- /bp-feed-container -->
 
   <!-- Connect Confirmation Modal -->
   <div id="bp-connect-modal" class="bp-connect-confirm" style="display:none;" onclick="if(event.target===this)bpCloseConnectModal()">
@@ -22429,8 +22434,11 @@
         document.getElementById('bp-access-denied').style.display = 'none';
         var adminTab = document.getElementById('bp-tab-admin');
         if (adminTab) {
-          var isAdmin = window.user && (window.user.email || '').toLowerCase() === 'tulasimosuru63@gmail.com' || (window.__RN_ADMIN_EMAILS || '').split(',').map(function(e){return e.trim().toLowerCase();}).indexOf((window.user && window.user.email || '').toLowerCase()) !== -1;
-          adminTab.style.display = isAdmin ? '' : 'none';
+          var _email = (window.user && window.user.email || '').toLowerCase();
+          var _adminEmails = (window.__RN_ADMIN_EMAILS || '').split(',').map(function(e){return e.trim().toLowerCase();}).filter(Boolean);
+          var _isAdmin = _adminEmails.indexOf(_email) !== -1;
+          adminTab.style.display = _isAdmin ? '' : 'none';
+          if (!_isAdmin) { document.getElementById('bp-admin-panel').style.display = 'none'; }
         }
         if (window.syncStreakFromServer) { await window.syncStreakFromServer(); }
         bpRenderEmbeddedStreak('bp');
