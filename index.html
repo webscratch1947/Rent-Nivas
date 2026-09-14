@@ -21715,7 +21715,23 @@
     .bp-back-btn:hover{background:#e5e7eb;border-color:#d1d5db;}
     .bp-body{padding:16px 20px;max-width:1100px;width:100%;margin:0 auto;}
     .bp-bottom-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start;}
-    @media(max-width:768px){.bp-bottom-grid{grid-template-columns:1fr !important;}}
+    .bp-right-tabs{display:flex;gap:6px;margin-bottom:14px;}
+    .bp-right-tab{flex:1;padding:10px 6px;border-radius:10px;border:1.5px solid #e5e7eb;background:#fff;text-align:center;cursor:pointer;font-weight:700;font-size:13px;color:#6b7280;transition:all .2s;}
+    .bp-right-tab.active{border-color:#c2714f;background:rgba(194,113,79,.06);color:#c2714f;}
+    .bp-right-tab:hover:not(.active){border-color:#d1d5db;background:#f9fafb;}
+    .bp-my-posts-scroll{max-height:520px;overflow-y:auto;border-radius:14px;scrollbar-width:thin;scrollbar-color:#d1d5db transparent;}
+    .bp-my-posts-scroll::-webkit-scrollbar{width:5px;}
+    .bp-my-posts-scroll::-webkit-scrollbar-track{background:transparent;}
+    .bp-my-posts-scroll::-webkit-scrollbar-thumb{background:#d1d5db;border-radius:10px;}
+    .bp-library-search{margin-bottom:14px;}
+    .bp-library-search input{width:100%;padding:12px 16px 12px 40px;border:1.5px solid #e5e7eb;border-radius:12px;font-size:14px;color:#111827;background:#f9fafb;box-sizing:border-box;transition:border-color .2s;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cline x1='21' y1='21' x2='16.65' y2='16.65'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:14px center;}
+    .bp-library-search input:focus{outline:none;border-color:#c2714f;background-color:#fff;}
+    .bp-library-filters{display:flex;gap:8px;margin-top:10px;}
+    .bp-library-filters select{flex:1;padding:8px 12px;border:1.5px solid #e5e7eb;border-radius:8px;font-size:12px;font-weight:600;color:#6b7280;background:#f9fafb;cursor:pointer;box-sizing:border-box;}
+    .bp-library-filters select:focus{outline:none;border-color:#c2714f;}
+    .bp-library-grid{display:flex;flex-direction:column;gap:10px;}
+    .bp-lib-count{font-size:11px;font-weight:600;color:#9ca3af;margin-bottom:10px;}
+    @media(max-width:768px){.bp-bottom-grid{grid-template-columns:1fr !important;}.bp-topbar-inner{flex-wrap:wrap;gap:8px;padding:10px 14px;}.bp-topbar-title{font-size:15px;}.bp-topbar-sub{display:none;}.bp-back-btn{padding:6px 10px;font-size:12px;}.bp-coins-display{font-size:11px;padding:6px 14px;}.bp-body{padding:12px 14px;}#bp-stats{grid-template-columns:repeat(2,1fr) !important;}.bp-my-posts-scroll{max-height:400px;}.bp-form-card{padding:16px;}.bp-post-tab{padding:10px 6px;font-size:12px;}}
     .bp-post-type-tabs{display:flex;gap:8px;margin-bottom:16px;}
     .bp-post-tab{flex:1;padding:12px 8px;border-radius:14px;border:2px solid #e5e7eb;background:#fff;text-align:center;cursor:pointer;font-weight:700;font-size:14px;color:#6b7280;transition:all .25s;}
     .bp-post-tab.active{border-color:#c2714f;background:rgba(194,113,79,.06);color:#c2714f;}
@@ -21915,10 +21931,38 @@
       </div>
       </div>
 
-      <!-- Right: Broker Feed -->
+      <!-- Right: Your Posts + Library -->
       <div>
-        <div class="bp-feed-label">Broker Feed</div>
-        <div id="bp-feed"></div>
+        <div class="bp-right-tabs">
+          <div class="bp-right-tab active" onclick="bpSwitchRightTab('myposts')">📋 Your Posts</div>
+          <div class="bp-right-tab" onclick="bpSwitchRightTab('library')">📚 All Posts Library</div>
+        </div>
+        <!-- Your Posts Panel -->
+        <div id="bp-myposts-panel">
+          <div id="bp-my-posts" class="bp-my-posts-scroll">
+            <div style="text-align:center;padding:40px;color:#9ca3af;"><div style="font-size:24px;margin-bottom:8px;">⏳</div>Loading your posts...</div>
+          </div>
+        </div>
+        <!-- All Posts Library Panel -->
+        <div id="bp-library-panel" style="display:none;">
+          <div class="bp-library-search">
+            <input type="text" id="bp-lib-search" placeholder="Search by name, location, property type..." oninput="bpFilterLibrary()">
+            <div class="bp-library-filters">
+              <select id="bp-lib-type" onchange="bpFilterLibrary()">
+                <option value="">All Types</option>
+                <option value="need">🙋 I Need</option>
+                <option value="have">🏠 I Have</option>
+              </select>
+              <select id="bp-lib-location" onchange="bpFilterLibrary()">
+                <option value="">All Locations</option>
+              </select>
+            </div>
+          </div>
+          <div class="bp-lib-count" id="bp-lib-count"></div>
+          <div id="bp-library-feed" class="bp-library-grid">
+            <div style="text-align:center;padding:40px;color:#9ca3af;"><div style="font-size:24px;margin-bottom:8px;">⏳</div>Loading all posts...</div>
+          </div>
+        </div>
       </div>
       </div><!-- /bp-bottom-grid -->
       </div><!-- /bp-feed-container -->
@@ -22380,7 +22424,9 @@
       try {
         var newPost = await bpRpc('broker_create_post', params);
         _bpPosts.unshift(newPost);
-        bpRenderFeed();
+        bpRenderMyPosts();
+        bpRenderLibrary();
+        bpPopulateLocationFilter();
         toast('Posted to Broker Network!', 'success');
         ['bp-need-type','bp-need-purpose','bp-need-budget','bp-need-location','bp-need-extra',
          'bp-have-type','bp-have-listing','bp-have-price','bp-have-location','bp-have-extra'].forEach(function(id) {
@@ -22393,67 +22439,129 @@
     }
 
     async function bpLoadFeed() {
-      var container = document.getElementById('bp-feed');
-      if (!container) return;
-      container.innerHTML = '<div style="text-align:center;padding:40px;color:#9ca3af;"><div style="font-size:24px;margin-bottom:8px;">⏳</div>Loading feed...</div>';
+      var container = document.getElementById('bp-my-posts');
+      if (container) container.innerHTML = '<div style="text-align:center;padding:40px;color:#9ca3af;"><div style="font-size:24px;margin-bottom:8px;">⏳</div>Loading posts...</div>';
       try {
         _bpPosts = await bpRpc('broker_get_feed');
-        bpRenderFeed();
+        bpRenderMyPosts();
+        bpRenderLibrary();
+        bpPopulateLocationFilter();
       } catch(e) {
-        container.innerHTML = '<div class="bp-empty"><div class="bp-empty-icon">⚠️</div><div class="bp-empty-text">Failed to load feed</div><div class="bp-empty-sub">' + esc(e.message) + '</div></div>';
+        if (container) container.innerHTML = '<div class="bp-empty"><div class="bp-empty-icon">⚠️</div><div class="bp-empty-text">Failed to load</div><div class="bp-empty-sub">' + esc(e.message) + '</div></div>';
       }
     }
 
-    function bpRenderFeed() {
-      var container = document.getElementById('bp-feed');
+    function bpBuildCard(p) {
+      var avatarColors = ['#c2714f','#2563eb','#16a34a','#9333ea','#ea580c','#0891b2'];
+      var ci = Math.abs((p.userId||'').charCodeAt(0)||0) % avatarColors.length;
+      var hasAvatar = p.avatarUrl && p.avatarUrl.length > 5;
+      var initials = (p.userName||'U').split(' ').map(function(w){return w[0];}).join('').substring(0,2).toUpperCase();
+      var timeAgo = bpTimeAgo(p.createdAt || p.time);
+      var isNeed = p.type === 'need';
+      var typeBadge = isNeed ? '<span class="bp-card-type-badge bp-type-need">I Need</span>' : '<span class="bp-card-type-badge bp-type-have">I Have</span>';
+      var verifiedHtml = p.verified ? '<span class="bp-verified-badge"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>MGR Verified</span>' : '';
+      var isOwn = window.user && p.userId === (window.user.id || window.user.sub);
+      var avatarHtml = hasAvatar
+        ? '<img src="' + esc(p.avatarUrl) + '" style="width:100%;height:100%;object-fit:cover;border-radius:10px;">'
+        : '<span style="font-size:15px;font-weight:800;color:#fff;">' + initials + '</span>';
+      var detailRows = '';
+      if (isNeed) {
+        detailRows = '<div class="bp-detail-item"><span class="bp-detail-label">Property</span><span class="bp-detail-value">' + esc(p.propertyType) + '</span></div>' +
+          '<div class="bp-detail-item"><span class="bp-detail-label">Purpose</span><span class="bp-detail-value">' + esc(p.purpose) + '</span></div>' +
+          '<div class="bp-detail-item"><span class="bp-detail-label">Budget</span><span class="bp-detail-value">' + esc(p.budget) + '</span></div>' +
+          '<div class="bp-detail-item"><span class="bp-detail-label">Location</span><span class="bp-detail-value">' + esc(p.location) + '</span></div>';
+      } else {
+        detailRows = '<div class="bp-detail-item"><span class="bp-detail-label">Property</span><span class="bp-detail-value">' + esc(p.propertyType) + '</span></div>' +
+          '<div class="bp-detail-item"><span class="bp-detail-label">Type</span><span class="bp-detail-value">' + esc(p.listingType) + '</span></div>' +
+          '<div class="bp-detail-item"><span class="bp-detail-label">Price</span><span class="bp-detail-value">' + esc(p.price) + '</span></div>' +
+          '<div class="bp-detail-item"><span class="bp-detail-label">Location</span><span class="bp-detail-value">' + esc(p.location) + '</span></div>';
+      }
+      var extraHtml = p.extra ? '<div style="font-size:13px;color:#6b7280;margin-bottom:14px;padding:8px 12px;background:#f9fafb;border-radius:8px;border-left:3px solid #c2714f;">' + esc(p.extra) + '</div>' : '';
+      var connectBtn = isOwn ? '<div style="font-size:11px;color:#9ca3af;text-align:center;padding:8px;">This is your post</div>' :
+        '<button class="bp-connect-btn" onclick="bpOpenConnect(\'' + p.postId + '\')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Connect for Deal <span class="bp-coins-cost">· 10 RN Coins</span></button>';
+      return '<div class="bp-card" id="bp-card-' + p.postId + '">' +
+        '<div class="bp-card-header">' +
+          '<div class="bp-card-avatar" style="background:' + avatarColors[ci] + ';">' + avatarHtml + '</div>' +
+          '<div class="bp-card-user-info">' +
+            '<div class="bp-card-username">' + esc(p.userName) + verifiedHtml + '</div>' +
+            '<div class="bp-card-time">' + timeAgo + '</div>' +
+          '</div>' +
+          typeBadge +
+        '</div>' +
+        '<div class="bp-card-details">' + detailRows + '</div>' +
+        extraHtml +
+        connectBtn +
+      '</div>';
+    }
+
+    function bpRenderMyPosts() {
+      var container = document.getElementById('bp-my-posts');
       if (!container) return;
-      if (_bpPosts.length === 0) {
-        container.innerHTML = '<div class="bp-empty"><div class="bp-empty-icon">🏢</div><div class="bp-empty-text">No posts yet</div><div class="bp-empty-sub">Be the first to post a requirement or property!</div></div>';
+      var uid = window.user && (window.user.id || window.user.sub);
+      var myPosts = _bpPosts.filter(function(p){ return p.userId === uid; });
+      if (myPosts.length === 0) {
+        container.innerHTML = '<div class="bp-empty" style="padding:40px 16px;"><div class="bp-empty-icon">📝</div><div class="bp-empty-text">No posts yet</div><div class="bp-empty-sub">Use the form to post your first requirement or listing!</div></div>';
         return;
       }
-      container.innerHTML = _bpPosts.map(function(p) {
-        var avatarColors = ['#c2714f','#2563eb','#16a34a','#9333ea','#ea580c','#0891b2'];
-        var ci = Math.abs((p.userId||'').charCodeAt(0)||0) % avatarColors.length;
-        var hasAvatar = p.avatarUrl && p.avatarUrl.length > 5;
-        var initials = (p.userName||'U').split(' ').map(function(w){return w[0];}).join('').substring(0,2).toUpperCase();
-        var timeAgo = bpTimeAgo(p.createdAt || p.time);
-        var isNeed = p.type === 'need';
-        var typeBadge = isNeed ? '<span class="bp-card-type-badge bp-type-need">I Need</span>' : '<span class="bp-card-type-badge bp-type-have">I Have</span>';
-        var verifiedHtml = p.verified ? '<span class="bp-verified-badge"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>MGR Verified</span>' : '';
-        var isOwn = window.user && p.userId === (window.user.id || window.user.sub);
-        var avatarHtml = hasAvatar
-          ? '<img src="' + esc(p.avatarUrl) + '" style="width:100%;height:100%;object-fit:cover;border-radius:10px;">'
-          : '<span style="font-size:15px;font-weight:800;color:#fff;">' + initials + '</span>';
-        var detailRows = '';
-        if (isNeed) {
-          detailRows = '<div class="bp-detail-item"><span class="bp-detail-label">Property</span><span class="bp-detail-value">' + esc(p.propertyType) + '</span></div>' +
-            '<div class="bp-detail-item"><span class="bp-detail-label">Purpose</span><span class="bp-detail-value">' + esc(p.purpose) + '</span></div>' +
-            '<div class="bp-detail-item"><span class="bp-detail-label">Budget</span><span class="bp-detail-value">' + esc(p.budget) + '</span></div>' +
-            '<div class="bp-detail-item"><span class="bp-detail-label">Location</span><span class="bp-detail-value">' + esc(p.location) + '</span></div>';
-        } else {
-          detailRows = '<div class="bp-detail-item"><span class="bp-detail-label">Property</span><span class="bp-detail-value">' + esc(p.propertyType) + '</span></div>' +
-            '<div class="bp-detail-item"><span class="bp-detail-label">Type</span><span class="bp-detail-value">' + esc(p.listingType) + '</span></div>' +
-            '<div class="bp-detail-item"><span class="bp-detail-label">Price</span><span class="bp-detail-value">' + esc(p.price) + '</span></div>' +
-            '<div class="bp-detail-item"><span class="bp-detail-label">Location</span><span class="bp-detail-value">' + esc(p.location) + '</span></div>';
-        }
-        var extraHtml = p.extra ? '<div style="font-size:13px;color:#6b7280;margin-bottom:14px;padding:8px 12px;background:#f9fafb;border-radius:8px;border-left:3px solid #c2714f;">' + esc(p.extra) + '</div>' : '';
-        var connectBtn = isOwn ? '' :
-          '<button class="bp-connect-btn" onclick="bpOpenConnect(\'' + p.postId + '\')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Connect for Deal <span class="bp-coins-cost">· 10 RN Coins</span></button>';
+      container.innerHTML = myPosts.map(bpBuildCard).join('');
+    }
 
-        return '<div class="bp-card" id="bp-card-' + p.postId + '">' +
-          '<div class="bp-card-header">' +
-            '<div class="bp-card-avatar" style="background:' + avatarColors[ci] + ';">' + avatarHtml + '</div>' +
-            '<div class="bp-card-user-info">' +
-              '<div class="bp-card-username">' + esc(p.userName) + verifiedHtml + '</div>' +
-              '<div class="bp-card-time">' + timeAgo + '</div>' +
-            '</div>' +
-            typeBadge +
-          '</div>' +
-          '<div class="bp-card-details">' + detailRows + '</div>' +
-          extraHtml +
-          connectBtn +
-        '</div>';
-      }).join('');
+    function bpPopulateLocationFilter() {
+      var sel = document.getElementById('bp-lib-location');
+      if (!sel) return;
+      var locs = {};
+      _bpPosts.forEach(function(p){ if(p.location) locs[p.location] = 1; });
+      var current = sel.value;
+      sel.innerHTML = '<option value="">All Locations (' + Object.keys(locs).length + ')</option>';
+      Object.keys(locs).sort().forEach(function(loc){
+        sel.innerHTML += '<option value="' + esc(loc) + '"' + (current===loc?' selected':'') + '>' + esc(loc) + '</option>';
+      });
+    }
+
+    function bpRenderLibrary() {
+      var container = document.getElementById('bp-library-feed');
+      if (!container) return;
+      bpFilterLibrary();
+    }
+
+    function bpFilterLibrary() {
+      var container = document.getElementById('bp-library-feed');
+      var countEl = document.getElementById('bp-lib-count');
+      if (!container) return;
+      var q = (document.getElementById('bp-lib-search').value || '').toLowerCase();
+      var typeFilter = document.getElementById('bp-lib-type').value;
+      var locFilter = document.getElementById('bp-lib-location').value;
+      var filtered = _bpPosts.filter(function(p){
+        if (typeFilter && p.type !== typeFilter) return false;
+        if (locFilter && p.location !== locFilter) return false;
+        if (q) {
+          var hay = ((p.userName||'') + ' ' + (p.propertyType||'') + ' ' + (p.location||'') + ' ' + (p.purpose||'') + ' ' + (p.listingType||'') + ' ' + (p.budget||'') + ' ' + (p.price||'') + ' ' + (p.extra||'')).toLowerCase();
+          if (hay.indexOf(q) === -1) return false;
+        }
+        return true;
+      });
+      if (countEl) countEl.textContent = filtered.length + ' post' + (filtered.length!==1?'s':'') + ' found';
+      if (filtered.length === 0) {
+        container.innerHTML = '<div class="bp-empty" style="padding:40px 16px;"><div class="bp-empty-icon">🔍</div><div class="bp-empty-text">No posts match your search</div><div class="bp-empty-sub">Try different filters or keywords</div></div>';
+        return;
+      }
+      container.innerHTML = filtered.map(bpBuildCard).join('');
+    }
+
+    function bpSwitchRightTab(tab) {
+      document.querySelectorAll('.bp-right-tab').forEach(function(t){t.classList.remove('active');});
+      var myPanel = document.getElementById('bp-myposts-panel');
+      var libPanel = document.getElementById('bp-library-panel');
+      if (tab === 'myposts') {
+        document.querySelector('.bp-right-tab:first-child').classList.add('active');
+        myPanel.style.display = '';
+        libPanel.style.display = 'none';
+      } else {
+        document.querySelector('.bp-right-tab:last-child').classList.add('active');
+        myPanel.style.display = 'none';
+        libPanel.style.display = '';
+        bpFilterLibrary();
+      }
     }
 
     function bpTimeAgo(ts) {
