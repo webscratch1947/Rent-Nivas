@@ -14151,11 +14151,9 @@
         setEl('pd-stat-list',    listRefs);
         setEl('pd-stat-reg2',    totalRefs);
 
-        var pdStreakEl = document.getElementById('pd-streak-day');
+        var pdStreakEl = document.getElementById('pd-se-days');
         if (pdStreakEl) {
-          var pdStreakDay = parseInt(prof?.daily_streak_day || '0', 10);
-          if (!pdStreakDay) { try { var _pds = JSON.parse(localStorage.getItem('rn-streak-v1') || 'null'); pdStreakDay = (_pds && _pds.day) || 0; } catch(e){} }
-          pdStreakEl.textContent = pdStreakDay > 0 ? pdStreakDay : '—';
+          try { bpRenderEmbeddedStreak('pd'); } catch(e){}
         }
 
         // Performance rings — signup/listing share of total referrals
@@ -21763,25 +21761,40 @@
     .bp-back-btn{display:flex;align-items:center;gap:6px;background:#f4f5f7;border:1.5px solid #e4e4ec;border-radius:8px;padding:8px 12px;font-size:13px;font-weight:600;color:#374151;cursor:pointer;transition:all .2s;}
     .bp-back-btn:hover{background:#e5e7eb;border-color:#d1d5db;}
     .bp-body{padding:12px 16px;max-width:100%;width:100%;}
-    .bp-broker-layout{display:grid;grid-template-columns:1fr 320px;gap:20px;align-items:start;}
-    .bp-streak-box{background:linear-gradient(135deg,#fff7ed,#fef3c7);border:1.5px solid #f59e0b;border-radius:16px;padding:20px;text-align:center;position:sticky;top:80px;}
-    .bp-streak-box-title{font-size:16px;font-weight:800;color:#92400e;margin-bottom:4px;}
-    .bp-streak-box-sub{font-size:12px;color:#b45309;margin-bottom:16px;}
-    .bp-streak-day-display{font-size:48px;font-weight:900;color:#92400e;line-height:1;margin-bottom:4px;}
-    .bp-streak-day-label{font-size:12px;font-weight:600;color:#b45309;margin-bottom:14px;}
-    .bp-streak-claim-btn{width:100%;padding:12px;border:none;border-radius:10px;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;font-size:14px;font-weight:800;cursor:pointer;transition:all .2s;box-shadow:0 4px 12px rgba(245,158,11,.3);}
-    .bp-streak-claim-btn:hover{transform:translateY(-1px);box-shadow:0 6px 16px rgba(245,158,11,.4);}
-    .bp-streak-claim-btn:disabled{opacity:.5;cursor:not-allowed;transform:none;}
-    .bp-streak-info{font-size:11px;color:#92400e;margin-top:10px;line-height:1.5;}
+    .bp-broker-layout{display:grid;grid-template-columns:1fr 380px;gap:20px;align-items:start;}
+    .bp-streak-embed{background:linear-gradient(160deg,#1a1510 0%,#2c2218 50%,#3d2b1f 100%);border-radius:20px;padding:24px;color:#fff;position:sticky;top:80px;overflow:hidden;}
+    .bp-streak-embed::before{content:'';position:absolute;top:-40px;right:-40px;width:120px;height:120px;background:radial-gradient(circle,rgba(245,158,11,.15),transparent 70%);pointer-events:none;}
+    .bp-streak-embed-header{display:flex;align-items:center;gap:10px;margin-bottom:16px;}
+    .bp-streak-embed-flame{font-size:28px;animation:bpStreakPulse 2s ease-in-out infinite;}
+    @keyframes bpStreakPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.1)}}
+    .bp-streak-embed-title{font-size:18px;font-weight:800;color:#fbbf24;}
+    .bp-streak-embed-sub{font-size:11px;color:rgba(255,255,255,.5);margin-top:2px;}
+    .bp-streak-embed-days{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-bottom:16px;}
+    .bp-se-day{background:rgba(255,255,255,.06);border:1.5px solid rgba(255,255,255,.08);border-radius:10px;padding:8px 2px;text-align:center;transition:all .2s;}
+    .bp-se-day.claimed{background:rgba(74,222,128,.15);border-color:rgba(74,222,128,.3);}
+    .bp-se-day.active{background:rgba(245,158,11,.2);border-color:#f59e0b;box-shadow:0 0 12px rgba(245,158,11,.3);transform:scale(1.05);}
+    .bp-se-day.locked{opacity:.35;}
+    .bp-se-day-label{font-size:8px;font-weight:600;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px;}
+    .bp-se-day-icon{font-size:16px;margin-bottom:2px;}
+    .bp-se-day-credit{font-size:11px;font-weight:800;color:#fbbf24;}
+    .bp-se-day.claimed .bp-se-day-credit{color:#4ade80;}
+    .bp-streak-embed-progress{margin-bottom:16px;}
+    .bp-se-prog-track{height:6px;background:rgba(255,255,255,.08);border-radius:3px;overflow:hidden;}
+    .bp-se-prog-fill{height:100%;background:linear-gradient(90deg,#f59e0b,#fbbf24);border-radius:3px;transition:width .4s ease;}
+    .bp-se-prog-labels{display:flex;justify-content:space-between;margin-top:6px;font-size:10px;color:rgba(255,255,255,.4);}
+    .bp-streak-embed-claim{width:100%;padding:14px;border:none;border-radius:12px;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;font-size:15px;font-weight:800;cursor:pointer;transition:all .2s;box-shadow:0 4px 16px rgba(245,158,11,.35);margin-bottom:8px;}
+    .bp-streak-embed-claim:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(245,158,11,.45);}
+    .bp-streak-embed-claim:disabled{opacity:.4;cursor:not-allowed;transform:none;box-shadow:none;}
+    .bp-streak-embed-timer{text-align:center;font-size:11px;color:rgba(255,255,255,.4);margin-top:4px;}
     .bp-right-tabs{display:flex;gap:6px;margin-bottom:14px;}
     .bp-right-tab{flex:1;padding:10px 6px;border-radius:10px;border:1.5px solid #e5e7eb;background:#fff;text-align:center;cursor:pointer;font-weight:700;font-size:13px;color:#6b7280;transition:all .2s;}
     .bp-right-tab.active{border-color:#c2714f;background:rgba(194,113,79,.06);color:#c2714f;}
     .bp-right-tab:hover:not(.active){border-color:#d1d5db;background:#f9fafb;}
-    .bp-my-posts-scroll{max-height:520px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:#d1d5db transparent;}
+    .bp-my-posts-scroll{max-height:600px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:#d1d5db transparent;}
     .bp-my-posts-scroll::-webkit-scrollbar{width:5px;}
     .bp-my-posts-scroll::-webkit-scrollbar-track{background:transparent;}
     .bp-my-posts-scroll::-webkit-scrollbar-thumb{background:#d1d5db;border-radius:10px;}
-    .bp-my-posts-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;}
+    .bp-my-posts-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;}
     .bp-card{background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:16px;transition:all .2s;box-shadow:0 1px 4px rgba(0,0,0,.04);display:flex;flex-direction:column;}
     .bp-card:hover{border-color:#d1d5db;box-shadow:0 4px 12px rgba(0,0,0,.06);}
     .bp-card-header{display:flex;align-items:center;gap:10px;margin-bottom:12px;}
@@ -21812,11 +21825,11 @@
     .bp-library-filters{display:flex;gap:6px;margin-top:8px;}
     .bp-library-filters select{flex:1;padding:7px 10px;border:1.5px solid #e5e7eb;border-radius:8px;font-size:11px;font-weight:600;color:#6b7280;background:#f9fafb;cursor:pointer;box-sizing:border-box;}
     .bp-library-filters select:focus{outline:none;border-color:#c2714f;}
-    .bp-masonry{columns:3;column-gap:14px;}
-    .bp-masonry .bp-card{break-inside:avoid;margin-bottom:14px;display:inline-block;width:100%;}
+    .bp-library-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;}
     .bp-lib-count{font-size:11px;font-weight:600;color:#9ca3af;margin-bottom:8px;}
-    @media(max-width:1024px){.bp-masonry{columns:2;}.bp-broker-layout{grid-template-columns:1fr;}.bp-streak-box{position:static;}}
-    @media(max-width:768px){.bp-topbar-inner{flex-wrap:wrap;gap:8px;padding:10px 14px;}.bp-topbar-title{font-size:15px;}.bp-topbar-sub{display:none;}.bp-back-btn{padding:6px 10px;font-size:12px;}.bp-coins-display{font-size:11px;padding:6px 14px;}.bp-body{padding:10px 12px;}#bp-stats{grid-template-columns:repeat(2,1fr) !important;}.bp-my-posts-scroll{max-height:400px;}.bp-my-posts-grid{grid-template-columns:1fr;}.bp-form-card{padding:14px;}.bp-post-tab{padding:8px 4px;font-size:12px;}.bp-masonry{columns:1;}.bp-card{padding:14px;}}
+    @media(max-width:1200px){.bp-library-grid{grid-template-columns:repeat(2,1fr);}.bp-my-posts-grid{grid-template-columns:repeat(2,1fr);}}
+    @media(max-width:1024px){.bp-broker-layout{grid-template-columns:1fr;}.bp-streak-embed{position:static;}}
+    @media(max-width:768px){.bp-topbar-inner{flex-wrap:wrap;gap:8px;padding:10px 14px;}.bp-topbar-title{font-size:15px;}.bp-topbar-sub{display:none;}.bp-back-btn{padding:6px 10px;font-size:12px;}.bp-coins-display{font-size:11px;padding:6px 14px;}.bp-body{padding:10px 12px;}#bp-stats{grid-template-columns:repeat(2,1fr) !important;}.bp-my-posts-scroll{max-height:400px;}.bp-my-posts-grid{grid-template-columns:1fr;}.bp-library-grid{grid-template-columns:1fr;}.bp-form-card{padding:14px;}.bp-post-tab{padding:8px 4px;font-size:12px;}.bp-card{padding:14px;}.bp-streak-embed-days{grid-template-columns:repeat(4,1fr);}}
     .bp-post-type-tabs{display:flex;gap:8px;margin-bottom:16px;}
     .bp-post-tab{flex:1;padding:12px 8px;border-radius:14px;border:2px solid #e5e7eb;background:#fff;text-align:center;cursor:pointer;font-weight:700;font-size:14px;color:#6b7280;transition:all .25s;}
     .bp-post-tab.active{border-color:#c2714f;background:rgba(194,113,79,.06);color:#c2714f;}
@@ -21990,16 +22003,23 @@
       </div>
       </div>
 
-      <!-- Right: Daily Streak Box -->
+      <!-- Right: Daily Streak Embed (full popup-style UI) -->
       <div>
-        <div class="bp-streak-box">
-          <div style="font-size:32px;margin-bottom:8px;">🔥</div>
-          <div class="bp-streak-box-title">Daily Streak</div>
-          <div class="bp-streak-box-sub">Claim your daily reward</div>
-          <div class="bp-streak-day-display" id="bp-streak-day">—</div>
-          <div class="bp-streak-day-label">Day of streak</div>
-          <button class="bp-streak-claim-btn" id="bp-streak-claim-btn" onclick="openStreakPopup()">🔥 Claim Reward</button>
-          <div class="bp-streak-info">Come back every day to earn credits. Consistent brokers get rewarded!</div>
+        <div class="bp-streak-embed" id="bp-streak-embed">
+          <div class="bp-streak-embed-header">
+            <div class="bp-streak-embed-flame">🔥</div>
+            <div>
+              <div class="bp-streak-embed-title" id="bp-se-title">Daily Streak</div>
+              <div class="bp-streak-embed-sub" id="bp-se-sub">Claim your daily reward</div>
+            </div>
+          </div>
+          <div class="bp-streak-embed-days" id="bp-se-days"></div>
+          <div class="bp-streak-embed-progress">
+            <div class="bp-se-prog-track"><div class="bp-se-prog-fill" id="bp-se-prog" style="width:0%"></div></div>
+            <div class="bp-se-prog-labels"><span id="bp-se-prog-label">0 / 7 days</span><span id="bp-se-coins-label">0 coins</span></div>
+          </div>
+          <button class="bp-streak-embed-claim" id="bp-se-claim" onclick="bpClaimStreak()">🔥 Claim Day</button>
+          <div class="bp-streak-embed-timer" id="bp-se-timer"></div>
         </div>
       </div>
       </div><!-- /bp-broker-layout -->
@@ -22031,8 +22051,8 @@
           </div>
         </div>
         <div class="bp-lib-count" id="bp-lib-count"></div>
-        <div id="bp-library-feed" class="bp-masonry">
-          <div style="text-align:center;padding:40px;color:#9ca3af;column-span:all;"><div style="font-size:24px;margin-bottom:8px;">⏳</div>Loading all posts...</div>
+        <div id="bp-library-feed" class="bp-library-grid">
+          <div style="text-align:center;padding:40px;color:#9ca3af;grid-column:1/-1;"><div style="font-size:24px;margin-bottom:8px;">⏳</div>Loading all posts...</div>
         </div>
       </div>
       </div><!-- /bp-feed-container -->
@@ -22389,12 +22409,7 @@
           console.warn('[Broker] Stats load failed:', es.message);
         }
         try {
-          var streakEl = document.getElementById('bp-streak-day');
-          if (streakEl) {
-            var streakDay = parseInt((_bpProfile && _bpProfile.daily_streak_day) || '0', 10);
-            if (!streakDay) { try { var _ls = JSON.parse(localStorage.getItem('rn-streak-v1') || 'null'); streakDay = (_ls && _ls.day) || 0; } catch(e2){} }
-            streakEl.textContent = streakDay > 0 ? streakDay : '—';
-          }
+          bpRenderEmbeddedStreak('bp');
         } catch(e3) {}
       } catch(e) {
         console.error('[Broker] Init failed:', e);
@@ -22514,6 +22529,101 @@
       } catch(e) {
         toast('Failed to post: ' + e.message, 'error');
       }
+    }
+
+    function bpRenderEmbeddedStreak(prefix) {
+      var daysEl = document.getElementById(prefix + '-se-days');
+      var progEl = document.getElementById(prefix + '-se-prog');
+      var progLabel = document.getElementById(prefix + '-se-prog-label');
+      var coinsLabel = document.getElementById(prefix + '-se-coins-label');
+      var claimBtn = document.getElementById(prefix + '-se-claim');
+      var timerEl = document.getElementById(prefix + '-se-timer');
+      var titleEl = document.getElementById(prefix + '-se-title');
+      var subEl = document.getElementById(prefix + '-se-sub');
+      if (!daysEl) return;
+
+      var CPD = window._bpCREDITS_PER_DAY || [1,1,1,1,1,1,1];
+      var getStreakFn = window._bpGetStreak || function(){return{day:0,lastClaimed:0,cycleStart:0};};
+      var getClaimableFn = window.getClaimableDay || function(){return 0;};
+      var msFn = window._bpMsUntilNext || function(){return 0;};
+      var fmtFn = window._bpFmtCountdown || function(){return '';};
+
+      var s = getStreakFn();
+      var claimableDay = getClaimableFn();
+      var displayDay = s.day || 0;
+      if (claimableDay === 1 && displayDay > 0 && s.lastClaimed && (Date.now() - s.lastClaimed) >= (24*60*60*1000)) {
+        displayDay = 0;
+      }
+      var claimedCount = Math.min(displayDay, 7);
+      var totalCoins = 0;
+      for (var i = 0; i < claimedCount; i++) totalCoins += CPD[i];
+
+      if (titleEl) titleEl.textContent = displayDay > 0 ? 'Day ' + displayDay + ' of 7' : 'Start Streak';
+      if (subEl) subEl.textContent = claimableDay > 0 ? 'Claim now to earn credits!' : 'Come back tomorrow';
+
+      var icons = window._bpDayIcons || ['🌱','🔑','🏠','⭐','💎','🏆','🎉'];
+      var html = '';
+      for (var d = 1; d <= 7; d++) {
+        var cls = 'bp-se-day';
+        if (d <= claimedCount) cls += ' claimed';
+        else if (d === claimableDay) cls += ' active';
+        else cls += ' locked';
+        html += '<div class="' + cls + '">' +
+          '<div class="bp-se-day-label">Day ' + d + '</div>' +
+          '<div class="bp-se-day-icon">' + icons[d-1] + '</div>' +
+          '<div class="bp-se-day-credit">+' + CPD[d-1] + '</div>' +
+          '</div>';
+      }
+      daysEl.innerHTML = html;
+
+      var pct = Math.round((claimedCount / 7) * 100);
+      if (progEl) progEl.style.width = pct + '%';
+      if (progLabel) progLabel.textContent = claimedCount + ' / 7 days';
+      if (coinsLabel) coinsLabel.textContent = totalCoins + ' coin' + (totalCoins !== 1 ? 's' : '');
+
+      if (claimBtn) {
+        if (claimableDay > 0) {
+          claimBtn.disabled = false;
+          claimBtn.innerHTML = icons[claimableDay-1] + ' Claim Day ' + claimableDay + ' — +' + CPD[claimableDay-1] + ' Credit' + (CPD[claimableDay-1] > 1 ? 's' : '');
+          claimBtn.style.background = 'linear-gradient(135deg,#f59e0b,#d97706)';
+        } else {
+          claimBtn.disabled = true;
+          claimBtn.innerHTML = '⏳ Come back tomorrow';
+          claimBtn.style.background = '#9ca3af';
+        }
+      }
+
+      if (timerEl) {
+        if (claimableDay === 0 && s.lastClaimed) {
+          var rem = msFn();
+          if (rem > 0) {
+            timerEl.textContent = fmtFn(rem);
+            if (!timerEl._bpInterval) {
+              timerEl._bpInterval = setInterval(function() {
+                var r = msFn();
+                if (r <= 0) { clearInterval(timerEl._bpInterval); timerEl._bpInterval = null; bpRenderEmbeddedStreak(prefix); }
+                else { timerEl.textContent = fmtFn(r); }
+              }, 1000);
+            }
+          } else {
+            timerEl.textContent = '';
+          }
+        } else {
+          timerEl.textContent = '';
+        }
+      }
+    }
+
+    async function bpClaimStreak() {
+      var claimableDay = window.getClaimableDay();
+      if (claimableDay === 0) return;
+      var bpClaimBtn = document.getElementById('bp-se-claim');
+      var pdClaimBtn = document.getElementById('pd-se-claim');
+      if (bpClaimBtn) { bpClaimBtn.disabled = true; bpClaimBtn.innerHTML = '⏳ Claiming...'; }
+      if (pdClaimBtn) { pdClaimBtn.disabled = true; pdClaimBtn.innerHTML = '⏳ Claiming...'; }
+      if (typeof claimStreakDay === 'function') await claimStreakDay();
+      bpRenderEmbeddedStreak('bp');
+      bpRenderEmbeddedStreak('pd');
     }
 
     async function bpLoadFeed() {
@@ -23416,12 +23526,23 @@
               <div class="pdn-card-head">
                 <div class="pdn-card-title">🔥 Daily Streak</div>
               </div>
-              <div class="pdn-card-body" style="text-align:center;">
-                <div style="font-size:36px;margin-bottom:6px;">🔥</div>
-                <div style="font-size:28px;font-weight:900;color:#92400e;" id="pd-streak-day">—</div>
-                <div style="font-size:12px;color:#b45309;margin-bottom:12px;">Day of streak</div>
-                <button onclick="openStreakPopup()" style="width:100%;padding:11px;border:none;border-radius:10px;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;font-size:13px;font-weight:800;cursor:pointer;box-shadow:0 4px 12px rgba(245,158,11,.3);">🔥 Claim Reward</button>
-                <div style="font-size:11px;color:#92400e;margin-top:8px;line-height:1.4;">1 credit per day. 7-day cycle.</div>
+              <div class="pdn-card-body" style="padding:0;">
+                <div class="bp-streak-embed" id="pd-streak-embed" style="border-radius:14px;margin:0;position:static;">
+                  <div class="bp-streak-embed-header">
+                    <div class="bp-streak-embed-flame">🔥</div>
+                    <div>
+                      <div class="bp-streak-embed-title" id="pd-se-title">Daily Streak</div>
+                      <div class="bp-streak-embed-sub" id="pd-se-sub">Claim your daily reward</div>
+                    </div>
+                  </div>
+                  <div class="bp-streak-embed-days" id="pd-se-days"></div>
+                  <div class="bp-streak-embed-progress">
+                    <div class="bp-se-prog-track"><div class="bp-se-prog-fill" id="pd-se-prog" style="width:0%"></div></div>
+                    <div class="bp-se-prog-labels"><span id="pd-se-prog-label">0 / 7 days</span><span id="pd-se-coins-label">0 coins</span></div>
+                  </div>
+                  <button class="bp-streak-embed-claim" id="pd-se-claim" onclick="bpClaimStreak()">🔥 Claim Day</button>
+                  <div class="bp-streak-embed-timer" id="pd-se-timer"></div>
+                </div>
               </div>
             </div>
 
@@ -24661,9 +24782,14 @@
         STREAK_KEY = userKey;
       };
       var CREDITS_PER_DAY = [1, 1, 1, 1, 1, 1, 1]; // Day 1=1 Day 2=2 … Day 7=7 credits
+      window._bpCREDITS_PER_DAY = CREDITS_PER_DAY;
       var DAY_MS = 24 * 60 * 60 * 1000;
       // Expose getClaimableDay globally so profile stat dot can check it
       window.getClaimableDay = function() { return typeof getClaimableDay === 'function' ? getClaimableDay() : 0; };
+      window._bpGetStreak = function() { return getStreak(); };
+      window._bpMsUntilNext = function() { return msUntilNext(); };
+      window._bpFmtCountdown = function(ms) { return fmtCountdown(ms); };
+      window._bpCREDITS_PER_DAY = null; // set after CREDITS_PER_DAY defined
 
       function getStreak() {
         try { return JSON.parse(localStorage.getItem(STREAK_KEY) || 'null') || { day: 0, lastClaimed: 0, cycleStart: 0 }; }
@@ -24707,6 +24833,7 @@
 
       // Per-day icons matching RentNivas theme
       var DAY_ICONS = ['🌱','🔑','🏠','⭐','💎','🏆','🎉'];
+      window._bpDayIcons = DAY_ICONS;
 
       function spawnParticles() {
         var container = document.getElementById('streak-particles');
@@ -24861,6 +24988,7 @@
               fireBurst();
               showStreakCelebration(rd.day, rd.credits_awarded);
               updateStreakUI();
+              try { bpRenderEmbeddedStreak('bp'); bpRenderEmbeddedStreak('pd'); } catch(_){}
               return;
             }
           } catch (e) {
@@ -24892,6 +25020,7 @@
         fireBurst();
         showStreakCelebration(claimableDay, credits);
         updateStreakUI();
+        try { bpRenderEmbeddedStreak('bp'); bpRenderEmbeddedStreak('pd'); } catch(_){}
       };
 
       // Sync streak state from server so it's accurate across devices/sessions.
