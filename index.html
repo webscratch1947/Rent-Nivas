@@ -14143,7 +14143,7 @@
 
         var pdStreakEl = document.getElementById('pd-se-days');
         if (pdStreakEl) {
-          try { bpRenderEmbeddedStreak('pd'); } catch(e){}
+          try { if (window.syncStreakFromServer) await window.syncStreakFromServer(); bpRenderEmbeddedStreak('pd'); } catch(e){}
         }
 
         // Performance rings — signup/listing share of total referrals
@@ -22028,7 +22028,7 @@
             <div class="bp-se-prog-track"><div class="bp-se-prog-fill" id="bp-se-prog" style="width:0%"></div></div>
             <div class="bp-se-prog-labels"><span id="bp-se-prog-label">0 / 7 days</span><span id="bp-se-coins-label">0 coins</span></div>
           </div>
-          <button class="bp-streak-embed-claim" id="bp-se-claim" onclick="bpClaimStreak()">🌱 Claim Day 1 — +1 Credit</button>
+          <button class="bp-streak-embed-claim" id="bp-se-claim" onclick="bpClaimStreak()" disabled>⏳ Loading...</button>
           <div class="bp-streak-embed-timer" id="bp-se-timer"></div>
         </div>
       </div>
@@ -23512,7 +23512,8 @@
           <!-- BODY GRID: Partner Level + Tasks -->
           <div class="pdn-body-grid">
 
-            <!-- Partner Level -->
+            <!-- Left Column: Partner Level + Tasks -->
+            <div style="display:flex;flex-direction:column;gap:16px;">
             <div class="pdn-card" id="pdn-sec-level">
               <div class="pdn-card-head">
                 <div class="pdn-card-title">🏆 Partner Level</div>
@@ -23541,9 +23542,23 @@
               </div>
             </div>
 
-            <!-- Right Column: Streak + Tasks side by side -->
-            <div style="display:flex;flex-direction:column;gap:16px;">
-            <!-- Daily Streak -->
+            <!-- My Tasks -->
+            <div class="pdn-card" id="pdn-sec-tasks">
+              <div class="pdn-card-head">
+                <div class="pdn-card-title">📋 My Tasks <span class="pdn-tasks-badge" id="pd-tasks-count"></span></div>
+              </div>
+              <div class="pdn-card-body" style="padding-top:12px;">
+                <div id="pd-tasks-list">
+                  <div style="text-align:center;padding:40px 20px;color:var(--muted);">
+                    <div style="font-size:32px;margin-bottom:10px;">⏳</div>
+                    <div style="font-size:14px;font-weight:600;">Loading tasks...</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            </div><!-- /left column wrapper -->
+
+            <!-- Right Column: Daily Streak -->
             <div class="pdn-card" id="pdn-sec-streak">
               <div class="pdn-card-head">
                 <div class="pdn-card-title">🔥 Daily Streak</div>
@@ -23570,27 +23585,11 @@
                     <div class="bp-se-prog-track"><div class="bp-se-prog-fill" id="pd-se-prog" style="width:0%"></div></div>
                     <div class="bp-se-prog-labels"><span id="pd-se-prog-label">0 / 7 days</span><span id="pd-se-coins-label">0 coins</span></div>
                   </div>
-                  <button class="bp-streak-embed-claim" id="pd-se-claim" onclick="bpClaimStreak()">🌱 Claim Day 1 — +1 Credit</button>
+                  <button class="bp-streak-embed-claim" id="pd-se-claim" onclick="bpClaimStreak()" disabled>⏳ Loading...</button>
                   <div class="bp-streak-embed-timer" id="pd-se-timer"></div>
                 </div>
               </div>
             </div>
-
-            <!-- My Tasks -->
-            <div class="pdn-card" id="pdn-sec-tasks">
-              <div class="pdn-card-head">
-                <div class="pdn-card-title">📋 My Tasks <span class="pdn-tasks-badge" id="pd-tasks-count"></span></div>
-              </div>
-              <div class="pdn-card-body" style="padding-top:12px;">
-                <div id="pd-tasks-list">
-                  <div style="text-align:center;padding:40px 20px;color:var(--muted);">
-                    <div style="font-size:32px;margin-bottom:10px;">⏳</div>
-                    <div style="font-size:14px;font-weight:600;">Loading tasks...</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-            </div><!-- /right column wrapper -->
           </div>
 
           <!-- PERFORMANCE RINGS -->
