@@ -22186,9 +22186,26 @@
     .bp-library-search{margin-bottom:12px;}
     .bp-library-search input{width:100%;padding:10px 14px 10px 38px;border:1.5px solid #e5e7eb;border-radius:10px;font-size:13px;color:#111827;background:#f9fafb;box-sizing:border-box;transition:border-color .2s;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cline x1='21' y1='21' x2='16.65' y2='16.65'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:12px center;}
     .bp-library-search input:focus{outline:none;border-color:#c2714f;background-color:#fff;}
-    .bp-library-filters{display:flex;gap:6px;margin-top:8px;}
-    .bp-library-filters select{flex:1;padding:7px 10px;border:1.5px solid #e5e7eb;border-radius:8px;font-size:11px;font-weight:600;color:#6b7280;background:#f9fafb;cursor:pointer;box-sizing:border-box;}
-    .bp-library-filters select:focus{outline:none;border-color:#c2714f;}
+    .bp-library-filters{display:flex;gap:8px;margin-top:8px;}
+    .bp-library-filters select{
+      flex:1;
+      padding:8px 30px 8px 12px;
+      border:1.5px solid #e5e7eb;
+      border-radius:10px;
+      font-size:12.5px;
+      font-weight:500;
+      font-family:inherit;
+      color:#374151;
+      background:#f9fafb url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E") no-repeat right 10px center;
+      background-size:14px;
+      appearance:none;
+      -webkit-appearance:none;
+      cursor:pointer;
+      box-sizing:border-box;
+      transition:border-color .2s, background-color .2s;
+    }
+    .bp-library-filters select:hover{border-color:#d1d5db;background-color:#fff;}
+    .bp-library-filters select:focus{outline:none;border-color:#c2714f;background-color:#fff;}
     .bp-library-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;}
     .bp-lib-count{font-size:11px;font-weight:600;color:#9ca3af;margin-bottom:8px;}
     @media(max-width:1200px){.bp-library-grid{grid-template-columns:repeat(2,1fr);}.bp-my-posts-grid{grid-template-columns:repeat(2,1fr);}}
@@ -22444,9 +22461,22 @@
       <!-- Admin Panel (inside feed container for tab switching) -->
       <div id="bp-admin-panel" style="display:none;">
         <div style="background:#fff;border:1px solid #f0ebe5;border-radius:16px;padding:20px;margin-bottom:20px;">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;gap:10px;flex-wrap:wrap;">
             <div style="font-size:16px;font-weight:800;color:#111827;">🛡️ Broker Admin Panel</div>
-            <div style="font-size:12px;color:#9ca3af;" id="bp-admin-posts-count"></div>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <div style="font-size:12px;color:#9ca3af;" id="bp-admin-posts-count"></div>
+              <button id="bp-admin-delete-toggle" onclick="bpAdminToggleDeleteMode()" style="font-size:11px;padding:6px 12px;border-radius:8px;border:1.5px solid #fca5a5;background:#fef2f2;color:#dc2626;cursor:pointer;font-weight:700;white-space:nowrap;">🗑️ Delete Posts</button>
+            </div>
+          </div>
+          <div id="bp-admin-delete-bar" style="display:none;align-items:center;justify-content:space-between;gap:10px;background:#fef2f2;border:1.5px solid #fca5a5;border-radius:10px;padding:10px 14px;margin-bottom:12px;">
+            <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#7f1d1d;font-weight:600;cursor:pointer;">
+              <input type="checkbox" id="bp-admin-select-all" onchange="bpAdminSelectAll(this.checked)"> Select all
+            </label>
+            <span id="bp-admin-selected-count" style="font-size:12px;color:#7f1d1d;font-weight:700;">0 selected</span>
+            <div style="display:flex;gap:8px;">
+              <button onclick="bpAdminDeleteSelected()" style="font-size:12px;padding:7px 14px;border-radius:8px;border:none;background:#dc2626;color:#fff;cursor:pointer;font-weight:700;">Delete Selected</button>
+              <button onclick="bpAdminToggleDeleteMode()" style="font-size:12px;padding:7px 14px;border-radius:8px;border:1.5px solid #e5e7eb;background:#fff;color:#374151;cursor:pointer;font-weight:600;">Cancel</button>
+            </div>
           </div>
           <input type="text" id="bp-admin-search" placeholder="Search by user, location, property type, phone..." oninput="bpAdminFilterPosts()" style="width:100%;padding:11px 14px;border:1.5px solid #f0ebe5;border-radius:10px;font-size:14px;color:#1a1a2e;background:#fdfcfa;margin-bottom:12px;box-sizing:border-box;">
           <div id="bp-admin-posts-list" style="max-height:70vh;overflow-y:auto;"></div>
@@ -23200,13 +23230,19 @@
       container.innerHTML = '<div class="bp-my-posts-grid">' + myPosts.map(bpBuildCard).join('') + '</div>';
     }
 
+    var BP_PROPERTY_TYPES = ['1 BHK','2 BHK','3 BHK','4 BHK','Studio','Villa','Commercial Shop','Office Space','Warehouse','Plot','Farmhouse','Other'];
+
     function bpPopulatePropertyTypeFilter() {
       var sel = document.getElementById('bp-lib-propertytype');
       if (!sel) return;
+      // Start from the master list (identical to the "I Need"/"I Have" forms)
+      // so the filter always shows every possible type, not just types that
+      // happen to already exist among loaded posts.
       var types = {};
+      BP_PROPERTY_TYPES.forEach(function(t){ types[t] = 1; });
       _bpPosts.forEach(function(p){ if(p.propertyType) types[p.propertyType] = 1; });
       var current = sel.value;
-      sel.innerHTML = '<option value="">All Property Types (' + Object.keys(types).length + ')</option>';
+      sel.innerHTML = '<option value="">All Property Types</option>';
       Object.keys(types).sort().forEach(function(t){
         sel.innerHTML += '<option value="' + esc(t) + '"' + (current===t?' selected':'') + '>' + esc(t) + '</option>';
       });
@@ -23345,6 +23381,61 @@
       }
     }
 
+    var _bpAdminDeleteMode = false;
+    var _bpAdminSelectedIds = {};
+
+    function bpAdminToggleDeleteMode() {
+      _bpAdminDeleteMode = !_bpAdminDeleteMode;
+      _bpAdminSelectedIds = {};
+      var bar = document.getElementById('bp-admin-delete-bar');
+      var toggleBtn = document.getElementById('bp-admin-delete-toggle');
+      if (bar) bar.style.display = _bpAdminDeleteMode ? 'flex' : 'none';
+      if (toggleBtn) toggleBtn.textContent = _bpAdminDeleteMode ? '✕ Cancel' : '🗑️ Delete Posts';
+      var selectAll = document.getElementById('bp-admin-select-all');
+      if (selectAll) selectAll.checked = false;
+      bpAdminUpdateSelectedCount();
+      bpAdminRenderPosts(window._bpAdminPosts || []);
+    }
+
+    function bpAdminToggleSelect(postId, checked) {
+      if (checked) _bpAdminSelectedIds[postId] = true;
+      else delete _bpAdminSelectedIds[postId];
+      bpAdminUpdateSelectedCount();
+    }
+
+    function bpAdminSelectAll(checked) {
+      var posts = window._bpAdminPosts || [];
+      _bpAdminSelectedIds = {};
+      if (checked) posts.forEach(function(p){ _bpAdminSelectedIds[p.postId] = true; });
+      bpAdminUpdateSelectedCount();
+      bpAdminRenderPosts(posts);
+    }
+
+    function bpAdminUpdateSelectedCount() {
+      var n = Object.keys(_bpAdminSelectedIds).length;
+      var el = document.getElementById('bp-admin-selected-count');
+      if (el) el.textContent = n + ' selected';
+    }
+
+    async function bpAdminDeleteSelected() {
+      var ids = Object.keys(_bpAdminSelectedIds);
+      if (!ids.length) { toast('Select at least one post first.', 'error'); return; }
+      if (!confirm('Permanently delete ' + ids.length + ' post' + (ids.length!==1?'s':'') + '? This removes them from the database and cannot be undone.')) return;
+      try {
+        var result = await bpRpc('broker_admin_delete_posts', { p_postIds: ids });
+        toast('Deleted ' + (result.deletedPosts||0) + ' post' + ((result.deletedPosts||0)!==1?'s':'') + ' from the database.', 'success');
+        _bpAdminSelectedIds = {};
+        bpAdminToggleDeleteMode();
+        bpAdminLoadPosts();
+        // Also refresh the public feed/library/my-posts so deleted posts
+        // disappear everywhere immediately, not just in the admin panel.
+        if (typeof bpLoadFeed === 'function') bpLoadFeed();
+        if (typeof bpRenderMyPosts === 'function') bpRenderMyPosts();
+      } catch(e) {
+        toast('Failed: ' + (e.message || 'Delete failed'), 'error');
+      }
+    }
+
     async function bpAdminLoadBrokers() {
       try {
         var posts = await bpRpc('broker_admin_posts');
@@ -23371,8 +23462,13 @@
         var bannedLabel = p.banned ? ' <span style="color:#dc2626;font-weight:700;">🚫 BANNED</span>' : '';
         var bannedStyle = p.banned ? 'border-left:3px solid #fca5a5;' : '';
         var phoneLine = p.phone ? '<div style="font-size:11px;color:#6b7280;margin-top:2px;">📞 ' + esc(p.phone) + '</div>' : '';
-        return '<div style="padding:12px 0;border-bottom:1px solid #f0ebe5;font-size:13px;" id="bp-admin-card-' + p.postId + '">' +
-          '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">' +
+        var checked = _bpAdminSelectedIds[p.postId] ? ' checked' : '';
+        var checkbox = _bpAdminDeleteMode
+          ? '<input type="checkbox" onchange="bpAdminToggleSelect(\'' + p.postId + '\', this.checked)"' + checked + ' style="width:18px;height:18px;margin-right:10px;flex-shrink:0;cursor:pointer;accent-color:#dc2626;">'
+          : '';
+        return '<div style="padding:12px 0;border-bottom:1px solid #f0ebe5;font-size:13px;display:flex;align-items:flex-start;" id="bp-admin-card-' + p.postId + '">' +
+          checkbox +
+          '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex:1;min-width:0;">' +
             '<div style="flex:1;min-width:0;' + bannedStyle + '">' +
               '<div><strong>' + esc(p.userName||'User') + badge + verifiedTick + bannedLabel + '</strong></div>' +
               '<div style="margin-top:2px;">' + (p.type==='need'?'🙋 I Need':'🏠 I Have') + ' ' + esc(p.propertyType) + ' @ ' + esc(p.location) + '</div>' +
