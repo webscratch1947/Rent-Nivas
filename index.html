@@ -11919,7 +11919,7 @@
                 <input type="text" id="adm-broker-search" placeholder="Search by name, email, phone..." oninput="admBrokerFilter()" style="width:100%;padding:10px 14px;border:1.5px solid var(--border2);border-radius:var(--r);font-size:13px;font-family:var(--font);background:var(--white);color:var(--ink);box-sizing:border-box;margin-bottom:12px;">
               </div>
               <div style="display:flex;gap:8px;margin-bottom:16px;">
-                <button onclick="admBrokerLoad()" style="background:var(--terra);color:#fff;border:none;border-radius:var(--r);padding:10px 20px;font-size:13px;font-weight:700;cursor:pointer;font-family:var(--font);">↻ Refresh</button>
+                <button onclick="if(_admBrokerView==='users')admBrokerLoadUsers();else admBrokerLoad();" style="background:var(--terra);color:#fff;border:none;border-radius:var(--r);padding:10px 20px;font-size:13px;font-weight:700;cursor:pointer;font-family:var(--font);">↻ Refresh</button>
               </div>
               <div id="adm-broker-stats" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-bottom:16px;"></div>
               <div id="adm-broker-list" style="max-height:60vh;overflow-y:auto;">
@@ -12052,22 +12052,27 @@
         var isBanned = p.banned;
         var borderStyle = isBanned ? 'border-color:#ef4444;' : '';
         var badgeStyle = isBanned ? 'background:#fef2f2;color:#dc2626;border:1px solid #fecaca;' : '';
+        var typeBadge = p.type === 'need' ? '<span style="background:#fef3ed;color:#c2714f;font-size:10px;font-weight:700;padding:2px 8px;border-radius:12px;margin-left:6px;">I NEED</span>' : '<span style="background:#f0fdf4;color:#16a34a;font-size:10px;font-weight:700;padding:2px 8px;border-radius:12px;margin-left:6px;">I HAVE</span>';
+        var priceLine = p.price ? '<span style="color:var(--ink);font-weight:700;">₹' + esc(String(p.price)) + '</span> · ' : '';
+        var budgetLine = p.budget ? '<span style="color:var(--ink);font-weight:700;">' + esc(p.budget) + '</span> · ' : '';
+        var extraHtml = p.extra ? '<div style="font-size:11px;color:#7a6e62;margin-top:4px;padding:4px 8px;background:#fdf8f2;border-radius:6px;border-left:2px solid #d4b896;">' + esc(p.extra) + '</div>' : '';
         return '<div style="background:var(--white);border:1.5px solid var(--border2);border-radius:var(--r);padding:16px;margin-bottom:8px;' + borderStyle + '">' +
           '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">' +
-            '<div>' +
-              '<div style="font-size:14px;font-weight:700;color:var(--ink);">' + (p.name || p.userName || 'Anonymous') + '</div>' +
-              '<div style="font-size:12px;color:var(--muted);">' + (p.email || '') + (p.phone ? ' · ' + p.phone : '') + '</div>' +
-              '<div style="font-size:11px;color:var(--muted);margin-top:2px;">' + (p.propertyType || p.type || '') + ' · ' + (p.location || '') + ' · ' + (p.purpose || '') + '</div>' +
+            '<div style="flex:1;min-width:0;">' +
+              '<div style="font-size:14px;font-weight:700;color:var(--ink);">' + esc(p.userName || 'Anonymous') + typeBadge + (isBanned ? ' <span style="color:#dc2626;font-weight:700;">🚫 BANNED</span>' : '') + (p.postVerified ? ' <span style="color:#2563eb;font-weight:700;">✓ Verified</span>' : '') + '</div>' +
+              '<div style="font-size:12px;color:var(--muted);margin-top:2px;">' + esc(p.email || '') + (p.phone ? ' · 📞 ' + esc(p.phone) : '') + '</div>' +
+              '<div style="font-size:12px;color:var(--ink);font-weight:600;margin-top:4px;">' + esc(p.propertyType || p.type || '') + (p.listingType ? ' · ' + esc(p.listingType) : '') + (p.purpose ? ' · ' + esc(p.purpose) : '') + '</div>' +
+              '<div style="font-size:12px;color:var(--ink);margin-top:2px;">' + (p.type === 'need' ? budgetLine : priceLine) + '📍 ' + esc(p.location || 'N/A') + '</div>' +
+              extraHtml +
+              '<div style="font-size:10px;color:var(--muted);margin-top:4px;">' + esc(p.userId || '') + ' · ' + (typeof bpTimeAgo === 'function' ? bpTimeAgo(p.createdAt) : '') + '</div>' +
             '</div>' +
-            '<div style="display:flex;gap:6px;flex-wrap:wrap;">' +
-              (isBanned ? '<span style="font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;' + badgeStyle + '">🚫 Banned</span>' : '') +
-              '<span style="font-size:11px;color:var(--muted);">Views: ' + (p.viewCount || 0) + '</span>' +
+            '<div style="display:flex;gap:4px;flex-shrink:0;">' +
+              '<span style="font-size:11px;color:var(--muted);">👁 ' + (p.viewCount || 0) + '</span>' +
             '</div>' +
           '</div>' +
           '<div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;">' +
             '<button onclick="admBrokerToggleBan(\'' + (p.postId || p.id || '') + '\',' + !!isBanned + ')" style="font-size:11px;font-weight:700;padding:6px 14px;border-radius:8px;border:1.5px solid ' + (isBanned ? '#16a34a' : '#ef4444') + ';background:' + (isBanned ? '#f0fdf4' : '#fef2f2') + ';color:' + (isBanned ? '#16a34a' : '#ef4444') + ';cursor:pointer;font-family:var(--font);">' + (isBanned ? '✓ Unban' : '🚫 Ban') + '</button>' +
             '<button onclick="admBrokerToggleVerify(\'' + (p.postId || p.id || '') + '\',' + !!p.postVerified + ')" style="font-size:11px;font-weight:700;padding:6px 14px;border-radius:8px;border:1.5px solid ' + (p.postVerified ? '#6b7280' : '#2563eb') + ';background:' + (p.postVerified ? '#f9fafb' : '#eff6ff') + ';color:' + (p.postVerified ? '#6b7280' : '#2563eb') + ';cursor:pointer;font-family:var(--font);">' + (p.postVerified ? '✓ Verified' : '👁 Verify') + '</button>' +
-            '<button onclick="admBrokerToggleBroker(\'' + (p.userId || '') + '\',' + !!p.isBroker + ')" style="font-size:11px;font-weight:700;padding:6px 14px;border-radius:8px;border:1.5px solid ' + (p.isBroker ? '#6b7280' : '#c2714f') + ';background:' + (p.isBroker ? '#f9fafb' : '#fdf8f2') + ';color:' + (p.isBroker ? '#6b7280' : '#c2714f') + ';cursor:pointer;font-family:var(--font);">' + (p.isBroker ? 'Remove Broker' : '💼 Make Broker') + '</button>' +
           '</div>' +
         '</div>';
       }).join('');
