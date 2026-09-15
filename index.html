@@ -11911,8 +11911,14 @@
             <div>
               <h3 style="font-size:18px;font-weight:700;margin-bottom:6px;">💼 Broker Network</h3>
               <p style="font-size:13px;color:var(--muted);margin-bottom:16px;">Manage broker access, posts, and connections.</p>
-              <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">
-                <input type="text" id="adm-broker-search" placeholder="Search by name, email, phone..." oninput="admBrokerFilter()" style="flex:1;min-width:200px;padding:10px 14px;border:1.5px solid var(--border2);border-radius:var(--r);font-size:13px;font-family:var(--font);background:var(--white);color:var(--ink);">
+              <div style="display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap;">
+                <button id="adm-broker-tab-posts" onclick="admBrokerSwitchView('posts')" style="padding:8px 16px;border-radius:8px;border:1.5px solid var(--terra);background:var(--terra);color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:var(--font);">📋 Broker Posts</button>
+                <button id="adm-broker-tab-users" onclick="admBrokerSwitchView('users')" style="padding:8px 16px;border-radius:8px;border:1.5px solid var(--border2);background:var(--white);color:var(--ink);font-size:12px;font-weight:700;cursor:pointer;font-family:var(--font);">👥 Broker Users</button>
+              </div>
+              <div id="adm-broker-search-wrap">
+                <input type="text" id="adm-broker-search" placeholder="Search by name, email, phone..." oninput="admBrokerFilter()" style="width:100%;padding:10px 14px;border:1.5px solid var(--border2);border-radius:var(--r);font-size:13px;font-family:var(--font);background:var(--white);color:var(--ink);box-sizing:border-box;margin-bottom:12px;">
+              </div>
+              <div style="display:flex;gap:8px;margin-bottom:16px;">
                 <button onclick="admBrokerLoad()" style="background:var(--terra);color:#fff;border:none;border-radius:var(--r);padding:10px 20px;font-size:13px;font-weight:700;cursor:pointer;font-family:var(--font);">↻ Refresh</button>
               </div>
               <div id="adm-broker-stats" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-bottom:16px;"></div>
@@ -12069,6 +12075,15 @@
 
     function admBrokerFilter() {
       var q = (document.getElementById('adm-broker-search').value || '').toLowerCase();
+      if (_admBrokerView === 'users') {
+        var users = window._admBrokerUsers || [];
+        if (!q) { admBrokerRenderUsers(users); return; }
+        var filtered = users.filter(function(u) {
+          return ((u.name || '') + ' ' + (u.email || '')).toLowerCase().indexOf(q) !== -1;
+        });
+        admBrokerRenderUsers(filtered);
+        return;
+      }
       var posts = window._admBrokerPosts || [];
       if (!q) { admBrokerRender(posts); return; }
       var filtered = posts.filter(function(p) {
@@ -12105,6 +12120,85 @@
         toast(currentlyBroker ? 'Broker access revoked' : 'Broker access granted', 'success');
         admBrokerLoad();
       } catch (e) { toast('Failed: ' + e.message, 'error'); }
+    }
+
+    var _admBrokerView = 'posts';
+    function admBrokerSwitchView(view) {
+      _admBrokerView = view;
+      var postsBtn = document.getElementById('adm-broker-tab-posts');
+      var usersBtn = document.getElementById('adm-broker-tab-users');
+      if (postsBtn) { postsBtn.style.background = view === 'posts' ? 'var(--terra)' : 'var(--white)'; postsBtn.style.color = view === 'posts' ? '#fff' : 'var(--ink)'; postsBtn.style.borderColor = view === 'posts' ? 'var(--terra)' : 'var(--border2)'; }
+      if (usersBtn) { usersBtn.style.background = view === 'users' ? 'var(--terra)' : 'var(--white)'; usersBtn.style.color = view === 'users' ? '#fff' : 'var(--ink)'; usersBtn.style.borderColor = view === 'users' ? 'var(--terra)' : 'var(--border2)'; }
+      if (view === 'users') {
+        document.getElementById('adm-broker-search').placeholder = 'Search by name, email...';
+        admBrokerLoadUsers();
+      } else {
+        document.getElementById('adm-broker-search').placeholder = 'Search by name, email, phone...';
+        admBrokerLoad();
+      }
+    }
+
+    async function admBrokerLoadUsers() {
+      var listEl = document.getElementById('adm-broker-list');
+      var statsEl = document.getElementById('adm-broker-stats');
+      if (!listEl) return;
+      listEl.innerHTML = '<div style="text-align:center;padding:30px;color:var(--muted);font-size:13px;">Loading broker users...</div>';
+      try {
+        var { data, error } = await sb.from('profiles').select('id,name,email,credits,hasBrokerPlan,verified').eq('hasBrokerPlan', true).order('name', { ascending: true });
+        if (error) throw error;
+        var users = data || [];
+        if (statsEl) {
+          statsEl.innerHTML =
+            '<div style="background:var(--white);border:1.5px solid var(--border2);border-radius:var(--r);padding:14px;text-align:center;"><div style="font-size:24px;font-weight:900;color:var(--terra);">' + users.length + '</div><div style="font-size:11px;color:var(--muted);font-weight:600;margin-top:2px;">Broker Users</div></div>';
+        }
+        window._admBrokerUsers = users;
+        admBrokerRenderUsers(users);
+      } catch (e) {
+        listEl.innerHTML = '<div style="text-align:center;padding:30px;color:var(--muted);font-size:13px;">Failed to load: ' + e.message + '</div>';
+      }
+    }
+
+    function admBrokerRenderUsers(users) {
+      var listEl = document.getElementById('adm-broker-list');
+      if (!listEl) return;
+      if (!users || users.length === 0) {
+        listEl.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted);font-size:13px;">No broker users found.</div>';
+        return;
+      }
+      listEl.innerHTML = users.map(function(u) {
+        var badgeVerified = u.verified ? '<span style="font-size:10px;background:#dbeafe;color:#2563eb;padding:2px 7px;border-radius:8px;font-weight:600;margin-left:6px;">✓ Verified</span>' : '';
+        return '<div style="background:var(--white);border:1.5px solid var(--border2);border-radius:var(--r);padding:14px;margin-bottom:8px;">' +
+          '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">' +
+            '<div>' +
+              '<div style="font-size:14px;font-weight:700;color:var(--ink);">' + (u.name || 'Unnamed') + badgeVerified + '</div>' +
+              '<div style="font-size:12px;color:var(--muted);">' + (u.email || '') + '</div>' +
+              '<div style="font-size:11px;color:var(--muted);margin-top:2px;">🪙 ' + (u.credits || 0) + ' credits</div>' +
+            '</div>' +
+            '<div style="display:flex;gap:6px;flex-wrap:wrap;">' +
+              '<button onclick="admBrokerToggleVerifyUser(\'' + (u.id || '') + '\',' + !!u.verified + ')" style="font-size:11px;font-weight:700;padding:6px 14px;border-radius:8px;border:1.5px solid ' + (u.verified ? '#6b7280' : '#2563eb') + ';background:' + (u.verified ? '#f9fafb' : '#eff6ff') + ';color:' + (u.verified ? '#6b7280' : '#2563eb') + ';cursor:pointer;font-family:var(--font);">' + (u.verified ? '✓ Verified' : '☑️ Verify User') + '</button>' +
+              '<button onclick="adminRevokeBroker(\'' + (u.id || '') + '\',\'' + (u.name || u.email || '') + '\')" style="font-size:11px;font-weight:700;padding:6px 14px;border-radius:8px;border:1.5px solid #ef4444;background:#fef2f2;color:#dc2626;cursor:pointer;font-family:var(--font);">🚫 Remove Broker</button>' +
+            '</div>' +
+          '</div>' +
+        '</div>';
+      }).join('');
+    }
+
+    async function admBrokerToggleVerifyUser(userId, currentlyVerified) {
+      if (!userId) return;
+      try {
+        var next = !currentlyVerified;
+        const { data: existsArr } = await sb.from('profiles').select('id').eq('id', userId);
+        const existsCheck = existsArr && existsArr.length > 0;
+        let error;
+        if (!existsCheck) {
+          ({ error } = await sb.from('profiles').upsert({ id: userId, verified: next }));
+        } else {
+          ({ error } = await sb.from('profiles').update({ verified: next }).eq('id', userId));
+        }
+        if (error) throw error;
+        toast(next ? '✓ User verified' : 'Verification removed', 'success');
+        admBrokerLoadUsers();
+      } catch(e) { toast('Failed: ' + e.message, 'error'); }
     }
 
     // ══ CORE UTILITIES ══
@@ -19320,6 +19414,15 @@
             _adminUsersCache = _adminUsersCache.map(u => ({ ...u, hasPartner: partnerSet.has(u.id) }));
           }
         } catch(e) { /* non-fatal — partner status display degrades gracefully */ }
+        // Batch-fetch broker access status
+        try {
+          const userIds2 = _adminUsersCache.map(u => u.id).filter(Boolean);
+          if (userIds2.length) {
+            const { data: brokerRows } = await sb.from('profiles').select('id,hasBrokerPlan').in('id', userIds2).eq('hasBrokerPlan', true);
+            const brokerSet = new Set((brokerRows || []).map(r => r.id));
+            _adminUsersCache = _adminUsersCache.map(u => ({ ...u, hasBroker: brokerSet.has(u.id) }));
+          }
+        } catch(e) { /* non-fatal */ }
         renderAdminUserList(_adminUsersCache);
       } catch (e) {
         el.innerHTML = `<div style="text-align:center;padding:32px;color:var(--muted);">${esc(e.message || 'Failed to load users')}</div>`;
@@ -19352,6 +19455,9 @@
               : `<button class="btn btn-sm" style="background:var(--green-bg);color:var(--green);font-size:12px;" onclick="adminGivePartner('${esc(u.id)}','${esc(u.name||u.email)}','${esc(u.email)}')">🤝 Give Partner</button>`}
             <button class="btn btn-sm" style="background:${u.verified ? '#dbeafe' : 'var(--blue-bg)'};color:#2563eb;font-size:12px;" onclick="adminToggleUserVerified('${esc(u.id)}','${esc(u.name||u.email)}','${esc(u.email||'')}',${u.verified ? 'true' : 'false'})">${u.verified ? '✓ Unverify' : '☑️ Verify'}</button>
             <button class="btn btn-sm" style="background:var(--blue-bg);color:var(--blue);font-size:12px;" onclick="adminEditCredits('${esc(u.id)}','${esc(u.name||u.email)}',${u.credits??0},'${esc(u.email||'')}')">💰 Credits</button>
+            ${u.hasBroker
+              ? `<button class="btn btn-sm" style="background:#fee2e2;color:#dc2626;font-size:12px;" onclick="adminRevokeBroker('${esc(u.id)}','${esc(u.name||u.email)}')">🚫 Remove Broker</button>`
+              : `<button class="btn btn-sm" style="background:linear-gradient(135deg,#fdf8f2,#f9efe3);color:#8b5e3c;font-size:12px;border:1px solid rgba(168,90,59,.2);" onclick="adminGiveBroker('${esc(u.id)}','${esc(u.name||u.email)}')">💼 Give Broker</button>`}
           </div>
         </div>`).join('');
     }
@@ -19398,6 +19504,24 @@
           toast('🔑 Login link opened in new tab', 'success');
         }
       });
+    }
+
+    async function adminGiveBroker(userId, userName) {
+      if (!userId) return;
+      try {
+        await bpRpc('broker_grant_access', { p_userId: userId });
+        toast('💼 Broker access granted to ' + userName, 'success');
+        setTimeout(loadAdminUsers, 400);
+      } catch(e) { toast('Failed: ' + e.message, 'error'); }
+    }
+
+    async function adminRevokeBroker(userId, userName) {
+      if (!userId) return;
+      try {
+        await bpRpc('broker_revoke_access', { p_userId: userId });
+        toast('🚫 Broker access revoked from ' + userName, 'success');
+        setTimeout(loadAdminUsers, 400);
+      } catch(e) { toast('Failed: ' + e.message, 'error'); }
     }
 
     // ── ADMIN CUSTOM MODAL (replaces all browser prompt/confirm) ────
@@ -22818,7 +22942,7 @@
       var verifiedHtml = p.verified ? '<span class="bp-verified-badge"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>MGR Verified</span>' : '';
       var postVerifiedHtml = p.postVerified ? '<span style="color:#2563eb;font-weight:700;font-size:11px;">✓ Post Verified</span>' : '';
       var bannedHtml = p.banned ? '<div style="background:#fef2f2;border:2px solid #fca5a5;border-radius:12px;padding:14px;text-align:center;margin:10px 0;"><div style="font-size:20px;margin-bottom:6px;">🚫</div><div style="font-size:13px;font-weight:800;color:#dc2626;">This Post Has Been Banned By An Admin</div><div style="font-size:11px;color:#9ca3af;margin-top:4px;">Contact support if you believe this is a mistake</div></div>' : '';
-      var cardBannedStyle = (p.banned && !isOwn) ? 'filter:blur(3px);pointer-events:none;opacity:.6;' : '';
+      var cardBannedStyle = (p.banned && !isOwn) ? 'border:2px solid #fca5a5;background:#fef2f2;' : '';
       var isOwn = window.user && p.userId === (window.user.id || window.user.sub);
       var avatarHtml = hasAvatar
         ? '<img src="' + esc(p.avatarUrl) + '" style="width:100%;height:100%;object-fit:cover;border-radius:10px;">'
@@ -23039,7 +23163,7 @@
         var badge = p.verified ? ' <span style="color:#2563eb;font-weight:700;">✓ MGR</span>' : '';
         var verifiedTick = p.postVerified ? ' <span style="color:#2563eb;font-weight:700;">✓ Verified</span>' : '';
         var bannedLabel = p.banned ? ' <span style="color:#dc2626;font-weight:700;">🚫 BANNED</span>' : '';
-        var bannedStyle = p.banned ? 'opacity:.5;filter:blur(1px);' : '';
+        var bannedStyle = p.banned ? 'border-left:3px solid #fca5a5;' : '';
         var phoneLine = p.phone ? '<div style="font-size:11px;color:#6b7280;margin-top:2px;">📞 ' + esc(p.phone) + '</div>' : '';
         return '<div style="padding:12px 0;border-bottom:1px solid #f0ebe5;font-size:13px;" id="bp-admin-card-' + p.postId + '">' +
           '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">' +
@@ -23055,7 +23179,6 @@
                 '<button onclick="bpAdminBanPost(\'' + p.postId + '\',' + !p.banned + ')" style="font-size:10px;padding:4px 8px;border-radius:6px;border:1px solid ' + (p.banned ? '#86efac' : '#fca5a5') + ';background:' + (p.banned ? '#f0fdf4' : '#fef2f2') + ';color:' + (p.banned ? '#16a34a' : '#dc2626') + ';cursor:pointer;font-weight:700;">' + (p.banned ? 'Unban' : 'Ban') + '</button>' +
                 '<button onclick="bpAdminVerifyPost(\'' + p.postId + '\',' + !p.postVerified + ')" style="font-size:10px;padding:4px 8px;border-radius:6px;border:1px solid ' + (p.postVerified ? '#fde68a' : '#bfdbfe') + ';background:' + (p.postVerified ? '#fefce8' : '#eff6ff') + ';color:' + (p.postVerified ? '#a16207' : '#2563eb') + ';cursor:pointer;font-weight:700;">' + (p.postVerified ? 'Unverify' : 'Verify') + '</button>' +
               '</div>' +
-              '<button onclick="bpToggleVerified(\'' + esc(p.userId) + '\')" style="font-size:10px;padding:4px 8px;border-radius:6px;border:1px solid #e5e7eb;background:#f9fafb;color:#374151;cursor:pointer;font-weight:700;">' + (p.verified ? 'Remove Broker' : 'Make Broker') + '</button>' +
             '</div>' +
           '</div></div>';
       }).join('');
