@@ -13420,7 +13420,7 @@
     // ══ PAGE ROUTING ══
     function showPage(id) {
       // Save navigation for refresh-restore (skip overlay pages)
-      try { if(id && id !== 'landing-page' && id !== 'role-page') localStorage.setItem('rn-last-nav', JSON.stringify({page:id,section:null})); } catch(e){}
+      try { if(id && id !== 'landing-page' && id !== 'role-page' && id !== 'credit-shop-page') localStorage.setItem('rn-last-nav', JSON.stringify({page:id,section:null})); } catch(e){}
       closeNotif();
       // If user is temp-banned, block all navigation except logout/landing.
       // Also block login-page — if the ban overlay is currently visible, showing
@@ -21026,21 +21026,21 @@
           const btn = document.getElementById('adm-modal-ok');
           if (btn) { btn.disabled = true; btn.textContent = 'Unlocking...'; }
           try {
-            await setCredits(currentCredits - 1);
-            const { data: purchase, error } = await sb.from('purchases').insert({
-              user_id: user.id,
-              listing_id: house.id,
-              buyer_name: (window.user && (window.user.name || window.user.email)) || '',
-              buyer_email: (window.user && window.user.email) || '',
-              created_at: new Date().toISOString()
-            }).select().maybeSingle();
-            if (error) {
-              await setCredits(currentCredits);
-              throw new Error('Unlock failed: ' + error.message);
+            // Server does the real credit check + atomic decrement + purchase
+            // record — the client no longer tells the server what the new
+            // balance should be (that used to be trivially editable from
+            // devtools).
+            const { data: spendResult, error: spendErr } = await sb.rpc('spend_credit_for_unlock', { p_property_id: house.id });
+            if (spendErr) throw new Error(spendErr.message || 'Unlock failed.');
+            const purchase = spendResult && spendResult.purchase;
+            if (typeof spendResult?.newCredits === 'number') {
+              localStorage.setItem('nestly-credits', spendResult.newCredits);
+            } else {
+              await loadCreditsFromDB();
             }
+            updateCreditsBadges();
             const purchaseId = purchase?.id || 'local-' + Date.now();
             upsertPurchaseCache(house.id, purchaseId, purchase?.created_at || new Date().toISOString());
-            updateCreditsBadges();
             toast('🔓 Unlocked! Full contact details are now visible.', 'success');
             renderDetailPage(house);
             // Show screening questions if the host set any — was previously
@@ -21059,7 +21059,7 @@
               }).catch(e => console.warn('[UnlockReward] Owner reward error:', e.message));
             }
           } catch(e) {
-            await setCredits(currentCredits).catch(()=>{});
+            await loadCreditsFromDB().catch(()=>{});
             throw e;
           }
         }
@@ -22640,7 +22640,31 @@
       });
     }
 
+    // Where to send the user back to when they close the Credit Shop.
+    // Captured at the moment the shop is opened so Back always returns to the
+    // exact page/section/tab the user was on — not just a generic "home".
+    var _rnShopReturn = null;
+
     function openCreditShop() {
+      try {
+        var curPage = document.querySelector('.page.active');
+        var ctx = { page: curPage ? curPage.id : null, section: null, adminTab: null, brokerView: null };
+        if (ctx.page === 'host-dashboard') {
+          var curSection = document.querySelector('#host-dashboard .ds-section.active');
+          if (curSection) ctx.section = curSection.id.replace('section-', '');
+          if (ctx.section === 'admin') {
+            var curAdminSub = document.querySelector('.admin-sub.active');
+            if (curAdminSub) ctx.adminTab = curAdminSub.id;
+            if (ctx.adminTab === 'adm-broker') {
+              ctx.brokerView = (typeof _admBrokerView !== 'undefined' && _admBrokerView) || 'posts';
+            }
+          }
+        } else if (ctx.page === 'rent-page') {
+          var curRentSection = document.querySelector('#rent-page .ds-section.active');
+          if (curRentSection) ctx.section = curRentSection.id;
+        }
+        _rnShopReturn = (ctx.page && ctx.page !== 'credit-shop-page') ? ctx : null;
+      } catch (e) { _rnShopReturn = null; }
       showPage('credit-shop-page');
       renderCreditShopPlans();
     }
@@ -22650,6 +22674,30 @@
     }
 
     function goBackFromCreditShop() {
+      var ctx = _rnShopReturn;
+      _rnShopReturn = null;
+      if (ctx && ctx.page && document.getElementById(ctx.page)) {
+        showPage(ctx.page);
+        if (ctx.page === 'host-dashboard' && ctx.section && typeof showSection === 'function') {
+          showSection(ctx.section);
+          if (ctx.section === 'admin' && ctx.adminTab) {
+            var tabBtn = document.querySelector('.admin-tab[onclick*="' + ctx.adminTab + '"]');
+            if (tabBtn && typeof adminTab === 'function') adminTab(tabBtn, ctx.adminTab);
+            if (ctx.adminTab === 'adm-broker' && ctx.brokerView && typeof admBrokerSwitchView === 'function') {
+              admBrokerSwitchView(ctx.brokerView);
+            }
+          }
+        } else if (ctx.page === 'rent-page' && ctx.section) {
+          var el = document.getElementById(ctx.section);
+          if (el && typeof rentShowSection === 'function') {
+            rentShowSection(ctx.section.replace('rent-section-', ''));
+          }
+        }
+        rnNavActivate('mbn-home');
+        return;
+      }
+      // Fallback: no captured context (e.g. shop opened via a direct link/refresh) —
+      // send the user to their role's home page.
       var role = localStorage.getItem('nestly-role');
       if (role === 'rent') { showPage('rent-page'); }
       else if (typeof switchToHost === 'function') { switchToHost(); }
