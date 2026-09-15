@@ -14056,6 +14056,14 @@
         setLoader(false);
         var _ov = document.getElementById('rn-refer-open-overlay');
         if (_ov) _ov.style.display = 'none';
+        // Force-unlock scroll in case it got stuck
+        if (typeof _unlockScroll === 'function') _unlockScroll();
+        document.body.style.position = '';
+        document.body.style.top = '';
+        document.body.style.left = '';
+        document.body.style.right = '';
+        document.body.style.overflow = '';
+        _scrollLockCount = 0;
       }
     }
 
@@ -14073,7 +14081,12 @@
       var _pd = document.getElementById('partner-dashboard');
       if (!_pd || !_pd.classList.contains('active')) return;
       overlay.style.display = 'flex';
-      if (typeof _lockScroll === 'function') _lockScroll();
+      // SAFETY: ensure scroll is always unlocked even if overlay gets stuck
+      setTimeout(function() {
+        if (overlay.style.display !== 'none' && typeof _unlockScroll === 'function') {
+          _unlockScroll();
+        }
+      }, 8000);
       // Fetch refer.svg and inject inline so we can listen to animation end
       fetch('/refer.svg')
         .then(function(r) { return r.text(); })
@@ -21722,11 +21735,11 @@
     function syncMobNavAuth() {
       window._rnAuthDetermined = true;
       const loggedIn = (typeof user !== 'undefined' && user !== null);
-      // Bottom nav: show on mobile when logged in, hide otherwise
+      // Bottom nav: show when logged in, hide otherwise
       // Uses ONLY inline style.display — no CSS classes, no !important fights
       const _nav = document.getElementById('rn-app-bottom-nav');
       if (_nav) {
-        const _show = loggedIn && window.innerWidth <= 768;
+        const _show = loggedIn;
         _nav.style.display = _show ? 'flex' : 'none';
       }
       // Sidebar: swap logged-in vs logged-out nav sections
@@ -21854,10 +21867,10 @@
       const _navId = _rnPageNavMap[id];
       if (_navId) rnNavActivate(_navId);
       else document.querySelectorAll('.rn-nav-btn').forEach(b => b.classList.remove('active'));
-      // Ensure bottom nav visibility on mobile
+      // Ensure bottom nav visibility
       const _nav = document.getElementById('rn-app-bottom-nav');
       const _u = (typeof user !== 'undefined' && user !== null);
-      if (_nav) _nav.style.display = (_u && window.innerWidth <= 768) ? 'flex' : 'none';
+      if (_nav) _nav.style.display = _u ? 'flex' : 'none';
       // Close partner dashboard mobile nav if open
       const _pdnMobNav = document.getElementById('pdn-mob-nav');
       if (_pdnMobNav) _pdnMobNav.classList.remove('pdn-mob-nav-visible');
@@ -21866,9 +21879,9 @@
     // Sync nav auth state on load (bottom nav + sidebar hidden until login)
     syncMobNavAuth();
 
-    // Re-apply bottom nav inline style on resize and every 500ms
+    // Re-apply bottom nav inline style on resize and every 200ms
     window.addEventListener('resize', syncMobNavAuth);
-    setInterval(syncMobNavAuth, 500);
+    setInterval(syncMobNavAuth, 200);
 
     // Global safety: catch unhandled promise rejections to prevent blank screens
     window.addEventListener('unhandledrejection', function(e) {
@@ -21880,6 +21893,24 @@
     (function() {
       var _blankCheckCount = 0;
       setInterval(function() {
+        // SAFETY: force-unlock scroll if body is stuck fixed with no overlay visible
+        if (document.body.style.position === 'fixed') {
+          var _anyOverlay = false;
+          var _refOv = document.getElementById('rn-refer-open-overlay');
+          if (_refOv && _refOv.style.display === 'flex') _anyOverlay = true;
+          var _banOv = document.getElementById('ban-overlay');
+          if (_banOv && !_banOv.classList.contains('hidden')) _anyOverlay = true;
+          var _modalBg = document.getElementById('modal-bg');
+          if (_modalBg && _modalBg.classList.contains('open')) _anyOverlay = true;
+          if (!_anyOverlay) {
+            document.body.style.position = '';
+            document.body.style.top = '';
+            document.body.style.left = '';
+            document.body.style.right = '';
+            document.body.style.overflow = '';
+            _scrollLockCount = 0;
+          }
+        }
         var _anyActive = document.querySelector('.page.active');
         var _loader = document.getElementById('loader');
         var _loaderVisible = _loader && _loader.classList.contains('show');
@@ -23593,7 +23624,6 @@
       #partner-dashboard.active {
         display: flex !important;
         flex-direction: column;
-        overflow-y: auto;
         min-height: 100vh;
       }
 
