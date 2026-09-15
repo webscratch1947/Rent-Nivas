@@ -336,6 +336,191 @@ function keyFor(table, row, filters) {
   return { [pk]: all.id };
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// AUTHORIZATION — row ownership + locked fields
+//
+// Everything below exists because the generic select/insert/update/delete
+// ops forward whatever table/filters/values the CLIENT sends straight to
+// DynamoDB. Before this, the only gate was "is this a logged-in user" —
+// nothing checked that the row being touched belonged to that user, or that
+// the fields being written were ones a plain user should ever set. That is
+// what let a browser console call like
+//   sb.from('profiles').update({credits: 999999, verified: true})
+// or
+//   sb.from('houses').update({...}).eq('id', someoneElsesListingId)
+// succeed. isAdmin(claims) is backed by the verified Cognito JWT (see
+// _auth.js) — it can't be spoofed by the client — so every check below
+// simply lets real admins through untouched while requiring everyone else
+// to only touch their own data with their own allowed fields.
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Tables a non-admin may write/delete their OWN rows in, and which field
+// identifies "own". 'SELF' means the table's own primary key IS the user's
+// id (profiles/users). Any table NOT listed here is admin-only for
+// write/delete via the generic path (deny by default) — e.g. AdminAnnouncements,
+// admin_bans (see the extra ban rule below), VerificationCodes.
+const SELF_SERVICE_OWNER_FIELD = {
+  profiles: 'SELF', users: 'SELF', Users: 'SELF',
+  houses: 'owner_id', Houses: 'owner_id', Properties: 'owner_id',
+  // NOTE: purchases/Purchases is intentionally NOT self-service. A purchase
+  // row is what reward_owner_for_unlock pays out against, so creating one
+  // must only ever happen server-side (via the spend_credit_for_unlock RPC,
+  // which does a real, atomic credit deduction first) — never a plain
+  // client insert, which is how a fake purchase could be used to farm
+  // owner-reward credits for free. Admins can still manage purchases
+  // directly via the isAdmin bypass above.
+  favorites: 'user_id', Favorites: 'user_id',
+  notifications: 'user_id', Notifications: 'user_id',
+  user_house_unlocks: 'user_id', UserHouseUnlocks: 'user_id',
+  warning_views: 'user_id', WarningViews: 'user_id',
+  announcement_views: 'user_id', AnnouncementViews: 'user_id',
+  partner_task_progress: 'user_id', PartnerTaskProgress: 'user_id',
+  partner_requests: 'user_id', partner_applications: 'user_id', PartnerApplications: 'user_id',
+  admin_appeals: 'user_id', Appeals: 'user_id',
+  admin_bans: 'user_id', Bans: 'user_id', // self-service restricted further below — expired temp bans only
+  property_reports: 'user_id', PropertyReports: 'user_id',
+  listing_questions: 'SPECIAL_LISTING_OWNER', PropertyQuestions: 'SPECIAL_LISTING_OWNER',
+  answers: 'SPECIAL_ANSWER_OWNER', PropertyAnswers: 'SPECIAL_ANSWER_OWNER',
+};
+
+// Fields on the Users/profiles row that control money, trust, or rank.
+// These can ONLY change via an admin (real verified JWT) or a dedicated
+// server-side RPC that runs its own validation — never a plain client
+// update()/upsert(), no matter whose row it targets.
+const PROFILE_LOCKED_FIELDS = new Set([
+  'credits', 'verified', 'hasBrokerPlan', 'isBroker', 'isPartner', 'isAdmin',
+  'role', 'banned', 'is_banned', 'xp', 'partner_xp',
+  'referral_code', 'referred_by_code', 'total_referrals',
+  'registration_referrals', 'listing_referrals',
+]);
+
+function mergedRowValues(row, filters) {
+  const all = Object.assign({}, (row && !Array.isArray(row)) ? row : {});
+  (filters || []).forEach(f => { if (f.op === 'eq') all[f.column] = f.value; });
+  return all;
+}
+
+// Throws if a non-admin request tries to write a locked profile field.
+function assertNoLockedFields(table, values, claims) {
+  if (isAdmin(claims)) return;
+  if (table !== 'profiles' && table !== 'users' && table !== 'Users') return;
+  if (!values) return;
+  const rows = Array.isArray(values) ? values : [values];
+  for (const row of rows) {
+    if (!row) continue;
+    const hit = Object.keys(row).find(k => PROFILE_LOCKED_FIELDS.has(k));
+    if (hit) throw new Error(`Field "${hit}" can only be changed by an admin or a server action.`);
+  }
+}
+
+// Best-effort fetch of the CURRENT row for an ownership check. Returns null
+// if it doesn't exist yet (fresh insert/upsert-create) or the key can't be
+// built yet — callers fall back to checking the values being written instead.
+async function fetchRowForOwnershipCheck(spec) {
+  try {
+    const TableName = tableName(spec.table);
+    const seedRow = (spec.values && !Array.isArray(spec.values)) ? spec.values : {};
+    const key = keyFor(spec.table, seedRow, spec.filters);
+    const got = await ddb.send(new GetItemCommand({ TableName, Key: marshall(key) }));
+    return got.Item ? fromDbItem(spec.table, unmarshall(got.Item)) : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+// Extra rule for admin_bans/Bans: a user may self-service ONLY the deletion
+// or deactivation of their OWN ban, and only once it is an expired, non-
+// permanent temp ban (mirrors the client's "clean up my expired ban" logic
+// in checkUserBan() — but verified here against the server clock, not the
+// client's, so an active ban can no longer be lifted early via devtools).
+function assertBanSelfServiceRule(existingRow) {
+  if (!existingRow) throw new Error('Ban record not found.');
+  if (existingRow.type === 'perm') throw new Error('You are not allowed to modify this ban.');
+  const untilPassed = existingRow.until && new Date(existingRow.until).getTime() < Date.now();
+  if (!untilPassed) throw new Error('You are not allowed to modify this ban.');
+}
+
+// One row's worth of ownership check. `existingRow` is the current DB row
+// (already fetched) for update/delete; pass null for a fresh insert/
+// upsert-create, in which case ownership is checked against the values
+// being written instead (so a user can create their OWN favorite/purchase/
+// appeal/etc, but never one that names somebody else's user_id/owner_id).
+function assertOwnRow(table, claims, mergedValues, existingRow) {
+  if (isAdmin(claims)) return;
+  const ownerField = SELF_SERVICE_OWNER_FIELD[table];
+  if (!ownerField) throw new Error('You are not allowed to modify this data.');
+  const myId = claims.sub;
+
+  if (ownerField === 'SELF') {
+    const targetId = (existingRow && existingRow.id) || mergedValues.id;
+    if (!targetId || targetId !== myId) throw new Error('You can only modify your own account.');
+    return;
+  }
+
+  // Screening questions are owned by the LISTING's owner, not stored with a
+  // user_id of their own — check the parent house instead.
+  if (ownerField === 'SPECIAL_LISTING_OWNER') {
+    const propertyId = (existingRow && existingRow.property_id) || mergedValues.property_id;
+    if (!propertyId) throw new Error('You are not allowed to modify this data.');
+    return { needsHouseOwnerCheck: propertyId };
+  }
+  if (ownerField === 'SPECIAL_ANSWER_OWNER') {
+    // Answers are written once by the buyer at unlock time and read by the
+    // listing owner — no generic client write path should touch them after
+    // creation, so require the caller to be creating their own answer.
+    const ownerId = (existingRow && existingRow.buyer_id) || mergedValues.buyer_id || mergedValues.user_id;
+    if (!ownerId || ownerId !== myId) throw new Error('You are not allowed to modify this data.');
+    return;
+  }
+
+  if (table === 'admin_bans' || table === 'Bans') {
+    // Ownership alone isn't enough here — see assertBanSelfServiceRule.
+    const owner = existingRow ? existingRow[ownerField] : mergedValues[ownerField];
+    if (!owner || owner !== myId) throw new Error('You are not allowed to modify this data.');
+    assertBanSelfServiceRule(existingRow);
+    return;
+  }
+
+  const owner = existingRow ? existingRow[ownerField] : mergedValues[ownerField];
+  if (!owner || owner !== myId) throw new Error('You are not allowed to modify data that is not yours.');
+}
+
+// Top-level guard called from handler() for every non-admin insert/upsert/
+// update/delete. Fetches the existing row when ownership can't be determined
+// from the filters/values alone, then delegates to assertOwnRow (plus the
+// listing_questions special case, which needs one more lookup of the parent
+// house's owner_id).
+async function assertWriteAuthorized(op, spec, claims) {
+  if (isAdmin(claims)) return;
+  assertNoLockedFields(spec.table, spec.values, claims);
+
+  const rows = Array.isArray(spec.values) ? spec.values : [spec.values || {}];
+  for (const row of rows) {
+    const merged = mergedRowValues(row, spec.filters);
+    const ownerField = SELF_SERVICE_OWNER_FIELD[spec.table];
+    let existing = null;
+    // Only bother fetching the current row when ownership can't already be
+    // read straight off the filters/values (composite-key tables like
+    // favorites/notifications/user_house_unlocks embed user_id in the key
+    // itself, so no extra read is needed for those).
+    const ownerKnownFromMerge = ownerField && ownerField !== 'SELF' &&
+      !ownerField.startsWith('SPECIAL_') &&
+      Object.prototype.hasOwnProperty.call(merged, ownerField);
+    if (op !== 'insert' && !ownerKnownFromMerge) {
+      existing = await fetchRowForOwnershipCheck(Object.assign({}, spec, { values: row }));
+    }
+    const result = assertOwnRow(spec.table, claims, merged, existing);
+    if (result && result.needsHouseOwnerCheck) {
+      const house = await readItems({
+        table: 'houses', op: 'select', select: 'id,owner_id',
+        filters: [{ op: 'eq', column: 'id', value: result.needsHouseOwnerCheck }],
+        maybeSingle: true,
+      });
+      if (!house || house.owner_id !== claims.sub) throw new Error('You are not allowed to modify data that is not yours.');
+    }
+  }
+}
+
 function applyFilters(items, filters) {
   let out = items;
   (filters || []).forEach(f => {
@@ -1853,6 +2038,79 @@ async function handleRpc(spec, claims) {
     return { rate };
   }
 
+  // ── spend_credit_for_unlock ─────────────────────────────────────────────
+  // Replaces the old client-driven flow (setCredits(current-1) +
+  // sb.from('purchases').insert(...)), which trusted the browser for both
+  // the new credit balance AND the existence of a real purchase — meaning a
+  // console call could set unlimited credits directly, or insert a fake
+  // purchase row and use it to farm reward_owner_for_unlock payouts without
+  // ever actually spending anything. Everything here runs server-side:
+  // the caller's OWN current balance is read from the DB, the spend is an
+  // atomic conditional decrement (fails outright if a race already spent
+  // the credit or the balance is insufficient), and the purchase row is
+  // created only after that decrement succeeds — with user_id forced to the
+  // caller's own id, never anything the client sends.
+  if (spec.name === 'spend_credit_for_unlock') {
+    const propertyId = String((spec.params && spec.params.p_property_id) || '').trim();
+    if (!propertyId) throw new Error('spend_credit_for_unlock requires p_property_id');
+    const buyerId = claims.sub;
+
+    const house = await readItems({
+      table: 'houses', op: 'select', select: 'id,owner_id,title',
+      filters: [{ op: 'eq', column: 'id', value: propertyId }], maybeSingle: true,
+    });
+    if (!house) throw new Error('Listing not found.');
+
+    // Already unlocked? Return the existing purchase instead of charging again.
+    const already = await readItems({
+      table: 'purchases', op: 'select', select: 'id,user_id,listing_id,created_at',
+      filters: [{ op: 'eq', column: 'user_id', value: buyerId }],
+    });
+    const list = Array.isArray(already) ? already : (already ? [already] : []);
+    const existingPurchase = list.find(p => p && p.listing_id === propertyId);
+    if (existingPurchase) return { purchase: existingPurchase, alreadyUnlocked: true };
+
+    // Atomic conditional decrement: only succeeds if the row exists AND has
+    // at least 1 credit right now, per the database — not per whatever the
+    // client last happened to render.
+    let newCredits;
+    try {
+      const result = await ddb.send(new UpdateItemCommand({
+        TableName: TABLES.profiles,
+        Key: marshall({ userId: buyerId }),
+        UpdateExpression: 'SET credits = credits - :one',
+        ConditionExpression: 'attribute_exists(userId) AND credits >= :one',
+        ExpressionAttributeValues: marshall({ ':one': 1 }),
+        ReturnValues: 'ALL_NEW',
+      }));
+      newCredits = parseFloat(unmarshall(result.Attributes).credits || 0);
+    } catch (e) {
+      if (e && /ConditionalCheckFailedException/i.test(e.name || '')) {
+        throw new Error('You need at least 1 credit to unlock this listing.');
+      }
+      throw e;
+    }
+
+    const purchaseId = crypto.randomUUID();
+    const nowIso = new Date().toISOString();
+    await ddb.send(new PutItemCommand({
+      TableName: TABLES.purchases,
+      Item: marshall({
+        purchaseId,
+        user_id: buyerId,
+        listing_id: propertyId,
+        buyer_name: String(claims.name || claims.email || ''),
+        buyer_email: String(claims.email || ''),
+        created_at: nowIso,
+      }),
+    }));
+
+    return {
+      purchase: { id: purchaseId, user_id: buyerId, listing_id: propertyId, created_at: nowIso },
+      newCredits,
+    };
+  }
+
   // ── reward_owner_for_unlock ───────────────────────────────────────────────
   // Called by the frontend immediately after a successful unlock purchase.
   // Finds the property owner and adds credits * unlock_owner_reward_rate to them.
@@ -3038,10 +3296,11 @@ module.exports = async function handler(req, res) {
 
     let data;
     if (spec.op === 'select') data = await readItems(spec);
-    else if (spec.op === 'insert') data = await putRows(spec, false);
-    else if (spec.op === 'upsert') data = await putRows(spec, true);
-    else if (spec.op === 'update') data = await updateRows(spec);
+    else if (spec.op === 'insert') { await assertWriteAuthorized('insert', spec, claims); data = await putRows(spec, false); }
+    else if (spec.op === 'upsert') { await assertWriteAuthorized('upsert', spec, claims); data = await putRows(spec, true); }
+    else if (spec.op === 'update') { await assertWriteAuthorized('update', spec, claims); data = await updateRows(spec); }
     else if (spec.op === 'delete') {
+      await assertWriteAuthorized('delete', spec, claims);
       // ── Referral-history cleanup ────────────────────────────────────────
       // If the house being deleted was ever awarded as a listing referral,
       // its snapshot lives permanently in Referrals.referredListings (it's
