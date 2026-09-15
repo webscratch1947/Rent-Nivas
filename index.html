@@ -1452,10 +1452,7 @@
     }
 
     /* Hide bottom nav on role page */
-    #role-page.active ~ .mob-bottom-nav,
-    #role-page.active ~ .pdn-bottom-nav,
-    body:has(#role-page.active) .mob-bottom-nav,
-    body:has(#role-page.active) .pdn-bottom-nav {
+    body:has(#role-page.active) .rn-app-bnav {
       display: none !important;
     }
 
@@ -5714,37 +5711,33 @@
       }
     }
 
-    /* ── BOTTOM NAV BAR ── */
-    /* Hidden by default; JS adds .mob-nav-visible when logged in to show it on mobile */
-    .mob-bottom-nav {
+    /* ── BOTTOM NAV BAR (v2 — fresh rebuild) ── */
+    .rn-app-bnav {
       display: none !important;
       position: fixed;
       bottom: 0;
       left: 0;
       right: 0;
       z-index: 7000;
-      height: calc(64px + var(--rn-safe-bot));
-      padding-bottom: var(--rn-safe-bot);
-      background: var(--white);
+      height: calc(64px + var(--rn-safe-bot, 0px));
+      padding-bottom: var(--rn-safe-bot, 0px);
+      background: rgba(255,255,255,.92);
       border-top: 1px solid var(--border);
-      box-shadow: 0 -4px 24px rgba(24, 21, 15, .09);
+      box-shadow: 0 -4px 24px rgba(24,21,15,.09);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
       align-items: stretch;
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
     }
-
-    @media (max-width: 768px) {
-      .mob-bottom-nav.mob-nav-visible {
-        display: flex !important;
-      }
+    /* Visibility controlled by body.rn-nav-ok — NOT by a class on the nav itself */
+    body.rn-nav-ok .rn-app-bnav { display: flex !important; }
+    @media (min-width: 769px) {
+      body.rn-nav-ok .rn-app-bnav { display: none !important; }
     }
-
-    body.dark .mob-bottom-nav {
-      background: #1a1a1a;
+    body.dark .rn-app-bnav {
+      background: rgba(26,26,26,.92);
       border-top-color: #333;
     }
-
-    .mob-bottom-btn {
+    .rn-nav-btn {
       flex: 1;
       min-width: 0;
       display: flex;
@@ -5763,27 +5756,16 @@
       min-height: 64px;
       overflow: hidden;
     }
-
-    .mob-bottom-btn.active {
-      color: var(--terra);
-    }
-
-    .mob-bottom-btn:active {
-      opacity: .75;
-    }
-
-    .mbn-icon {
+    .rn-nav-btn.active { color: var(--terra); }
+    .rn-nav-btn:active { opacity: .75; }
+    .rn-nav-ico {
       font-size: 19px;
       line-height: 1;
       transition: transform .18s;
       flex-shrink: 0;
     }
-
-    .mob-bottom-btn.active .mbn-icon {
-      transform: scale(1.12);
-    }
-
-    .mbn-label {
+    .rn-nav-btn.active .rn-nav-ico { transform: scale(1.12); }
+    .rn-nav-lbl {
       font-size: 9.5px;
       font-weight: 700;
       letter-spacing: .2px;
@@ -7644,8 +7626,8 @@
         -webkit-overflow-scrolling: touch;
       }
 
-      /* ══ BOTTOM NAV — display controlled by JS only ══ */
-      .mob-bottom-nav {
+      /* ══ BOTTOM NAV (v2) ══ */
+      .rn-app-bnav {
         align-items: stretch;
       }
 
@@ -7656,7 +7638,7 @@
     /* ══ SAFE AREA INSETS (iPhone notch/home bar) ══ */
     @supports (padding-bottom: env(safe-area-inset-bottom)) {
       @media (max-width: 768px) {
-        .mob-bottom-nav {
+        .rn-app-bnav {
           padding-bottom: env(safe-area-inset-bottom);
           height: calc(64px + env(safe-area-inset-bottom));
         }
@@ -8710,22 +8692,22 @@
       }
 
       /* ─────────────────────────────────────────────────
-         26. BOTTOM NAV  
+         26. BOTTOM NAV (v2)
       ───────────────────────────────────────────────── */
-      .mob-bottom-nav {
+      .rn-app-bnav {
         align-items: stretch !important;
       }
 
-      .mob-bottom-btn {
+      .rn-nav-btn {
         min-height: 60px;
         padding: 4px 2px;
       }
 
-      .mbn-icon {
+      .rn-nav-ico {
         font-size: 18px;
       }
 
-      .mbn-label {
+      .rn-nav-lbl {
         font-size: 9px;
       }
 
@@ -8736,7 +8718,7 @@
     /* ── Safe area insets (notch / home bar) ── */
     @supports (padding-bottom: env(safe-area-inset-bottom)) {
       @media (max-width: 768px) {
-        .mob-bottom-nav {
+        .rn-app-bnav {
           padding-bottom: env(safe-area-inset-bottom);
           height: calc(62px + env(safe-area-inset-bottom));
         }
@@ -9306,7 +9288,7 @@
     /* ══ Safe area (notch phones) ══════════════════════════════════ */
     @supports (padding-bottom: env(safe-area-inset-bottom)) {
       @media (max-width: 768px) {
-        .mob-bottom-nav {
+        .rn-app-bnav {
           padding-bottom: env(safe-area-inset-bottom) !important;
           height: calc(62px + env(safe-area-inset-bottom)) !important;
         }
@@ -13428,7 +13410,7 @@
       document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
       if (_targetEl) _targetEl.classList.add('active');
       // Scope the redesigned bottom-nav look to the Partner Dashboard only.
-      var _mbn = document.getElementById('mob-bottom-nav');
+      var _mbn = document.getElementById('rn-app-bottom-nav');
       if (_mbn) _mbn.classList.toggle('pdn-navstyle', id === 'partner-dashboard');
       // Always unlock scroll when navigating pages (prevents stuck scroll from sidebar)
       document.body.style.position = '';
@@ -15398,8 +15380,7 @@
         }
       } catch (e) {}
       syncMobNavAuth(); // now reflects the REAL logged-in state → shows Dashboard button
-      const bottomNav = document.getElementById('mob-bottom-nav');
-      if (bottomNav) bottomNav.classList.remove('mob-nav-visible');
+      document.body.classList.remove('rn-nav-ok');
       setTimeout(function () {
         const el = document.getElementById('support');
         if (el) window.scrollTo({ top: el.offsetTop - 20, behavior: 'smooth' });
@@ -18245,7 +18226,7 @@
       const ts = document.getElementById('rent-topbar-s'); if (ts) ts.textContent = _ri[1];
       // Sync bottom nav
       const mbnMap = { browse: 'mbn-rent', purchased: 'mbn-rent', profile: 'mbn-profile' };
-      document.querySelectorAll('.mob-bottom-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.rn-nav-btn').forEach(b => b.classList.remove('active'));
       const mbnEl = document.getElementById(mbnMap[sec] || 'mbn-rent');
       if (mbnEl) mbnEl.classList.add('active');
       // Load section content
@@ -21714,19 +21695,19 @@
           setTimeout(function () {
             if (g === 'home') {
               if (typeof switchToHost === 'function') switchToHost(); else showPage('host-dashboard');
-              if (typeof mobBottomActive === 'function') mobBottomActive('mbn-home');
+              if (typeof rnNavActivate === 'function') rnNavActivate('mbn-home');
             } else if (g === 'rent') {
               showPage('rent-page');
               if (typeof loadRentPage === 'function') loadRentPage();
-              if (typeof mobBottomActive === 'function') mobBottomActive('mbn-rent');
+              if (typeof rnNavActivate === 'function') rnNavActivate('mbn-rent');
             } else if (g === 'referral') {
               if (typeof openReferralPanel === 'function') openReferralPanel();
-              if (typeof mobBottomActive === 'function') mobBottomActive('mbn-referral');
+              if (typeof rnNavActivate === 'function') rnNavActivate('mbn-referral');
             } else if (g === 'profile') {
               const role = localStorage.getItem('nestly-role');
               if (role === 'rent') { if (typeof rentShowSection === 'function') rentShowSection('profile'); }
               else if (typeof switchToHost === 'function') { Promise.resolve(switchToHost()).then(function () { showSection('profile'); }); }
-              if (typeof mobBottomActive === 'function') mobBottomActive('mbn-profile');
+              if (typeof rnNavActivate === 'function') rnNavActivate('mbn-profile');
             }
           }, 400);
         });
@@ -21741,16 +21722,8 @@
     function syncMobNavAuth() {
       window._rnAuthDetermined = true;
       const loggedIn = (typeof user !== 'undefined' && user !== null);
-      // Bottom nav: only show when logged in AND on mobile
-      // Uses class toggle — CSS media query controls actual rendering
-      const bottomNav = document.getElementById('mob-bottom-nav');
-      if (bottomNav) {
-        if (loggedIn) {
-          bottomNav.classList.add('mob-nav-visible');
-        } else {
-          bottomNav.classList.remove('mob-nav-visible');
-        }
-      }
+      // Bottom nav: toggle body class — CSS media query controls actual rendering
+      document.body.classList.toggle('rn-nav-ok', loggedIn);
       // Sidebar: swap logged-in vs logged-out nav sections
       const navOut = document.getElementById('mob-nav-loggedout');
       const navIn = document.getElementById('mob-nav-loggedin');
@@ -21806,12 +21779,14 @@
       _unlockScroll();
     }
 
-    // ══ MOBILE BOTTOM NAV ══
-    function mobBottomActive(id) {
-      document.querySelectorAll('.mob-bottom-btn').forEach(b => b.classList.remove('active'));
+    // ══ MOBILE BOTTOM NAV (v2) ══
+    function rnNavActivate(id) {
+      document.querySelectorAll('.rn-nav-btn').forEach(b => b.classList.remove('active'));
       const el = document.getElementById(id);
       if (el) el.classList.add('active');
     }
+    // Keep old name as alias so any remaining callers don't break
+    var mobBottomActive = rnNavActivate;
 
     // Dedicated Partner Dashboard bottom nav (Overview/Tasks/Referrals/Profile)
     function pdnNavActive(id) {
@@ -21852,12 +21827,13 @@
     }
 
     // Sync bottom nav active tab with page changes
-    const _mbnPageMap = {
+    const _rnPageNavMap = {
       'landing-page': 'mbn-home',
       'rent-page': 'mbn-rent',
       'purchased-page': null,
       'detail-page': 'mbn-rent',
       'host-dashboard': 'mbn-home',
+      'broker-page': null,
       'reset-password-page': null,
       'partner-page': null,
       'partner-dashboard': null,
@@ -21869,34 +21845,20 @@
       // Close any open modal when navigating to a new page
       const modalBg = document.getElementById('modal-bg');
       if (modalBg && modalBg.classList.contains('open')) modalBg.classList.remove('open');
-      const mbnId = _mbnPageMap[id];
-      if (mbnId) mobBottomActive(mbnId);
-      else document.querySelectorAll('.mob-bottom-btn').forEach(b => b.classList.remove('active'));
-      // Show/hide main bottom nav based on active page
-      const _siteNav = document.getElementById('mob-bottom-nav');
+      // Update bottom nav active state
+      const _navId = _rnPageNavMap[id];
+      if (_navId) rnNavActivate(_navId);
+      else document.querySelectorAll('.rn-nav-btn').forEach(b => b.classList.remove('active'));
+      // Ensure body class stays in sync
+      const _u = (typeof user !== 'undefined' && user !== null);
+      document.body.classList.toggle('rn-nav-ok', _u);
+      // Close partner dashboard mobile nav if open
       const _pdnMobNav = document.getElementById('pdn-mob-nav');
-      if (_siteNav && user) {
-        _siteNav.classList.add('mob-nav-visible');
-        if (window.innerWidth <= 768) _siteNav.style.display = 'flex';
-      }
       if (_pdnMobNav) _pdnMobNav.classList.remove('pdn-mob-nav-visible');
     };
 
     // Sync nav auth state on load (bottom nav + sidebar hidden until login)
     syncMobNavAuth();
-
-    // Belt-and-suspenders: periodically ensure bottom nav is visible on mobile when logged in
-    setInterval(function() {
-      var _bn = document.getElementById('mob-bottom-nav');
-      if (!_bn) return;
-      var _u = (typeof user !== 'undefined' && user !== null);
-      if (_u && window.innerWidth <= 768) {
-        if (!_bn.classList.contains('mob-nav-visible')) _bn.classList.add('mob-nav-visible');
-        _bn.style.display = 'flex';
-      } else if (!_u || window.innerWidth > 768) {
-        _bn.style.display = '';
-      }
-    }, 1000);
 
     // Global safety: catch unhandled promise rejections to prevent blank screens
     window.addEventListener('unhandledrejection', function(e) {
@@ -22510,7 +22472,7 @@
   <div class="page" id="referral-page">
     <div class="rnref-wrap">
       <div class="rnref-header">
-        <button class="rnref-back-btn" onclick="closeModal();if(typeof switchToHost==='function'){switchToHost();}else{showPage('host-dashboard');}mobBottomActive('mbn-home')">←</button>
+        <button class="rnref-back-btn" onclick="closeModal();if(typeof switchToHost==='function'){switchToHost();}else{showPage('host-dashboard');}rnNavActivate('mbn-home')">←</button>
         <div class="rnref-badge">Referral Program</div>
         <div class="rnref-header-title">Refer your friend</div>
       </div>
@@ -22635,7 +22597,7 @@
       if (role === 'rent') { showPage('rent-page'); }
       else if (typeof switchToHost === 'function') { switchToHost(); }
       else { showPage('host-dashboard'); }
-      mobBottomActive('mbn-home');
+      rnNavActivate('mbn-home');
     }
 
     function renderCreditShopPlans() {
@@ -23195,7 +23157,7 @@
       if (role === 'rent') { showPage('rent-page'); }
       else if (typeof switchToHost === 'function') { try { switchToHost(); } catch(e) { showPage('host-dashboard'); } }
       else { showPage('host-dashboard'); }
-      mobBottomActive('mbn-home');
+      rnNavActivate('mbn-home');
     }
 
     /* ═══════════════════════════════════════════════════════
@@ -23845,7 +23807,7 @@
     <div class="pdn-topbar">
       <div class="pdn-topbar-main">
         <div style="display:flex;align-items:center;gap:10px;">
-          <button class="pdn-back-arrow-btn" onclick="closeModal();if(typeof switchToHost==='function'){switchToHost();}else{showPage('host-dashboard');}mobBottomActive('mbn-home')" title="Back">&#8592;</button>
+          <button class="pdn-back-arrow-btn" onclick="closeModal();if(typeof switchToHost==='function'){switchToHost();}else{showPage('host-dashboard');}rnNavActivate('mbn-home')" title="Back">&#8592;</button>
           <div class="pdn-topbar-title">Partner Dashboard</div>
         </div>
         <div class="pdn-inline-ref">
@@ -24189,44 +24151,38 @@
     </div>
   </div>
 
-  <!-- ══ MOBILE BOTTOM NAV BAR (Airbnb-style) ══ -->
-  <!-- BOTTOM NAV: hidden until logged in -->
-  <nav class="mob-bottom-nav" id="mob-bottom-nav">
-    <button class="mob-bottom-btn" id="mbn-home" onclick="closeModal();if(typeof switchToHost==='function'){switchToHost();}else{showPage('host-dashboard');}mobBottomActive('mbn-home')">
-      <span class="mbn-icon">
+  <!-- ══ BOTTOM NAV BAR (v2 — fresh rebuild) ══ -->
+  <nav id="rn-app-bottom-nav" class="rn-app-bnav">
+    <button class="rn-nav-btn" id="mbn-home" onclick="closeModal();if(typeof switchToHost==='function'){switchToHost();}else{showPage('host-dashboard');}rnNavActivate('mbn-home')">
+      <span class="rn-nav-ico">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
       </span>
-      <span class="mbn-label">Home</span>
+      <span class="rn-nav-lbl">Home</span>
     </button>
-    <button class="mob-bottom-btn" id="mbn-rent"
-      onclick="closeModal();showPage('rent-page');if(typeof loadRentPage==='function')loadRentPage();mobBottomActive('mbn-rent')">
-      <span class="mbn-icon">
+    <button class="rn-nav-btn" id="mbn-rent" onclick="closeModal();showPage('rent-page');if(typeof loadRentPage==='function')loadRentPage();rnNavActivate('mbn-rent')">
+      <span class="rn-nav-ico">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
       </span>
-      <span class="mbn-label">Rent</span>
+      <span class="rn-nav-lbl">Rent</span>
     </button>
-
-    <button class="mob-bottom-btn" id="mbn-referral" onclick="closeModal();openReferralPanel();mobBottomActive('mbn-referral')">
-      <span class="mbn-icon">
+    <button class="rn-nav-btn" id="mbn-referral" onclick="closeModal();openReferralPanel();rnNavActivate('mbn-referral')">
+      <span class="rn-nav-ico">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg>
       </span>
-      <span class="mbn-label">Referral</span>
+      <span class="rn-nav-lbl">Referral</span>
     </button>
-
-    <button class="mob-bottom-btn" id="mbn-shop" onclick="closeModal();openCreditShop();mobBottomActive('mbn-shop')">
-      <span class="mbn-icon">
+    <button class="rn-nav-btn" id="mbn-shop" onclick="closeModal();openCreditShop();rnNavActivate('mbn-shop')">
+      <span class="rn-nav-ico">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
       </span>
-      <span class="mbn-label">Shop</span>
+      <span class="rn-nav-lbl">Shop</span>
     </button>
-
-    <button class="mob-bottom-btn" id="mbn-profile"
-      onclick="closeModal();mobBottomActive('mbn-profile');var _r=localStorage.getItem('nestly-role');if(_r==='rent'){rentShowSection('profile');}else{var _hd=document.getElementById('host-dashboard');if(_hd&&_hd.classList.contains('active')){showSection('profile');}else if(typeof switchToHost==='function'){Promise.resolve(switchToHost()).then(function(){showSection('profile');mobBottomActive('mbn-profile');});}else{showPage('host-dashboard');showSection('profile');}}">
-      <span class="mbn-icon" style="position:relative;display:inline-flex;align-items:center;justify-content:center;">
+    <button class="rn-nav-btn" id="mbn-profile" onclick="closeModal();rnNavActivate('mbn-profile');var _r=localStorage.getItem('nestly-role');if(_r==='rent'){rentShowSection('profile');}else{var _hd=document.getElementById('host-dashboard');if(_hd&&_hd.classList.contains('active')){showSection('profile');}else if(typeof switchToHost==='function'){Promise.resolve(switchToHost()).then(function(){showSection('profile');rnNavActivate('mbn-profile');});}else{showPage('host-dashboard');showSection('profile');}}">
+      <span class="rn-nav-ico" style="position:relative;display:inline-flex;align-items:center;justify-content:center;">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
         <span id="mbn-unlocked-badge" style="display:none;position:absolute;top:-6px;right:-10px;background:#15803d;color:#fff;font-size:8px;font-weight:800;border-radius:20px;padding:1px 5px;line-height:1.4;min-width:14px;text-align:center;"></span>
       </span>
-      <span class="mbn-label">Profile</span>
+      <span class="rn-nav-lbl">Profile</span>
     </button>
   </nav>
 
