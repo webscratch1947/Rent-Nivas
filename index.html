@@ -22207,6 +22207,7 @@
     .bp-library-filters select:hover{border-color:#d1d5db;background-color:#fff;}
     .bp-library-filters select:focus{outline:none;border-color:#c2714f;background-color:#fff;}
     .bp-library-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;}
+    .bp-library-grid > .bp-empty{grid-column:1/-1;}
     .bp-lib-count{font-size:11px;font-weight:600;color:#9ca3af;margin-bottom:8px;}
     @media(max-width:1200px){.bp-library-grid{grid-template-columns:repeat(2,1fr);}.bp-my-posts-grid{grid-template-columns:repeat(2,1fr);}}
     @media(max-width:1024px){.bp-broker-layout{grid-template-columns:1fr;}}
@@ -23273,7 +23274,8 @@
       });
       if (countEl) countEl.textContent = filtered.length + ' post' + (filtered.length!==1?'s':'') + ' found';
       if (filtered.length === 0) {
-        container.innerHTML = '<div class="bp-empty" style="padding:40px 16px;"><div class="bp-empty-icon">🔍</div><div class="bp-empty-text">No posts match your search</div><div class="bp-empty-sub">Try different filters or keywords</div></div>';
+        container.innerHTML = '<div class="bp-empty" style="padding:40px 16px;grid-column:1/-1;">' +
+          '<div class="bp-empty-icon">🔍</div><div class="bp-empty-text">No posts match your search</div><div class="bp-empty-sub">Try different filters or keywords</div></div>';
         return;
       }
       container.innerHTML = filtered.map(bpBuildCard).join('');
