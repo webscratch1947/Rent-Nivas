@@ -5714,8 +5714,8 @@
       }
     }
 
-    /* ── MOBILE BOTTOM NAV BAR (hidden on desktop) ── */
-    /* Bottom nav: hidden on desktop always, JS controls on mobile */
+    /* ── BOTTOM NAV BAR ── */
+    /* Hidden by default; JS adds .mob-nav-visible when logged in to show it */
     .mob-bottom-nav {
       display: none !important;
       position: fixed;
@@ -5733,15 +5733,8 @@
       -webkit-backdrop-filter: blur(12px);
     }
 
-    @media (max-width: 768px) {
-      .mob-bottom-nav {
-        display: none !important;
-        /* JS will set display:flex when logged in */
-      }
-
-      .mob-bottom-nav.mob-nav-visible {
-        display: flex !important;
-      }
+    .mob-bottom-nav.mob-nav-visible {
+      display: flex !important;
     }
 
     body.dark .mob-bottom-nav {
@@ -15773,18 +15766,23 @@
 
     // ══ FETCH HOUSES ══
     async function fetchHouses(force = false) {
-      if (!user) return [];
-      if (allHouses.length && !force) return allHouses;
-      const { data, error } = await withTimeout(
-        sb.from('houses').select('*').eq('owner_id', user.id).order('created_at', { ascending: false }),
-        6000,
-        'Listings request timed out. Please try again.'
-      );
-      if (error) { toast('Failed to load listings: ' + error.message, 'error'); return []; }
-      allHouses = data || [];
-      const nbEl = document.getElementById('nb-count');
-      if (nbEl) nbEl.textContent = allHouses.length;
-      return allHouses;
+      try {
+        if (!user) return [];
+        if (allHouses.length && !force) return allHouses;
+        const { data, error } = await withTimeout(
+          sb.from('houses').select('*').eq('owner_id', user.id).order('created_at', { ascending: false }),
+          6000,
+          'Listings request timed out. Please try again.'
+        );
+        if (error) { toast('Failed to load listings: ' + error.message, 'error'); return []; }
+        allHouses = data || [];
+        const nbEl = document.getElementById('nb-count');
+        if (nbEl) nbEl.textContent = allHouses.length;
+        return allHouses;
+      } catch (e) {
+        console.warn('[Nestly] fetchHouses error:', e.message);
+        return allHouses || [];
+      }
     }
 
     // Returns the effective rent for a listing — sums floor rents when floors exist
@@ -21864,6 +21862,12 @@
 
     // Sync nav auth state on load (bottom nav + sidebar hidden until login)
     syncMobNavAuth();
+
+    // Global safety: catch unhandled promise rejections to prevent blank screens
+    window.addEventListener('unhandledrejection', function(e) {
+      console.warn('[Nestly] Unhandled promise rejection (caught by safety net):', e.reason);
+      e.preventDefault();
+    });
 
     // Close sidebar on swipe left
     (function () {
