@@ -15542,6 +15542,7 @@
         localStorage.removeItem('paidUser');
         localStorage.removeItem('rn-lb-last-fetch');
         localStorage.removeItem('rn-lb-data');
+        localStorage.removeItem('rn-last-nav');
       } catch (e) {}
       await sb.auth.signOut();
       finishLoggedOutState();
@@ -15593,15 +15594,21 @@
       // user doesn't match, wipe the stale values before anything reads them.
       try {
         var _cacheOwner = localStorage.getItem('nestly-cache-owner');
-        if (_cacheOwner !== user.id) {
+        // Only wipe when we KNOW a different account previously owned this
+        // cache (_cacheOwner set AND different). Treat "never tagged yet"
+        // as nothing to compare against, not as a mismatch — otherwise the
+        // very first refresh after a brand-new login/signup wipes the role
+        // you just picked, since this tag is only ever written from inside
+        // this same block.
+        if (_cacheOwner && _cacheOwner !== user.id) {
           localStorage.removeItem('nestly-credits');
           localStorage.removeItem('nestly-role');
           localStorage.removeItem('nestly-unlocked');
           localStorage.removeItem('paidUser');
           localStorage.removeItem('rn-lb-last-fetch');
           localStorage.removeItem('rn-lb-data');
-          localStorage.setItem('nestly-cache-owner', user.id);
         }
+        localStorage.setItem('nestly-cache-owner', user.id);
       } catch (e) {}
       console.log('[Nestly] initDash user:', user.email);
       if (typeof window.rnStreakSetUser === 'function') window.rnStreakSetUser(user.id);
@@ -21315,19 +21322,21 @@
         hideBootSplash();
         // Check crown after login — user may be #1
         setTimeout(function() { if (typeof window._checkCrown === 'function') window._checkCrown(); }, 2000);
-        // Restore last page/section visited before refresh
+        // Restore last page/section visited before refresh. This must never
+        // be able to bypass role selection: a stale rn-last-nav entry left
+        // over from a previous account/session (e.g. after logout, before
+        // doLogout existed) used to force-navigate straight to a dashboard
+        // page with no role ever set and no page init run — the role-page
+        // would silently "disappear" and the app would render half-set-up,
+        // looking bugged ("says host and stuff"). Only restore the section
+        // tab, and only when the saved page actually matches the home page
+        // the just-resolved role already landed on.
         try {
           var _savedNav = JSON.parse(localStorage.getItem('rn-last-nav') || 'null');
-          if (_savedNav && _savedNav.page) {
-            var _el = document.getElementById(_savedNav.page);
-            if (_el && typeof showPage === 'function') {
-              setTimeout(function() {
-                showPage(_savedNav.page);
-                if (_savedNav.section && typeof showSection === 'function') {
-                  setTimeout(function() { showSection(_savedNav.section); }, 200);
-                }
-              }, 400);
-            }
+          var _curRole = localStorage.getItem('nestly-role');
+          var _roleHomePage = _curRole === 'rent' ? 'rent-page' : _curRole === 'partner' ? 'partner-dashboard' : _curRole === 'host' ? 'host-dashboard' : null;
+          if (_curRole && _savedNav && _savedNav.page && _savedNav.page === _roleHomePage && _savedNav.section && typeof showSection === 'function') {
+            setTimeout(function() { showSection(_savedNav.section); }, 400);
           }
         } catch(e) {}
       }
@@ -21992,11 +22001,28 @@
   </div>
 
   <!-- ══ CREDIT SHOP PAGE ══ -->
+  <style>
+    @media (min-width:900px){
+      #credit-shop-page.active{
+        display:grid!important;
+        grid-template-columns:340px 1fr;
+        grid-template-areas:"cstop cstop" "cshero cscontent";
+        max-width:1100px;
+        margin:0 auto;
+        align-items:start;
+      }
+      #credit-shop-page .cs-topbar-wrap{grid-area:cstop;}
+      #credit-shop-page .cs-topbar-inner{max-width:1100px!important;padding:16px 24px!important;}
+      #credit-shop-page .cs-hero{grid-area:cshero;margin:24px 0 24px 24px;border-radius:24px;}
+      #credit-shop-page .cs-content{grid-area:cscontent;max-width:640px!important;margin:24px 24px 24px 32px!important;padding:0!important;}
+      #credit-shop-page #cs-plans-list{display:grid!important;grid-template-columns:repeat(2,1fr)!important;gap:12px!important;}
+    }
+  </style>
   <div class="page" id="credit-shop-page">
     <!-- Topbar -->
-    <div style="position:sticky;top:0;z-index:100;background:#fff;border-bottom:1px solid #f0ebe4;">
-      <div style="max-width:480px;margin:0 auto;padding:14px 16px;display:flex;align-items:center;gap:12px;">
-        <button onclick="closeCreditShop()" style="display:flex;align-items:center;gap:6px;background:none;border:none;color:#a85a3b;font-size:15px;font-weight:700;cursor:pointer;padding:6px 10px 6px 0;border-radius:8px;transition:background .15s;" onmouseenter="this.style.background='#fdf6ee'" onmouseleave="this.style.background='none'">&#8592; Back</button>
+    <div class="cs-topbar-wrap" style="position:sticky;top:0;z-index:100;background:#fff;border-bottom:1px solid #f0ebe4;">
+      <div class="cs-topbar-inner" style="max-width:480px;margin:0 auto;padding:14px 16px;display:flex;align-items:center;gap:12px;">
+        <button onclick="closeCreditShop()" style="display:flex;align-items:center;gap:6px;background:#fdf6ee;border:1.5px solid rgba(168,90,59,.25);color:#a85a3b;font-size:14px;font-weight:700;cursor:pointer;padding:9px 16px;border-radius:10px;transition:all .15s;box-shadow:0 1px 3px rgba(168,90,59,.08);" onmouseenter="this.style.background='#f9ead8';this.style.borderColor='rgba(168,90,59,.45)'" onmouseleave="this.style.background='#fdf6ee';this.style.borderColor='rgba(168,90,59,.25)'">&#8592; Back</button>
         <div>
           <div style="font-size:18px;font-weight:800;color:#2c2720;">Credit Shop</div>
           <div style="font-size:12px;color:#9a8878;font-weight:500;">Unlock listings, contact details & more</div>
@@ -22005,7 +22031,7 @@
     </div>
 
     <!-- Hero Banner -->
-    <div style="background:linear-gradient(160deg,#fdf6ee 0%,#f9ead8 40%,#f5e6d0 70%,#fdf6ee 100%);padding:36px 24px 32px;text-align:center;position:relative;overflow:hidden;">
+    <div class="cs-hero" style="background:linear-gradient(160deg,#fdf6ee 0%,#f9ead8 40%,#f5e6d0 70%,#fdf6ee 100%);padding:36px 24px 32px;text-align:center;position:relative;overflow:hidden;">
       <div style="position:absolute;top:-50px;right:-40px;width:200px;height:200px;background:radial-gradient(circle,rgba(168,90,59,.1),transparent 70%);border-radius:50%;pointer-events:none;"></div>
       <div style="position:absolute;bottom:-50px;left:-30px;width:150px;height:150px;background:radial-gradient(circle,rgba(168,90,59,.07),transparent 70%);border-radius:50%;pointer-events:none;"></div>
       <img src="chest.png" alt="Treasure Chest" style="width:110px;height:110px;object-fit:contain;margin:0 auto;display:block;filter:drop-shadow(0 12px 32px rgba(168,90,59,.25));position:relative;z-index:1;">
@@ -22014,7 +22040,7 @@
     </div>
 
     <!-- Content -->
-    <div style="max-width:480px;margin:0 auto;padding:0 16px;">
+    <div class="cs-content" style="max-width:480px;margin:0 auto;padding:0 16px;">
       <!-- BEST VALUE Card -->
       <div style="padding:24px 0 0;">
         <div id="cs-best-plan" onclick="buyCredits(10)" style="background:linear-gradient(145deg,#fdf8f2 0%,#f9efe3 40%,#fdf8f2 100%);border:1.5px solid rgba(168,90,59,.2);border-radius:20px;padding:24px 20px;position:relative;overflow:hidden;cursor:pointer;box-shadow:0 8px 32px rgba(168,90,59,.07),inset 0 1px 0 rgba(255,255,255,.6);transition:all .3s;" onmouseenter="this.style.borderColor='rgba(168,90,59,.4)';this.style.boxShadow='0 8px 40px rgba(168,90,59,.12)'" onmouseleave="this.style.borderColor='rgba(168,90,59,.2)';this.style.boxShadow='0 8px 32px rgba(168,90,59,.07)'">
@@ -22395,8 +22421,8 @@
               <option value="need">🙋 I Need</option>
               <option value="have">🏠 I Have</option>
             </select>
-            <select id="bp-lib-location" onchange="bpFilterLibrary()">
-              <option value="">All Locations</option>
+            <select id="bp-lib-propertytype" onchange="bpFilterLibrary()">
+              <option value="">All Property Types</option>
             </select>
           </div>
         </div>
@@ -22954,7 +22980,7 @@
         _bpPosts.unshift(newPost);
         bpRenderMyPosts();
         bpRenderLibrary();
-        bpPopulateLocationFilter();
+        bpPopulatePropertyTypeFilter();
         toast('Posted to Broker Network!', 'success');
         ['bp-need-type','bp-need-purpose','bp-need-budget','bp-need-location','bp-need-extra','bp-need-phone',
          'bp-have-type','bp-have-listing','bp-have-price','bp-have-location','bp-have-extra','bp-have-phone'].forEach(function(id) {
@@ -23080,10 +23106,23 @@
         _bpPosts = await bpRpc('broker_get_feed');
         bpRenderMyPosts();
         bpRenderLibrary();
-        bpPopulateLocationFilter();
+        bpPopulatePropertyTypeFilter();
       } catch(e) {
         if (container) container.innerHTML = '<div class="bp-empty"><div class="bp-empty-icon">⚠️</div><div class="bp-empty-text">Failed to load</div><div class="bp-empty-sub">' + esc(e.message) + '</div></div>';
       }
+    }
+
+    function bpBuildConnectedBlock(info) {
+      var phoneLine = info.targetPhone ? '<div style="font-size:14px;font-weight:800;color:#111827;margin-top:4px;">📞 ' + esc(info.targetPhone) + '</div>' : '';
+      var daysLeft = info.expiresAt ? Math.max(1, Math.ceil((info.expiresAt - Date.now()) / 86400000)) : null;
+      var expiryLine = daysLeft ? '<div style="font-size:11px;color:#6b7280;margin-top:6px;">Unlocked · ' + daysLeft + ' day' + (daysLeft !== 1 ? 's' : '') + ' left</div>' : '';
+      return '<div style="margin-top:12px;padding:14px;background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:12px;text-align:center;">' +
+        '<div style="font-size:13px;font-weight:700;color:#16a34a;margin-bottom:4px;">✅ Connected!</div>' +
+        '<div style="font-size:14px;font-weight:800;color:#111827;">' + esc(info.targetEmail || 'Contact revealed') + '</div>' +
+        phoneLine +
+        '<div style="font-size:12px;color:#6b7280;margin-top:4px;">Contact the broker to proceed</div>' +
+        expiryLine +
+      '</div>';
     }
 
     function bpBuildCard(p) {
@@ -23115,8 +23154,14 @@
           '<div class="bp-detail-item"><span class="bp-detail-label">Location</span><span class="bp-detail-value">' + esc(p.location) + '</span></div>';
       }
       var extraHtml = p.extra ? '<div style="font-size:13px;color:#7a6e62;margin-bottom:14px;padding:8px 12px;background:#fdf8f2;border-radius:8px;border-left:3px solid #d4b896;">' + esc(p.extra) + '</div>' : '';
-      var connectBtn = (isOwn || p.banned) ? '<div style="font-size:11px;color:#9ca3af;text-align:center;padding:8px;">' + (p.banned ? '🚫 Banned' : 'This is your post') + '</div>' :
-        '<button class="bp-connect-btn" onclick="bpOpenConnect(\'' + p.postId + '\')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Connect for Deal <span class="bp-coins-cost">· 10 RN Coins</span></button>';
+      var connectBtn;
+      if (isOwn || p.banned) {
+        connectBtn = '<div style="font-size:11px;color:#9ca3af;text-align:center;padding:8px;">' + (p.banned ? '🚫 Banned' : 'This is your post') + '</div>';
+      } else if (p.connectedInfo) {
+        connectBtn = bpBuildConnectedBlock(p.connectedInfo);
+      } else {
+        connectBtn = '<button class="bp-connect-btn" onclick="bpOpenConnect(\'' + p.postId + '\')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Connect for Deal <span class="bp-coins-cost">· 10 RN Coins</span></button>';
+      }
       var cardClass = 'bp-card ' + (isNeed ? 'bp-card-need' : 'bp-card-have');
       return '<div class="' + cardClass + '" id="bp-card-' + p.postId + '" style="' + cardBannedStyle + '">' +
         '<div class="bp-card-header">' +
@@ -23146,15 +23191,15 @@
       container.innerHTML = '<div class="bp-my-posts-grid">' + myPosts.map(bpBuildCard).join('') + '</div>';
     }
 
-    function bpPopulateLocationFilter() {
-      var sel = document.getElementById('bp-lib-location');
+    function bpPopulatePropertyTypeFilter() {
+      var sel = document.getElementById('bp-lib-propertytype');
       if (!sel) return;
-      var locs = {};
-      _bpPosts.forEach(function(p){ if(p.location) locs[p.location] = 1; });
+      var types = {};
+      _bpPosts.forEach(function(p){ if(p.propertyType) types[p.propertyType] = 1; });
       var current = sel.value;
-      sel.innerHTML = '<option value="">All Locations (' + Object.keys(locs).length + ')</option>';
-      Object.keys(locs).sort().forEach(function(loc){
-        sel.innerHTML += '<option value="' + esc(loc) + '"' + (current===loc?' selected':'') + '>' + esc(loc) + '</option>';
+      sel.innerHTML = '<option value="">All Property Types (' + Object.keys(types).length + ')</option>';
+      Object.keys(types).sort().forEach(function(t){
+        sel.innerHTML += '<option value="' + esc(t) + '"' + (current===t?' selected':'') + '>' + esc(t) + '</option>';
       });
     }
 
@@ -23170,11 +23215,11 @@
       if (!container) return;
       var q = (document.getElementById('bp-lib-search').value || '').toLowerCase();
       var typeFilter = document.getElementById('bp-lib-type').value;
-      var locFilter = document.getElementById('bp-lib-location').value;
+      var propTypeFilter = document.getElementById('bp-lib-propertytype').value;
       var filtered = _bpPosts.filter(function(p){
         if (p.banned) return false;
         if (typeFilter && p.type !== typeFilter) return false;
-        if (locFilter && p.location !== locFilter) return false;
+        if (propTypeFilter && p.propertyType !== propTypeFilter) return false;
         if (q) {
           var hay = ((p.userName||'') + ' ' + (p.propertyType||'') + ' ' + (p.location||'') + ' ' + (p.purpose||'') + ' ' + (p.listingType||'') + ' ' + (p.budget||'') + ' ' + (p.price||'') + ' ' + (p.extra||'')).toLowerCase();
           if (hay.indexOf(q) === -1) return false;
@@ -23240,14 +23285,11 @@
         if (card) {
           var btnWrap = card.querySelector('.bp-connect-btn');
           if (btnWrap) {
-            var phoneLine = result.targetPhone ? '<div style="font-size:14px;font-weight:800;color:#111827;margin-top:4px;">📞 ' + esc(result.targetPhone) + '</div>' : '';
-            btnWrap.outerHTML = '<div style="margin-top:12px;padding:14px;background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:12px;text-align:center;">' +
-              '<div style="font-size:13px;font-weight:700;color:#16a34a;margin-bottom:4px;">✅ Connected!</div>' +
-              '<div style="font-size:14px;font-weight:800;color:#111827;">' + esc(result.targetEmail || 'Contact revealed') + '</div>' +
-              phoneLine +
-              '<div style="font-size:12px;color:#6b7280;margin-top:4px;">Contact the broker to proceed</div></div>';
+            btnWrap.outerHTML = bpBuildConnectedBlock({ targetEmail: result.targetEmail, targetPhone: result.targetPhone, expiresAt: result.expiresAt });
           }
         }
+        var srcPost = _bpPosts.find(function(p){return p.postId===_bpConnectingId;});
+        if (srcPost) srcPost.connectedInfo = { targetEmail: result.targetEmail, targetPhone: result.targetPhone, expiresAt: result.expiresAt };
         bpUpdateCoinsDisplay(result.remainingCredits);
         try { localStorage.setItem('nestly-credits', String(result.remainingCredits)); updateCreditsBadges(); } catch(e){}
         toast('Connected successfully!', 'success');
