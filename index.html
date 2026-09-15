@@ -14041,8 +14041,9 @@
 
     async function loadPartnerDashboard() {
       if (!user) { showPage('login-page'); return; }
-      if (!window._partnerAccess && !window._hasPartnerAccess && localStorage.getItem('nestly-role') !== 'partner') {
+      if (localStorage.getItem('nestly-role') !== 'partner') {
         showPage('partner-page');
+        loadPartnerPage();
         return;
       }
       const name = user.user_metadata?.name || user.email?.split('@')[0] || 'Partner';
