@@ -5,7 +5,7 @@ const { marshall, unmarshall } = require('@aws-sdk/util-dynamodb');
 // account's Cognito login once its data has been moved to the keeper.
 const { CognitoIdentityProviderClient, ListUsersCommand, AdminDeleteUserCommand } = require('@aws-sdk/client-cognito-identity-provider');
 const { S3Client, DeleteObjectsCommand, ListObjectsV2Command } = require('@aws-sdk/client-s3');
-const { isAdmin } = require('./_auth');
+const { isAdmin, mergeDuplicateAccountData } = require('./_auth');
 
 const REGION = process.env.AWS_REGION || process.env.RENT_NIVAS_AWS_REGION || 'eu-north-1';
 const USER_POOL_ID = process.env.COGNITO_USER_POOL_ID;
@@ -1851,17 +1851,15 @@ async function handleRpc(spec, claims) {
   // ── admin_merge_duplicate_accounts ─────────────────────────────────────
   // Takes a keeperUserId and a loserUserId (both from the same email — the
   // admin decides which is "real" after reviewing admin_find_duplicate_accounts).
-  // Moves everything of value from the loser onto the keeper:
-  //   - houses.owner_id, purchases.user_id, favorites.user_id,
-  //     user_house_unlocks.user_id, partner_requests.user_id,
-  //     notifications.user_id, admin_bans.user_id, admin_warnings.user_id
-  //     are all re-pointed from loser -> keeper, so nothing the loser
-  //     created/owns gets orphaned or silently lost.
-  //   - credits and xp/partner_xp are SUMMED onto the keeper (not
-  //     overwritten), so no value is lost either direction.
-  //   - keeper's referral_code is preserved if it has one; otherwise the
-  //     loser's is adopted (so a working code is never thrown away).
-  //   - Cognito login for the loser is deleted, then its profile row.
+  // Moves everything of value from the loser onto the keeper using the
+  // SAME mergeDuplicateAccountData() helper that the automatic Google-login
+  // merge in api/auth.js uses (see api/_account-merge.js) — houses,
+  // purchases, favorites, unlocks, partner applications, notifications,
+  // bans, warnings, contacts, property reports, credits/xp, referral_code,
+  // AND the Broker Network tables (BrokerPosts/BrokerConnections/
+  // BrokerProfiles), which live in a separate AWS account and used to be
+  // missed by this tool entirely — that gap was the actual cause of
+  // "my broker posts disappeared after merging accounts".
   // This does NOT touch the keeper's password or login — only the loser's
   // login is removed. The keeper becomes the one and only account for
   // that email going forward.
@@ -1885,96 +1883,12 @@ async function handleRpc(spec, claims) {
       throw new Error('Refusing to merge — keeper and loser do not share the same email. This safety check exists so a bad id never merges two unrelated accounts.');
     }
 
-    // Re-point every table that references a user, loser -> keeper.
-    // NOTE: some of these tables use a composite key (user_id + a second
-    // field) instead of a single "id" — e.g. favorites is keyed by
-    // (user_id, property_id), not id. For those, deleteRows+putRows (with
-    // the new user_id) is used instead of updateRows-by-id, since there is
-    // no single "id" field to filter by for a plain update.
-    const COMPOSITE_USER_TABLES = {
-      user_house_unlocks: 'property_id',
-      favorites: 'property_id',
-      notifications: 'notification_id',
-    };
-    const repointTables = [
-      { table: 'houses', column: 'owner_id' },
-      { table: 'purchases', column: 'user_id' },
-      { table: 'favorites', column: 'user_id' },
-      { table: 'user_house_unlocks', column: 'user_id' },
-      { table: 'partner_requests', column: 'user_id' },
-      { table: 'notifications', column: 'user_id' },
-      { table: 'admin_bans', column: 'user_id' },
-      { table: 'admin_warnings', column: 'user_id' },
-    ];
-    const repointed = {};
-    for (const { table, column } of repointTables) {
-      try {
-        const TableNameX = tableName(table);
-        const scannedX = await runDdb('read', table, () => ddb.send(new ScanCommand({ TableName: TableNameX })));
-        const rowsX = (scannedX.Items || []).map(item => fromDbItem(table, unmarshall(item)));
-        const toMove = rowsX.filter(r => String(r[column]) === String(loserUserId));
-        const secondKeyField = COMPOSITE_USER_TABLES[table];
-        for (const row of toMove) {
-          if (secondKeyField) {
-            // Composite-key table: re-create the row under the keeper's
-            // user_id (re-using the rest of the row's fields), then delete
-            // the original loser-keyed row. A straight "update by id"
-            // can't work here since there is no single "id" key.
-            try {
-              const newRow = Object.assign({}, row, { user_id: keeperUserId });
-              delete newRow.id; // composite tables don't use a top-level id
-              await putRows({ table, values: newRow }, false);
-              await deleteRows({ table, op: 'delete', filters: [{ op: 'eq', column: 'user_id', value: loserUserId }, { op: 'eq', column: secondKeyField, value: row[secondKeyField] }] });
-            } catch (err) {
-              console.warn(`[Admin] Merge: could not repoint composite-key ${table} row:`, err.message);
-            }
-          } else {
-            await updateRows({ table, op: 'update', values: { [column]: keeperUserId }, filters: [{ op: 'eq', column: 'id', value: row.id }] }).catch(err => {
-              console.warn(`[Admin] Merge: could not repoint ${table} row ${row.id}:`, err.message);
-            });
-          }
-        }
-        repointed[table] = toMove.length;
-      } catch (err) {
-        console.warn(`[Admin] Merge: skipping table "${table}" (not present or scan failed):`, err.message);
-        repointed[table] = 0;
-      }
+    const mergeResult = await mergeDuplicateAccountData(loserUserId, keeperUserId);
+    if (!mergeResult.merged) {
+      throw new Error(`Merge did not complete (${mergeResult.reason || 'unknown reason'})`);
     }
 
-    // Sum numeric value fields onto the keeper instead of overwriting.
-    const mergedCredits   = (parseFloat(keeper.credits) || 0) + (parseFloat(loser.credits) || 0);
-    const mergedXp        = (parseInt(keeper.xp) || 0) + (parseInt(loser.xp) || 0);
-    const mergedPartnerXp = (parseInt(keeper.partner_xp) || 0) + (parseInt(loser.partner_xp) || 0);
-    // NOTE: total_referrals, registration_referrals, listing_referrals are NOT
-    // merged here because they now live only in the Referrals table, not on
-    // the Users row. The Referrals record is keyed by referral code, not by
-    // userId — whoever keeps the code keeps the history.
-    const keeperPatch = {
-      credits:    Math.round(mergedCredits * 100) / 100,
-      xp:         mergedXp,
-      partner_xp: mergedPartnerXp,
-    };
-    // Keep keeper's referral_code if it has one; otherwise adopt loser's
-    // (so a working code already shared with others isn't thrown away).
-    // Also update the Referrals table record to point to the keeper's userId.
-    if (!keeper.referral_code && loser.referral_code) {
-      keeperPatch.referral_code = loser.referral_code;
-      // Re-point the Referrals record to keeper's userId
-      try {
-        await ddb.send(new UpdateItemCommand({
-          TableName: TABLE_REFERRALS,
-          Key: marshall({ referralId: loser.referral_code }),
-          UpdateExpression: 'SET userId = :uid',
-          ExpressionAttributeValues: marshall({ ':uid': keeperUserId }),
-        }));
-      } catch (e) {
-        console.warn('[Admin] Merge: could not re-point Referrals record to keeper:', e.message);
-      }
-    }
-
-    await updateRows({ table: 'profiles', op: 'update', values: keeperPatch, filters: [{ op: 'eq', column: 'id', value: keeperUserId }] });
-
-    // Delete the loser's Cognito login, then its profile row.
+    // Delete the loser's Cognito login (data has already been moved).
     let cognitoDeleted = false;
     try {
       const page = await cognitoAdmin.send(new ListUsersCommand({ UserPoolId: USER_POOL_ID, Filter: `sub = "${loserUserId}"`, Limit: 1 }));
@@ -1986,12 +1900,9 @@ async function handleRpc(spec, claims) {
     } catch (err) {
       console.warn(`[Admin] Merge: could not delete loser's Cognito login (${loserUserId}):`, err.message);
     }
-    await deleteRows({ table: 'profiles', op: 'delete', filters: [{ op: 'eq', column: 'id', value: loserUserId }] }).catch(err => {
-      console.warn(`[Admin] Merge: could not delete loser profile row (${loserUserId}):`, err.message);
-    });
 
-    console.log(`[Admin] Merged account ${loserUserId} into ${keeperUserId} for email ${keeper.email}. Repointed:`, repointed, 'Cognito login deleted:', cognitoDeleted);
-    return { merged: true, keeperUserId, loserUserId, keeperPatch, repointed, cognitoLoginDeleted: cognitoDeleted };
+    console.log(`[Admin] Merged account ${loserUserId} into ${keeperUserId} for email ${keeper.email}. Repointed:`, mergeResult.repointed, 'Cognito login deleted:', cognitoDeleted);
+    return { merged: true, keeperUserId, loserUserId, keeperPatch: { credits: mergeResult.profile.credits, xp: mergeResult.profile.xp, partner_xp: mergeResult.profile.partner_xp }, repointed: mergeResult.repointed, cognitoLoginDeleted: cognitoDeleted };
   }
 
   // ── get_unlock_reward_rate ────────────────────────────────────────────────
