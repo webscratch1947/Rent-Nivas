@@ -2775,13 +2775,15 @@ async function handleRpc(spec, claims) {
     const TABLE_BROKER_PROFILES = 'BrokerProfiles';
     const userId = claims.sub;
     const p = spec.params || {};
+    const phone = String(p.p_phone || '').trim();
+    if (!/^\d{10}$/.test(phone)) throw new Error('Please enter a valid 10-digit phone number');
     const postId = 'bp-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6);
     const item = {
       postId, type: p.p_type || 'need', propertyType: p.p_propertyType || '',
       purpose: p.p_purpose || '', listingType: p.p_listingType || '',
       budget: p.p_budget || '', price: p.p_price || '',
       location: p.p_location || '', extra: p.p_extra || '',
-      phone: p.p_phone || '',
+      phone,
       userId, createdAt: Date.now(),
     };
     await brokerDdb.send(new PutItemCommand({ TableName: TABLE_BROKER_POSTS, Item: marshall(item, { removeUndefinedValues: true }) }));
