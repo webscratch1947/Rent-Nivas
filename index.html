@@ -21722,8 +21722,15 @@
     function syncMobNavAuth() {
       window._rnAuthDetermined = true;
       const loggedIn = (typeof user !== 'undefined' && user !== null);
-      // Bottom nav: toggle body class — CSS media query controls actual rendering
-      document.body.classList.toggle('rn-nav-ok', loggedIn);
+      // Bottom nav: NUCLEAR APPROACH — use inline style to force visibility
+      const _nav = document.getElementById('rn-app-bottom-nav');
+      if (_nav) {
+        if (loggedIn && window.innerWidth <= 768) {
+          _nav.style.cssText = 'display:flex!important;position:fixed;bottom:0;left:0;right:0;z-index:7000;height:calc(64px + var(--rn-safe-bot,0px));padding-bottom:var(--rn-safe-bot,0px);background:rgba(255,255,255,.92);border-top:1px solid #e8e4de;box-shadow:0 -4px 24px rgba(24,21,15,.09);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);align-items:stretch;';
+        } else {
+          _nav.style.cssText = 'display:none!important;';
+        }
+      }
       // Sidebar: swap logged-in vs logged-out nav sections
       const navOut = document.getElementById('mob-nav-loggedout');
       const navIn = document.getElementById('mob-nav-loggedin');
@@ -21849,9 +21856,16 @@
       const _navId = _rnPageNavMap[id];
       if (_navId) rnNavActivate(_navId);
       else document.querySelectorAll('.rn-nav-btn').forEach(b => b.classList.remove('active'));
-      // Ensure body class stays in sync
+      // Ensure bottom nav shows on mobile (inline style override)
+      const _nav = document.getElementById('rn-app-bottom-nav');
       const _u = (typeof user !== 'undefined' && user !== null);
-      document.body.classList.toggle('rn-nav-ok', _u);
+      if (_nav) {
+        if (_u && window.innerWidth <= 768) {
+          _nav.style.cssText = 'display:flex!important;position:fixed;bottom:0;left:0;right:0;z-index:7000;height:calc(64px + var(--rn-safe-bot,0px));padding-bottom:var(--rn-safe-bot,0px);background:rgba(255,255,255,.92);border-top:1px solid #e8e4de;box-shadow:0 -4px 24px rgba(24,21,15,.09);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);align-items:stretch;';
+        } else {
+          _nav.style.cssText = 'display:none!important;';
+        }
+      }
       // Close partner dashboard mobile nav if open
       const _pdnMobNav = document.getElementById('pdn-mob-nav');
       if (_pdnMobNav) _pdnMobNav.classList.remove('pdn-mob-nav-visible');
@@ -21859,6 +21873,10 @@
 
     // Sync nav auth state on load (bottom nav + sidebar hidden until login)
     syncMobNavAuth();
+
+    // Re-apply bottom nav inline style on resize and every 500ms
+    window.addEventListener('resize', syncMobNavAuth);
+    setInterval(syncMobNavAuth, 500);
 
     // Global safety: catch unhandled promise rejections to prevent blank screens
     window.addEventListener('unhandledrejection', function(e) {
