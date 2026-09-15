@@ -5715,7 +5715,7 @@
     }
 
     /* ── BOTTOM NAV BAR ── */
-    /* Hidden by default; JS adds .mob-nav-visible when logged in to show it */
+    /* Hidden by default; JS adds .mob-nav-visible when logged in to show it on mobile */
     .mob-bottom-nav {
       display: none !important;
       position: fixed;
@@ -5733,8 +5733,10 @@
       -webkit-backdrop-filter: blur(12px);
     }
 
-    .mob-bottom-nav.mob-nav-visible {
-      display: flex !important;
+    @media (max-width: 768px) {
+      .mob-bottom-nav.mob-nav-visible {
+        display: flex !important;
+      }
     }
 
     body.dark .mob-bottom-nav {
