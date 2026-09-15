@@ -13418,9 +13418,15 @@
       var _refOverlay = document.getElementById('rn-refer-open-overlay');
       if (_refOverlay) _refOverlay.style.display = 'none';
       setLoader(false);
+      // SAFETY: if target page doesn't exist, fall back to landing-page to avoid blank screen
+      var _targetEl = document.getElementById(id);
+      if (!_targetEl && id !== 'landing-page') {
+        console.warn('[Nestly] showPage fallback: "' + id + '" not found, redirecting to landing-page');
+        id = 'landing-page';
+        _targetEl = document.getElementById('landing-page');
+      }
       document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-      const el = document.getElementById(id);
-      if (el) el.classList.add('active');
+      if (_targetEl) _targetEl.classList.add('active');
       // Scope the redesigned bottom-nav look to the Partner Dashboard only.
       var _mbn = document.getElementById('mob-bottom-nav');
       if (_mbn) _mbn.classList.toggle('pdn-navstyle', id === 'partner-dashboard');
@@ -14050,17 +14056,25 @@
         loadPartnerPage();
         return;
       }
-      const name = user.user_metadata?.name || user.email?.split('@')[0] || 'Partner';
-      const g = document.getElementById('pd-greeting');
-      if (g) g.textContent = `Welcome, ${name} 🎉`;
-      document.getElementById('role-host-btn')?.classList.remove('active');
-      document.getElementById('role-rent-btn')?.classList.remove('active');
-      updateProfileBtnRing();
-      // Show refer.svg opening animation — stays open until animation finishes
-      _rnShowReferOpenAnim();
-      // Always load referral stats on open (not just on refresh button click)
-      loadPartnerTasks();
-      loadPartnerReferralStats(false);
+      try {
+        const name = user.user_metadata?.name || user.email?.split('@')[0] || 'Partner';
+        const g = document.getElementById('pd-greeting');
+        if (g) g.textContent = `Welcome, ${name} 🎉`;
+        document.getElementById('role-host-btn')?.classList.remove('active');
+        document.getElementById('role-rent-btn')?.classList.remove('active');
+        updateProfileBtnRing();
+        // Show refer.svg opening animation — stays open until animation finishes
+        _rnShowReferOpenAnim();
+        // Always load referral stats on open (not just on refresh button click)
+        loadPartnerTasks();
+        loadPartnerReferralStats(false);
+      } catch(e) {
+        console.warn('[Nestly] loadPartnerDashboard error:', e.message || e);
+        // Ensure partner dashboard is still visible even if sub-loads fail
+        setLoader(false);
+        var _ov = document.getElementById('rn-refer-open-overlay');
+        if (_ov) _ov.style.display = 'none';
+      }
     }
 
     // ══════════════════════════════════════
@@ -14073,6 +14087,9 @@
       var overlay = document.getElementById('rn-refer-open-overlay');
       var wrap = document.getElementById('rn-refer-open-svg-wrap');
       if (!overlay || !wrap) return;
+      // SAFETY: don't show overlay if partner-dashboard is not the active page
+      var _pd = document.getElementById('partner-dashboard');
+      if (!_pd || !_pd.classList.contains('active')) return;
       overlay.style.display = 'flex';
       if (typeof _lockScroll === 'function') _lockScroll();
       // Fetch refer.svg and inject inline so we can listen to animation end
@@ -21858,18 +21875,61 @@
       // Show/hide main bottom nav based on active page
       const _siteNav = document.getElementById('mob-bottom-nav');
       const _pdnMobNav = document.getElementById('pdn-mob-nav');
-      if (_siteNav && user) _siteNav.classList.add('mob-nav-visible');
+      if (_siteNav && user) {
+        _siteNav.classList.add('mob-nav-visible');
+        if (window.innerWidth <= 768) _siteNav.style.display = 'flex';
+      }
       if (_pdnMobNav) _pdnMobNav.classList.remove('pdn-mob-nav-visible');
     };
 
     // Sync nav auth state on load (bottom nav + sidebar hidden until login)
     syncMobNavAuth();
 
+    // Belt-and-suspenders: periodically ensure bottom nav is visible on mobile when logged in
+    setInterval(function() {
+      var _bn = document.getElementById('mob-bottom-nav');
+      if (!_bn) return;
+      var _u = (typeof user !== 'undefined' && user !== null);
+      if (_u && window.innerWidth <= 768) {
+        if (!_bn.classList.contains('mob-nav-visible')) _bn.classList.add('mob-nav-visible');
+        _bn.style.display = 'flex';
+      } else if (!_u || window.innerWidth > 768) {
+        _bn.style.display = '';
+      }
+    }, 1000);
+
     // Global safety: catch unhandled promise rejections to prevent blank screens
     window.addEventListener('unhandledrejection', function(e) {
       console.warn('[Nestly] Unhandled promise rejection (caught by safety net):', e.reason);
       e.preventDefault();
     });
+
+    // Blank-screen detector: if no page is active for 3s, force show a page
+    (function() {
+      var _blankCheckCount = 0;
+      setInterval(function() {
+        var _anyActive = document.querySelector('.page.active');
+        if (!_anyActive) {
+          _blankCheckCount++;
+          if (_blankCheckCount >= 2) {
+            console.warn('[Nestly] Blank screen detected — forcing landing page visible');
+            setLoader(false);
+            var _refOv = document.getElementById('rn-refer-open-overlay');
+            if (_refOv) _refOv.style.display = 'none';
+            var _banOv = document.getElementById('ban-overlay');
+            if (_banOv) _banOv.classList.add('hidden');
+            if (typeof user !== 'undefined' && user !== null) {
+              showPage('host-dashboard');
+            } else {
+              showPage('landing-page');
+            }
+            _blankCheckCount = 0;
+          }
+        } else {
+          _blankCheckCount = 0;
+        }
+      }, 1500);
+    })();
 
     // Close sidebar on swipe left
     (function () {
