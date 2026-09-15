@@ -11908,13 +11908,16 @@
 
           <!-- BROKER NETWORK ADMIN TAB -->
           <div class="admin-sub" id="adm-broker">
-            <div style="max-width:620px;">
+            <div>
               <h3 style="font-size:18px;font-weight:700;margin-bottom:6px;">💼 Broker Network</h3>
-              <p style="font-size:13px;color:var(--muted);margin-bottom:24px;">Broker management features coming soon. New tools for managing broker access, verification, and plan purchases will appear here.</p>
-              <div style="background:var(--white);border:1.5px solid var(--border2);border-radius:var(--r);padding:40px 20px;text-align:center;">
-                <div style="font-size:32px;margin-bottom:12px;">🚧</div>
-                <div style="font-size:15px;font-weight:700;margin-bottom:8px;">Under Construction</div>
-                <div style="font-size:13px;color:var(--muted);">New broker admin features are being built. Check back soon.</div>
+              <p style="font-size:13px;color:var(--muted);margin-bottom:16px;">Manage broker access, posts, and connections.</p>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">
+                <input type="text" id="adm-broker-search" placeholder="Search by name, email, phone..." oninput="admBrokerFilter()" style="flex:1;min-width:200px;padding:10px 14px;border:1.5px solid var(--border2);border-radius:var(--r);font-size:13px;font-family:var(--font);background:var(--white);color:var(--ink);">
+                <button onclick="admBrokerLoad()" style="background:var(--terra);color:#fff;border:none;border-radius:var(--r);padding:10px 20px;font-size:13px;font-weight:700;cursor:pointer;font-family:var(--font);">↻ Refresh</button>
+              </div>
+              <div id="adm-broker-stats" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-bottom:16px;"></div>
+              <div id="adm-broker-list" style="max-height:60vh;overflow-y:auto;">
+                <div style="text-align:center;padding:40px;color:var(--muted);font-size:13px;">Loading brokers...</div>
               </div>
             </div>
           </div>
@@ -12004,6 +12007,104 @@
       if (btn) btn.classList.add('active');
       const panel = document.getElementById(panelId);
       if (panel) panel.classList.add('active');
+      if (panelId === 'adm-broker') admBrokerLoad();
+    }
+
+    async function admBrokerLoad() {
+      var listEl = document.getElementById('adm-broker-list');
+      var statsEl = document.getElementById('adm-broker-stats');
+      if (!listEl) return;
+      listEl.innerHTML = '<div style="text-align:center;padding:30px;color:var(--muted);font-size:13px;">Loading brokers...</div>';
+      try {
+        var posts = await bpRpc('broker_admin_posts');
+        window._admBrokerPosts = posts || [];
+        var totalPosts = posts.length;
+        var totalBrokers = 0;
+        var userIds = {};
+        posts.forEach(function(p) { if (p.userId && !userIds[p.userId]) { userIds[p.userId] = true; totalBrokers++; } });
+        var totalViews = posts.reduce(function(s, p) { return s + (p.viewCount || 0); }, 0);
+        if (statsEl) {
+          statsEl.innerHTML =
+            '<div style="background:var(--white);border:1.5px solid var(--border2);border-radius:var(--r);padding:14px;text-align:center;"><div style="font-size:24px;font-weight:900;color:var(--terra);">' + totalBrokers + '</div><div style="font-size:11px;color:var(--muted);font-weight:600;margin-top:2px;">Active Brokers</div></div>' +
+            '<div style="background:var(--white);border:1.5px solid var(--border2);border-radius:var(--r);padding:14px;text-align:center;"><div style="font-size:24px;font-weight:900;color:var(--terra);">' + totalPosts + '</div><div style="font-size:11px;color:var(--muted);font-weight:600;margin-top:2px;">Total Posts</div></div>' +
+            '<div style="background:var(--white);border:1.5px solid var(--border2);border-radius:var(--r);padding:14px;text-align:center;"><div style="font-size:24px;font-weight:900;color:var(--terra);">' + totalViews + '</div><div style="font-size:11px;color:var(--muted);font-weight:600;margin-top:2px;">Total Views</div></div>';
+        }
+        admBrokerRender(posts);
+      } catch (e) {
+        listEl.innerHTML = '<div style="text-align:center;padding:30px;color:var(--muted);font-size:13px;">Failed to load brokers: ' + e.message + '</div>';
+      }
+    }
+
+    function admBrokerRender(posts) {
+      var listEl = document.getElementById('adm-broker-list');
+      if (!listEl) return;
+      if (!posts || posts.length === 0) {
+        listEl.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted);font-size:13px;">No broker posts found.</div>';
+        return;
+      }
+      listEl.innerHTML = posts.map(function(p) {
+        var isBanned = p.banned;
+        var borderStyle = isBanned ? 'border-color:#ef4444;' : '';
+        var badgeStyle = isBanned ? 'background:#fef2f2;color:#dc2626;border:1px solid #fecaca;' : '';
+        return '<div style="background:var(--white);border:1.5px solid var(--border2);border-radius:var(--r);padding:16px;margin-bottom:8px;' + borderStyle + '">' +
+          '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">' +
+            '<div>' +
+              '<div style="font-size:14px;font-weight:700;color:var(--ink);">' + (p.name || p.userName || 'Anonymous') + '</div>' +
+              '<div style="font-size:12px;color:var(--muted);">' + (p.email || '') + (p.phone ? ' · ' + p.phone : '') + '</div>' +
+              '<div style="font-size:11px;color:var(--muted);margin-top:2px;">' + (p.propertyType || p.type || '') + ' · ' + (p.location || '') + ' · ' + (p.purpose || '') + '</div>' +
+            '</div>' +
+            '<div style="display:flex;gap:6px;flex-wrap:wrap;">' +
+              (isBanned ? '<span style="font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;' + badgeStyle + '">🚫 Banned</span>' : '') +
+              '<span style="font-size:11px;color:var(--muted);">Views: ' + (p.viewCount || 0) + '</span>' +
+            '</div>' +
+          '</div>' +
+          '<div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;">' +
+            '<button onclick="admBrokerToggleBan(\'' + (p.postId || p.id || '') + '\',' + !!isBanned + ')" style="font-size:11px;font-weight:700;padding:6px 14px;border-radius:8px;border:1.5px solid ' + (isBanned ? '#16a34a' : '#ef4444') + ';background:' + (isBanned ? '#f0fdf4' : '#fef2f2') + ';color:' + (isBanned ? '#16a34a' : '#ef4444') + ';cursor:pointer;font-family:var(--font);">' + (isBanned ? '✓ Unban' : '🚫 Ban') + '</button>' +
+            '<button onclick="admBrokerToggleVerify(\'' + (p.postId || p.id || '') + '\',' + !!p.postVerified + ')" style="font-size:11px;font-weight:700;padding:6px 14px;border-radius:8px;border:1.5px solid ' + (p.postVerified ? '#6b7280' : '#2563eb') + ';background:' + (p.postVerified ? '#f9fafb' : '#eff6ff') + ';color:' + (p.postVerified ? '#6b7280' : '#2563eb') + ';cursor:pointer;font-family:var(--font);">' + (p.postVerified ? '✓ Verified' : '👁 Verify') + '</button>' +
+            '<button onclick="admBrokerToggleBroker(\'' + (p.userId || '') + '\',' + !!p.isBroker + ')" style="font-size:11px;font-weight:700;padding:6px 14px;border-radius:8px;border:1.5px solid ' + (p.isBroker ? '#6b7280' : '#c2714f') + ';background:' + (p.isBroker ? '#f9fafb' : '#fdf8f2') + ';color:' + (p.isBroker ? '#6b7280' : '#c2714f') + ';cursor:pointer;font-family:var(--font);">' + (p.isBroker ? 'Remove Broker' : '💼 Make Broker') + '</button>' +
+          '</div>' +
+        '</div>';
+      }).join('');
+    }
+
+    function admBrokerFilter() {
+      var q = (document.getElementById('adm-broker-search').value || '').toLowerCase();
+      var posts = window._admBrokerPosts || [];
+      if (!q) { admBrokerRender(posts); return; }
+      var filtered = posts.filter(function(p) {
+        return ((p.name || p.userName || '') + ' ' + (p.email || '') + ' ' + (p.phone || '') + ' ' + (p.location || '') + ' ' + (p.propertyType || p.type || '') + ' ' + (p.purpose || '')).toLowerCase().indexOf(q) !== -1;
+      });
+      admBrokerRender(filtered);
+    }
+
+    async function admBrokerToggleBan(postId, currentlyBanned) {
+      if (!postId) return;
+      var action = currentlyBanned ? 'broker_unban_post' : 'broker_ban_post';
+      try {
+        await bpRpc(action, { p_postId: postId });
+        toast(currentlyBanned ? 'Post unbanned' : 'Post banned', 'success');
+        admBrokerLoad();
+      } catch (e) { toast('Failed: ' + e.message, 'error'); }
+    }
+
+    async function admBrokerToggleVerify(postId, currentlyVerified) {
+      if (!postId) return;
+      var action = currentlyVerified ? 'broker_unverify_post' : 'broker_verify_post';
+      try {
+        await bpRpc(action, { p_postId: postId });
+        toast(currentlyVerified ? 'Verification removed' : 'Post verified', 'success');
+        admBrokerLoad();
+      } catch (e) { toast('Failed: ' + e.message, 'error'); }
+    }
+
+    async function admBrokerToggleBroker(userId, currentlyBroker) {
+      if (!userId) return;
+      var action = currentlyBroker ? 'broker_revoke_access' : 'broker_grant_access';
+      try {
+        await bpRpc(action, { p_userId: userId });
+        toast(currentlyBroker ? 'Broker access revoked' : 'Broker access granted', 'success');
+        admBrokerLoad();
+      } catch (e) { toast('Failed: ' + e.message, 'error'); }
     }
 
     // ══ CORE UTILITIES ══
@@ -22434,11 +22535,8 @@
         document.getElementById('bp-access-denied').style.display = 'none';
         var adminTab = document.getElementById('bp-tab-admin');
         if (adminTab) {
-          var _email = (window.user && window.user.email || '').toLowerCase();
-          var _adminEmails = (window.__RN_ADMIN_EMAILS || '').split(',').map(function(e){return e.trim().toLowerCase();}).filter(Boolean);
-          var _isAdmin = _adminEmails.indexOf(_email) !== -1;
-          adminTab.style.display = _isAdmin ? '' : 'none';
-          if (!_isAdmin) { document.getElementById('bp-admin-panel').style.display = 'none'; }
+          adminTab.style.display = 'none';
+          document.getElementById('bp-admin-panel').style.display = 'none';
         }
         if (window.syncStreakFromServer) { await window.syncStreakFromServer(); }
         bpRenderEmbeddedStreak('bp');
@@ -25248,23 +25346,7 @@
       // (or directly, e.g. right after sign-in) on EVERY site open, not just
       // when a reward happens to be claimable. Logged-out visitors never see it.
       window.maybeShowStreakPopup = function () {
-        var isLoggedIn = !!window.user || (function () {
-          try {
-            var raw = localStorage.getItem('rentnivas-auth');
-            if (!raw) return false;
-            var stored = JSON.parse(raw);
-            var token = stored.id_token || stored.access_token;
-            if (!token || !stored.refresh_token) return false;
-            var payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
-            var exp = payload.exp ? payload.exp * 1000 : 0;
-            return !(exp > 0 && exp < Date.now() - 10 * 60 * 1000);
-          } catch (_) { return false; }
-        })();
-        if (!isLoggedIn) return;
-        var hasAccess = window._bpBrokerAccess || window._partnerAccess || window._hasPartnerAccess;
-        if (!hasAccess) return;
-        var bg = document.getElementById('streak-popup-bg');
-        if (bg && bg.style.display === 'flex' && parseFloat(bg.style.opacity) > 0) return;
+        return;
         if (window.openStreakPopup) window.openStreakPopup();
       };
     })();

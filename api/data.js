@@ -2666,9 +2666,51 @@ async function handleRpc(spec, claims) {
     const enriched = await Promise.all(posts.map(async (post) => {
       const profile = await brokerGetUserProfile(post.userId);
       const brokerProf = await brokerGetProfile(post.userId, TABLE_BROKER_PROFILES);
-      return { ...post, phone: post.phone || '', banned: !!post.banned, postVerified: !!post.postVerified, userName: profile?.name || 'User', avatarUrl: profile?.avatar_url || '', verified: brokerProf.isVerified };
+      return { ...post, phone: post.phone || '', banned: !!post.banned, postVerified: !!post.postVerified, userName: profile?.name || 'User', email: profile?.email || '', avatarUrl: profile?.avatar_url || '', verified: brokerProf.isVerified, isBroker: !!brokerProf.isBroker };
     }));
     return enriched;
+  }
+
+  if (spec.name === 'broker_grant_access') {
+    const TABLE_BROKER_PROFILES = 'BrokerProfiles';
+    if (!isAdmin(claims)) throw new Error('Admin access required');
+    const userId = String((spec.params || {}).p_userId || '').trim();
+    if (!userId) throw new Error('Missing userId');
+    const brokerProf = await brokerGetProfile(userId, TABLE_BROKER_PROFILES);
+    await brokerDdb.send(new PutItemCommand({
+      TableName: TABLE_BROKER_PROFILES,
+      Item: marshall({ userId, hasBrokerPlan: true, planPurchasedAt: new Date().toISOString(), isBroker: brokerProf.isBroker || true, isVerified: brokerProf.isVerified || false }, { removeUndefinedValues: true }),
+    }));
+    try {
+      await ddb.send(new UpdateItemCommand({
+        TableName: TABLES.profiles, Key: marshall({ userId }),
+        UpdateExpression: 'SET hasBrokerPlan = :v',
+        ExpressionAttributeValues: marshall({ ':v': true }),
+      }));
+    } catch (e) {}
+    return { success: true, granted: true };
+  }
+
+  if (spec.name === 'broker_revoke_access') {
+    const TABLE_BROKER_PROFILES = 'BrokerProfiles';
+    if (!isAdmin(claims)) throw new Error('Admin access required');
+    const userId = String((spec.params || {}).p_userId || '').trim();
+    if (!userId) throw new Error('Missing userId');
+    const brokerProf = await brokerGetProfile(userId, TABLE_BROKER_PROFILES);
+    if (!brokerProf.userId) throw new Error('Broker profile not found');
+    delete brokerProf.hasBrokerPlan;
+    delete brokerProf.planPurchasedAt;
+    await brokerDdb.send(new PutItemCommand({
+      TableName: TABLE_BROKER_PROFILES,
+      Item: marshall(brokerProf, { removeUndefinedValues: true }),
+    }));
+    try {
+      await ddb.send(new UpdateItemCommand({
+        TableName: TABLES.profiles, Key: marshall({ userId }),
+        UpdateExpression: 'REMOVE hasBrokerPlan',
+      }));
+    } catch (e) {}
+    return { success: true, revoked: true };
   }
 
   if (spec.name === 'broker_ban_post') {
