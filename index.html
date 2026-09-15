@@ -22349,7 +22349,7 @@
               <input type="text" id="bp-need-extra" placeholder="e.g. Furnished, near metro, etc.">
             </div>
             <div><label>Phone Number</label>
-              <input type="tel" id="bp-need-phone" placeholder="e.g. +91 98765 43210" maxlength="20">
+              <input type="tel" id="bp-need-phone" placeholder="e.g. 9876543210" maxlength="10" inputmode="numeric" oninput="this.value=this.value.replace(/\D/g,'').slice(0,10)">
             </div>
           </div>
           <button class="bp-submit-btn" onclick="bpSubmitPost('need')">Post Requirement</button>
@@ -22390,7 +22390,7 @@
               <input type="text" id="bp-have-extra" placeholder="e.g. Furnished, parking, etc.">
             </div>
             <div><label>Phone Number</label>
-              <input type="tel" id="bp-have-phone" placeholder="e.g. +91 98765 43210" maxlength="20">
+              <input type="tel" id="bp-have-phone" placeholder="e.g. 9876543210" maxlength="10" inputmode="numeric" oninput="this.value=this.value.replace(/\D/g,'').slice(0,10)">
             </div>
           </div>
           <button class="bp-submit-btn" onclick="bpSubmitPost('have')">Post Property</button>
@@ -23004,6 +23004,7 @@
         var ext = document.getElementById('bp-need-extra').value.trim();
         var phn = document.getElementById('bp-need-phone').value.trim();
         if (!tp || !pur || !bud || !loc || !ext || !phn) { toast('Please fill all fields including phone number','error'); return; }
+        if (!/^\d{10}$/.test(phn)) { toast('Please enter a valid 10-digit phone number','error'); return; }
         params = { p_type:'need', p_propertyType:tp, p_purpose:pur, p_budget:bud, p_location:loc, p_extra:ext, p_phone:phn };
       } else {
         var ht = document.getElementById('bp-have-type').value;
@@ -23013,6 +23014,7 @@
         var hex = document.getElementById('bp-have-extra').value.trim();
         var hphn = document.getElementById('bp-have-phone').value.trim();
         if (!ht || !hl || !hp || !hloc || !hex || !hphn) { toast('Please fill all fields including phone number','error'); return; }
+        if (!/^\d{10}$/.test(hphn)) { toast('Please enter a valid 10-digit phone number','error'); return; }
         params = { p_type:'have', p_propertyType:ht, p_listingType:hl, p_price:hp, p_location:hloc, p_extra:hex, p_phone:hphn };
       }
       try {
