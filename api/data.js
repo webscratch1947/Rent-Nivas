@@ -2863,6 +2863,37 @@ async function handleRpc(spec, claims) {
     return { userId: targetUserId, isBroker: current.isBroker, isVerified: newVal };
   }
 
+  if (spec.name === 'broker_admin_delete_posts') {
+    const TABLE_BROKER_POSTS = 'BrokerPosts';
+    const TABLE_BROKER_CONNECTIONS = 'BrokerConnections';
+    if (!isAdmin(claims)) throw new Error('Admin access required');
+    const postIds = Array.isArray((spec.params || {}).p_postIds) ? (spec.params.p_postIds).map(String).filter(Boolean) : [];
+    if (!postIds.length) throw new Error('No postIds provided');
+    let deletedPosts = 0;
+    let deletedConnections = 0;
+    for (const postId of postIds) {
+      try {
+        await brokerDdb.send(new DeleteItemCommand({ TableName: TABLE_BROKER_POSTS, Key: marshall({ postId }) }));
+        deletedPosts++;
+      } catch (e) { console.warn('[Broker] delete post failed:', postId, e.message); }
+      // Also remove any connections tied to this post, so the database is
+      // actually cleaned up rather than left with orphaned rows.
+      try {
+        const connScan = await brokerDdb.send(new ScanCommand({
+          TableName: TABLE_BROKER_CONNECTIONS,
+          FilterExpression: 'postId = :pid',
+          ExpressionAttributeValues: marshall({ ':pid': postId }),
+        }));
+        for (const item of (connScan.Items || [])) {
+          const conn = unmarshall(item);
+          await brokerDdb.send(new DeleteItemCommand({ TableName: TABLE_BROKER_CONNECTIONS, Key: marshall({ connectionId: conn.connectionId }) }));
+          deletedConnections++;
+        }
+      } catch (e) { console.warn('[Broker] delete connections for post failed:', postId, e.message); }
+    }
+    return { success: true, deletedPosts, deletedConnections };
+  }
+
   if (spec.name === 'broker_admin_posts') {
     const TABLE_BROKER_POSTS = 'BrokerPosts';
     const TABLE_BROKER_PROFILES = 'BrokerProfiles';
