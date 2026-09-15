@@ -2801,13 +2801,39 @@ async function handleRpc(spec, claims) {
   if (spec.name === 'broker_get_feed') {
     const TABLE_BROKER_POSTS = 'BrokerPosts';
     const TABLE_BROKER_PROFILES = 'BrokerProfiles';
+    const TABLE_BROKER_CONNECTIONS = 'BrokerConnections';
+    const CONNECTION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+    const userId = claims.sub;
     const brokerScanRes = await brokerDdb.send(new ScanCommand({ TableName: TABLE_BROKER_POSTS }));
     const posts = (brokerScanRes.Items || []).map(unmarshall).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+
+    // Load this user's connections once, keep only the most recent per post.
+    let myConnByPost = {};
+    try {
+      const connScan = await brokerDdb.send(new ScanCommand({
+        TableName: TABLE_BROKER_CONNECTIONS,
+        FilterExpression: 'userId = :uid',
+        ExpressionAttributeValues: marshall({ ':uid': userId }),
+      }));
+      (connScan.Items || []).map(unmarshall).forEach((c) => {
+        const ts = Date.parse(c.createdAt) || 0;
+        if (!myConnByPost[c.postId] || ts > myConnByPost[c.postId].ts) myConnByPost[c.postId] = { ...c, ts };
+      });
+    } catch (e) { console.warn('[Broker] feed connections:', e.message); }
+
     const enriched = await Promise.all(posts.map(async (post) => {
       const profile = await brokerGetUserProfile(post.userId);
       const brokerProf = await brokerGetProfile(post.userId, TABLE_BROKER_PROFILES);
       const { phone: _phone, ...postSafe } = post;
-      return { ...postSafe, banned: !!post.banned, postVerified: !!post.postVerified, userName: profile?.name || 'User', avatarUrl: profile?.avatar_url || '', verified: brokerProf.isVerified };
+      let connectedInfo = null;
+      const conn = myConnByPost[post.postId];
+      if (conn) {
+        const expiresAt = conn.ts + CONNECTION_TTL_MS;
+        if (Date.now() < expiresAt) {
+          connectedInfo = { targetEmail: profile?.email || '', targetPhone: post.phone || '', connectedAt: conn.ts, expiresAt };
+        }
+      }
+      return { ...postSafe, banned: !!post.banned, postVerified: !!post.postVerified, userName: profile?.name || 'User', avatarUrl: profile?.avatar_url || '', verified: brokerProf.isVerified, connectedInfo };
     }));
     return enriched;
   }
@@ -2857,6 +2883,7 @@ async function handleRpc(spec, claims) {
     const TABLE_BROKER_POSTS = 'BrokerPosts';
     const TABLE_BROKER_CONNECTIONS = 'BrokerConnections';
     const TABLE_BROKER_PROFILES = 'BrokerProfiles';
+    const CONNECTION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
     const userId = claims.sub;
     const postId = String((spec.params || {}).p_postId || '').trim();
     if (!postId) throw new Error('Missing postId');
@@ -2869,7 +2896,16 @@ async function handleRpc(spec, claims) {
       FilterExpression: 'userId = :uid AND postId = :pid',
       ExpressionAttributeValues: marshall({ ':uid': userId, ':pid': postId }),
     }));
-    if (existingConn.Items && existingConn.Items.length > 0) throw new Error('Already connected');
+    const existingItems = (existingConn.Items || []).map(unmarshall);
+    const latestConn = existingItems
+      .map((c) => ({ ...c, ts: Date.parse(c.createdAt) || 0 }))
+      .sort((a, b) => b.ts - a.ts)[0];
+    // Still within the 7-day unlock window — hand back the same details, no re-charge.
+    if (latestConn && (Date.now() - latestConn.ts) < CONNECTION_TTL_MS) {
+      const targetProfile = await brokerGetUserProfile(post.userId);
+      const credits = await brokerGetCredits(userId);
+      return { connectionId: latestConn.connectionId, targetEmail: targetProfile?.email || '', targetName: targetProfile?.name || 'User', targetPhone: post.phone || '', remainingCredits: credits, expiresAt: latestConn.ts + CONNECTION_TTL_MS };
+    }
     const credits = await brokerGetCredits(userId);
     const isAdminUser = isAdmin(claims);
     if (!isAdminUser) {
@@ -2877,12 +2913,13 @@ async function handleRpc(spec, claims) {
       await brokerSetCredits(userId, credits - 10);
     }
     const connectionId = 'conn-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6);
+    const createdAt = new Date().toISOString();
     await brokerDdb.send(new PutItemCommand({
       TableName: TABLE_BROKER_CONNECTIONS,
-      Item: marshall({ connectionId, userId, targetUserId: post.userId, postId, coinsSpent: isAdminUser ? 0 : 10, createdAt: new Date().toISOString() }),
+      Item: marshall({ connectionId, userId, targetUserId: post.userId, postId, coinsSpent: isAdminUser ? 0 : 10, createdAt }),
     }));
     const targetProfile = await brokerGetUserProfile(post.userId);
-    return { connectionId, targetEmail: targetProfile?.email || '', targetName: targetProfile?.name || 'User', targetPhone: post.phone || '', remainingCredits: isAdminUser ? credits : credits - 10 };
+    return { connectionId, targetEmail: targetProfile?.email || '', targetName: targetProfile?.name || 'User', targetPhone: post.phone || '', remainingCredits: isAdminUser ? credits : credits - 10, expiresAt: (Date.parse(createdAt) || Date.now()) + CONNECTION_TTL_MS };
   }
 
   if (spec.name === 'broker_toggle_role') {
