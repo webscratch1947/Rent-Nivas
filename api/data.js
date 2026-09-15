@@ -2865,6 +2865,33 @@ async function handleRpc(spec, claims) {
     return { userId: targetUserId, isBroker: current.isBroker, isVerified: newVal };
   }
 
+  if (spec.name === 'broker_delete_own_post') {
+    const TABLE_BROKER_POSTS = 'BrokerPosts';
+    const TABLE_BROKER_CONNECTIONS = 'BrokerConnections';
+    const postId = String((spec.params || {}).p_postId || '').trim();
+    if (!postId) throw new Error('Missing postId');
+    const res = await brokerDdb.send(new GetItemCommand({ TableName: TABLE_BROKER_POSTS, Key: marshall({ postId }) }));
+    if (!res.Item) throw new Error('Post not found');
+    const post = unmarshall(res.Item);
+    // Owners can only delete their own post; admins can delete any post.
+    if (post.userId !== claims.sub && !isAdmin(claims)) throw new Error('You can only delete your own posts');
+    await brokerDdb.send(new DeleteItemCommand({ TableName: TABLE_BROKER_POSTS, Key: marshall({ postId }) }));
+    let deletedConnections = 0;
+    try {
+      const connScan = await brokerDdb.send(new ScanCommand({
+        TableName: TABLE_BROKER_CONNECTIONS,
+        FilterExpression: 'postId = :pid',
+        ExpressionAttributeValues: marshall({ ':pid': postId }),
+      }));
+      for (const item of (connScan.Items || [])) {
+        const conn = unmarshall(item);
+        await brokerDdb.send(new DeleteItemCommand({ TableName: TABLE_BROKER_CONNECTIONS, Key: marshall({ connectionId: conn.connectionId }) }));
+        deletedConnections++;
+      }
+    } catch (e) { console.warn('[Broker] delete connections for post failed:', postId, e.message); }
+    return { success: true, deletedConnections };
+  }
+
   if (spec.name === 'broker_admin_delete_posts') {
     const TABLE_BROKER_POSTS = 'BrokerPosts';
     const TABLE_BROKER_CONNECTIONS = 'BrokerConnections';
