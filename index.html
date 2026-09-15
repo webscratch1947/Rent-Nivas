@@ -12064,6 +12064,7 @@
           '<div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;">' +
             '<button onclick="admBrokerToggleBan(\'' + (p.postId || p.id || '') + '\',' + !!isBanned + ')" style="font-size:11px;font-weight:700;padding:6px 14px;border-radius:8px;border:1.5px solid ' + (isBanned ? '#16a34a' : '#ef4444') + ';background:' + (isBanned ? '#f0fdf4' : '#fef2f2') + ';color:' + (isBanned ? '#16a34a' : '#ef4444') + ';cursor:pointer;font-family:var(--font);">' + (isBanned ? '✓ Unban' : '🚫 Ban') + '</button>' +
             '<button onclick="admBrokerToggleVerify(\'' + (p.postId || p.id || '') + '\',' + !!p.postVerified + ')" style="font-size:11px;font-weight:700;padding:6px 14px;border-radius:8px;border:1.5px solid ' + (p.postVerified ? '#6b7280' : '#2563eb') + ';background:' + (p.postVerified ? '#f9fafb' : '#eff6ff') + ';color:' + (p.postVerified ? '#6b7280' : '#2563eb') + ';cursor:pointer;font-family:var(--font);">' + (p.postVerified ? '✓ Verified' : '👁 Verify') + '</button>' +
+            '<button onclick="admBrokerDeletePost(\'' + (p.postId || p.id || '') + '\')" style="font-size:11px;font-weight:700;padding:6px 14px;border-radius:8px;border:1.5px solid #dc2626;background:#fff;color:#dc2626;cursor:pointer;font-family:var(--font);">🗑️ Delete</button>' +
           '</div>' +
         '</div>';
       }).join('');
@@ -12094,6 +12095,16 @@
       try {
         await bpRpc(action, { p_postId: postId });
         toast(currentlyBanned ? 'Post unbanned' : 'Post banned', 'success');
+        admBrokerLoad();
+      } catch (e) { toast('Failed: ' + e.message, 'error'); }
+    }
+
+    async function admBrokerDeletePost(postId) {
+      if (!postId) return;
+      if (!confirm('Permanently delete this post? This removes it from the database and cannot be undone.')) return;
+      try {
+        var result = await bpRpc('broker_admin_delete_posts', { p_postIds: [postId] });
+        toast('Post deleted' + (result && result.deletedConnections ? ' (' + result.deletedConnections + ' connection record(s) also removed)' : '') + '.', 'success');
         admBrokerLoad();
       } catch (e) { toast('Failed: ' + e.message, 'error'); }
     }
@@ -23154,6 +23165,21 @@
       }
     }
 
+    async function bpDeleteOwnPost(postId) {
+      if (!postId) return;
+      if (!confirm('Delete this post permanently? This cannot be undone.')) return;
+      try {
+        await bpRpc('broker_delete_own_post', { p_postId: postId });
+        _bpPosts = _bpPosts.filter(function(p){ return p.postId !== postId; });
+        bpRenderMyPosts();
+        bpRenderLibrary();
+        bpPopulatePropertyTypeFilter();
+        toast('Post deleted.', 'success');
+      } catch(e) {
+        toast('Failed: ' + (e.message || 'Delete failed'), 'error');
+      }
+    }
+
     function bpBuildConnectedBlock(info) {
       var phoneLine = info.targetPhone ? '<div style="font-size:14px;font-weight:800;color:#111827;margin-top:4px;">📞 ' + esc(info.targetPhone) + '</div>' : '';
       var daysLeft = info.expiresAt ? Math.max(1, Math.ceil((info.expiresAt - Date.now()) / 86400000)) : null;
@@ -23197,8 +23223,13 @@
       }
       var extraHtml = p.extra ? '<div style="font-size:13px;color:#7a6e62;margin-bottom:14px;padding:8px 12px;background:#fdf8f2;border-radius:8px;border-left:3px solid #d4b896;">' + esc(p.extra) + '</div>' : '';
       var connectBtn;
-      if (isOwn || p.banned) {
-        connectBtn = '<div style="font-size:11px;color:#9ca3af;text-align:center;padding:8px;">' + (p.banned ? '🚫 Banned' : 'This is your post') + '</div>';
+      if (isOwn) {
+        connectBtn = '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">' +
+          '<span style="font-size:11px;color:#9ca3af;">' + (p.banned ? '🚫 Banned' : 'This is your post') + '</span>' +
+          '<button onclick="bpDeleteOwnPost(\'' + p.postId + '\')" style="font-size:11px;font-weight:700;padding:6px 12px;border-radius:8px;border:1.5px solid #fca5a5;background:#fef2f2;color:#dc2626;cursor:pointer;font-family:inherit;">🗑️ Delete</button>' +
+        '</div>';
+      } else if (p.banned) {
+        connectBtn = '<div style="font-size:11px;color:#9ca3af;text-align:center;padding:8px;">🚫 Banned</div>';
       } else if (p.connectedInfo) {
         connectBtn = bpBuildConnectedBlock(p.connectedInfo);
       } else {
