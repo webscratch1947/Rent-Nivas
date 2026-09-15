@@ -12134,6 +12134,29 @@
       }
     }
 
+    // Cognito-backed user directory (id/name/email), cached.
+    // Users who were GRANTED broker access from the admin panel often have no
+    // name/email written on their profiles row (only Cognito has them), which
+    // made them render as "Unnamed" while plan purchasers showed correctly.
+    async function _admGetUserDirectory() {
+      if (typeof _adminUsersCache !== 'undefined' && _adminUsersCache && _adminUsersCache.length) return _adminUsersCache;
+      try {
+        const { data: { session } } = await sb.auth.getSession();
+        if (!session) return [];
+        const res = await fetch(RN_API_BASE + '/admin-list-users', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (session.id_token || session.access_token) }
+        });
+        if (!res.ok) return [];
+        const json = await res.json();
+        if (json && json.users && json.users.length) {
+          try { _adminUsersCache = json.users; } catch (_) {}
+          return json.users;
+        }
+      } catch (_) {}
+      return [];
+    }
+
     async function admBrokerLoadUsers() {
       var listEl = document.getElementById('adm-broker-list');
       var statsEl = document.getElementById('adm-broker-stats');
@@ -12143,6 +12166,23 @@
         var { data, error } = await sb.from('profiles').select('id,name,email,credits,hasBrokerPlan,verified').eq('hasBrokerPlan', true).order('name', { ascending: true });
         if (error) throw error;
         var users = data || [];
+        // Fill in any missing name/email from the Cognito user directory.
+        if (users.some(function (u) { return !u || !u.name || !u.email; })) {
+          var dir = await _admGetUserDirectory();
+          if (dir && dir.length) {
+            var dirMap = {};
+            dir.forEach(function (d) { if (d && d.id) dirMap[d.id] = d; });
+            users = users.map(function (u) {
+              var d = u && dirMap[u.id];
+              if (!d) return u;
+              var email = u.email || d.email || '';
+              return Object.assign({}, u, {
+                name: u.name || d.name || (email ? email.split('@')[0] : ''),
+                email: email
+              });
+            });
+          }
+        }
         if (statsEl) {
           statsEl.innerHTML =
             '<div style="background:var(--white);border:1.5px solid var(--border2);border-radius:var(--r);padding:14px;text-align:center;"><div style="font-size:24px;font-weight:900;color:var(--terra);">' + users.length + '</div><div style="font-size:11px;color:var(--muted);font-weight:600;margin-top:2px;">Broker Users</div></div>';
@@ -12166,7 +12206,7 @@
         return '<div style="background:var(--white);border:1.5px solid var(--border2);border-radius:var(--r);padding:14px;margin-bottom:8px;">' +
           '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">' +
             '<div>' +
-              '<div style="font-size:14px;font-weight:700;color:var(--ink);">' + (u.name || 'Unnamed') + badgeVerified + '</div>' +
+              '<div style="font-size:14px;font-weight:700;color:var(--ink);">' + (u.name || (u.email ? String(u.email).split('@')[0] : '') || 'Unnamed') + badgeVerified + '</div>' +
               '<div style="font-size:12px;color:var(--muted);">' + (u.email || '') + '</div>' +
               '<div style="font-size:11px;color:var(--muted);margin-top:2px;">🪙 ' + (u.credits || 0) + ' credits</div>' +
             '</div>' +
