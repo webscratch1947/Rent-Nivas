@@ -1453,7 +1453,7 @@
 
     /* Hide bottom nav on role page */
     body:has(#role-page.active) .rn-app-bnav {
-      display: none !important;
+      display: none;
     }
 
     /* Mobile: no hover effects, images always vivid */
@@ -5711,9 +5711,9 @@
       }
     }
 
-    /* ── BOTTOM NAV BAR (v2 — fresh rebuild) ── */
+    /* ── BOTTOM NAV BAR (v2) ── */
+    /* NO display:none here — visibility controlled 100% by JS inline styles */
     .rn-app-bnav {
-      display: none !important;
       position: fixed;
       bottom: 0;
       left: 0;
@@ -5728,10 +5728,9 @@
       -webkit-backdrop-filter: blur(16px);
       align-items: stretch;
     }
-    /* Visibility controlled by body.rn-nav-ok — NOT by a class on the nav itself */
-    body.rn-nav-ok .rn-app-bnav { display: flex !important; }
-    @media (min-width: 769px) {
-      body.rn-nav-ok .rn-app-bnav { display: none !important; }
+    body.dark .rn-app-bnav {
+      background: rgba(26,26,26,.92);
+      border-top-color: #333;
     }
     body.dark .rn-app-bnav {
       background: rgba(26,26,26,.92);
@@ -13633,8 +13632,11 @@
     async function goToPartnerArea() {
       if (!user) { finishLoggedOutState(); return; }
       closeModal();
+      // Immediately show partner page with loading state — no loader overlay
+      showPage('partner-page');
+      var _ppc = document.getElementById('partner-page-content');
+      if (_ppc) _ppc.innerHTML = '<div style="text-align:center;padding:64px;color:var(--muted);">Loading partner status...</div>';
       try { if (await checkUserBan()) return; } catch(_) { /* ignore ban-check errors, proceed */ }
-      setLoader(true, 'Checking partner status...');
       try {
         const { data: acceptedRow, error: accErr } = await withTimeout(
           sb.from('partner_requests').select('*').eq('user_id', user.id).eq('status', 'accepted').limit(1).maybeSingle(),
@@ -13654,7 +13656,6 @@
 
         _partnerRequestCache = data || null;
         applyPartnerStatusToBadges(data);
-        setLoader(false);
         if (data && data.status === 'accepted') {
           localStorage.setItem('nestly-role', 'partner');
           document.getElementById('role-host-btn')?.classList.remove('active');
@@ -13662,13 +13663,12 @@
           showPage('partner-dashboard');
           loadPartnerDashboard();
         } else {
-          showPage('partner-page');
           loadPartnerPage();
         }
       } catch (e) {
-        setLoader(false);
+        // Ensure partner page shows even on error — NEVER leave a blank screen
         showPage('partner-page');
-        loadPartnerPage();
+        if (_ppc) _ppc.innerHTML = '<div class="partner-status-card"><div class="partner-status-icon">⚠️</div><div class="partner-status-title">Something went wrong</div><div class="partner-status-text">Could not load your partner status. Please try again.</div><button class="btn btn-terra" onclick="goToPartnerArea()" style="margin-top:16px;">Try Again</button></div>';
       }
     }
 
@@ -21722,14 +21722,12 @@
     function syncMobNavAuth() {
       window._rnAuthDetermined = true;
       const loggedIn = (typeof user !== 'undefined' && user !== null);
-      // Bottom nav: NUCLEAR APPROACH — use inline style to force visibility
+      // Bottom nav: show on mobile when logged in, hide otherwise
+      // Uses ONLY inline style.display — no CSS classes, no !important fights
       const _nav = document.getElementById('rn-app-bottom-nav');
       if (_nav) {
-        if (loggedIn && window.innerWidth <= 768) {
-          _nav.style.cssText = 'display:flex!important;position:fixed;bottom:0;left:0;right:0;z-index:7000;height:calc(64px + var(--rn-safe-bot,0px));padding-bottom:var(--rn-safe-bot,0px);background:rgba(255,255,255,.92);border-top:1px solid #e8e4de;box-shadow:0 -4px 24px rgba(24,21,15,.09);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);align-items:stretch;';
-        } else {
-          _nav.style.cssText = 'display:none!important;';
-        }
+        const _show = loggedIn && window.innerWidth <= 768;
+        _nav.style.display = _show ? 'flex' : 'none';
       }
       // Sidebar: swap logged-in vs logged-out nav sections
       const navOut = document.getElementById('mob-nav-loggedout');
@@ -21856,16 +21854,10 @@
       const _navId = _rnPageNavMap[id];
       if (_navId) rnNavActivate(_navId);
       else document.querySelectorAll('.rn-nav-btn').forEach(b => b.classList.remove('active'));
-      // Ensure bottom nav shows on mobile (inline style override)
+      // Ensure bottom nav visibility on mobile
       const _nav = document.getElementById('rn-app-bottom-nav');
       const _u = (typeof user !== 'undefined' && user !== null);
-      if (_nav) {
-        if (_u && window.innerWidth <= 768) {
-          _nav.style.cssText = 'display:flex!important;position:fixed;bottom:0;left:0;right:0;z-index:7000;height:calc(64px + var(--rn-safe-bot,0px));padding-bottom:var(--rn-safe-bot,0px);background:rgba(255,255,255,.92);border-top:1px solid #e8e4de;box-shadow:0 -4px 24px rgba(24,21,15,.09);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);align-items:stretch;';
-        } else {
-          _nav.style.cssText = 'display:none!important;';
-        }
-      }
+      if (_nav) _nav.style.display = (_u && window.innerWidth <= 768) ? 'flex' : 'none';
       // Close partner dashboard mobile nav if open
       const _pdnMobNav = document.getElementById('pdn-mob-nav');
       if (_pdnMobNav) _pdnMobNav.classList.remove('pdn-mob-nav-visible');
@@ -21884,22 +21876,27 @@
       e.preventDefault();
     });
 
-    // Blank-screen detector: if no page is active for 3s, force show a page
+    // Blank-screen detector: if no page is active for 4.5s, force show a page
     (function() {
       var _blankCheckCount = 0;
       setInterval(function() {
         var _anyActive = document.querySelector('.page.active');
-        if (!_anyActive) {
+        var _loader = document.getElementById('loader');
+        var _loaderVisible = _loader && _loader.classList.contains('show');
+        if (!_anyActive && !_loaderVisible) {
           _blankCheckCount++;
-          if (_blankCheckCount >= 2) {
-            console.warn('[Nestly] Blank screen detected — forcing landing page visible');
+          if (_blankCheckCount >= 3) {
+            console.warn('[Nestly] Blank screen detected — forcing a page visible');
             setLoader(false);
             var _refOv = document.getElementById('rn-refer-open-overlay');
             if (_refOv) _refOv.style.display = 'none';
             var _banOv = document.getElementById('ban-overlay');
             if (_banOv) _banOv.classList.add('hidden');
             if (typeof user !== 'undefined' && user !== null) {
-              showPage('host-dashboard');
+              var _role = localStorage.getItem('nestly-role');
+              if (_role === 'rent') showPage('rent-page');
+              else if (_role === 'partner') showPage('partner-dashboard');
+              else showPage('host-dashboard');
             } else {
               showPage('landing-page');
             }
@@ -24169,8 +24166,8 @@
     </div>
   </div>
 
-  <!-- ══ BOTTOM NAV BAR (v2 — fresh rebuild) ══ -->
-  <nav id="rn-app-bottom-nav" class="rn-app-bnav">
+  <!-- ══ BOTTOM NAV BAR (v2) ══ -->
+  <nav id="rn-app-bottom-nav" class="rn-app-bnav" style="display:none;">
     <button class="rn-nav-btn" id="mbn-home" onclick="closeModal();if(typeof switchToHost==='function'){switchToHost();}else{showPage('host-dashboard');}rnNavActivate('mbn-home')">
       <span class="rn-nav-ico">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
