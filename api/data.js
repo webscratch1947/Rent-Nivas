@@ -2515,7 +2515,7 @@ async function handleRpc(spec, claims) {
     const TABLE_BROKER_POSTS = 'BrokerPosts';
     const TABLE_BROKER_CONNECTIONS = 'BrokerConnections';
     const userId = claims.sub;
-    let posts = 0, connections = 0, coins = 0, views = 0;
+    let posts = 0, connections = 0, coins = 0, lastActiveTs = 0;
     try {
       const postScan = await brokerDdb.send(new ScanCommand({
         TableName: TABLE_BROKER_POSTS,
@@ -2524,7 +2524,7 @@ async function handleRpc(spec, claims) {
       }));
       posts = (postScan.Items || []).length;
       const allPosts = (postScan.Items || []).map(unmarshall);
-      views = allPosts.reduce((sum, p) => sum + (parseInt(p.views) || 0), 0);
+      allPosts.forEach(p => { const t = parseInt(p.createdAt) || 0; if (t > lastActiveTs) lastActiveTs = t; });
     } catch (e) { console.warn('[Broker] stats posts:', e.message); }
     try {
       const connScan = await brokerDdb.send(new ScanCommand({
@@ -2537,7 +2537,7 @@ async function handleRpc(spec, claims) {
     try {
       coins = await brokerGetCredits(userId);
     } catch (e) {}
-    return { posts, connections, coins, views };
+    return { posts, connections, coins, lastActiveTs };
   }
 
   if (spec.name === 'broker_get_feed') {

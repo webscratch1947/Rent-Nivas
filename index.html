@@ -12028,17 +12028,20 @@
         var totalBrokers = 0;
         var userIds = {};
         posts.forEach(function(p) { if (p.userId && !userIds[p.userId]) { userIds[p.userId] = true; totalBrokers++; } });
-        var totalViews = posts.reduce(function(s, p) { return s + (p.viewCount || 0); }, 0);
         if (statsEl) {
           statsEl.innerHTML =
-            '<div style="background:var(--white);border:1.5px solid var(--border2);border-radius:var(--r);padding:14px;text-align:center;"><div style="font-size:24px;font-weight:900;color:var(--terra);">' + totalBrokers + '</div><div style="font-size:11px;color:var(--muted);font-weight:600;margin-top:2px;">Active Brokers</div></div>' +
+            '<div style="background:var(--white);border:1.5px solid var(--border2);border-radius:var(--r);padding:14px;text-align:center;"><div style="font-size:24px;font-weight:900;color:var(--terra);">' + totalBrokers + '</div><div style="font-size:11px;color:var(--muted);font-weight:600;margin-top:2px;">Unique Users</div></div>' +
             '<div style="background:var(--white);border:1.5px solid var(--border2);border-radius:var(--r);padding:14px;text-align:center;"><div style="font-size:24px;font-weight:900;color:var(--terra);">' + totalPosts + '</div><div style="font-size:11px;color:var(--muted);font-weight:600;margin-top:2px;">Total Posts</div></div>' +
-            '<div style="background:var(--white);border:1.5px solid var(--border2);border-radius:var(--r);padding:14px;text-align:center;"><div style="font-size:24px;font-weight:900;color:var(--terra);">' + totalViews + '</div><div style="font-size:11px;color:var(--muted);font-weight:600;margin-top:2px;">Total Views</div></div>';
+            '<div style="background:var(--white);border:1.5px solid var(--border2);border-radius:var(--r);padding:14px;text-align:center;"><div style="font-size:24px;font-weight:900;color:var(--terra);">' + admBrokerCountBanned(posts) + '</div><div style="font-size:11px;color:var(--muted);font-weight:600;margin-top:2px;">Banned</div></div>';
         }
         admBrokerRender(posts);
       } catch (e) {
         listEl.innerHTML = '<div style="text-align:center;padding:30px;color:var(--muted);font-size:13px;">Failed to load brokers: ' + e.message + '</div>';
       }
+    }
+
+    function admBrokerCountBanned(posts) {
+      return posts.filter(function(p) { return p.banned; }).length;
     }
 
     function admBrokerRender(posts) {
@@ -12066,8 +12069,6 @@
               extraHtml +
               '<div style="font-size:10px;color:var(--muted);margin-top:4px;">' + esc(p.userId || '') + ' · ' + (typeof bpTimeAgo === 'function' ? bpTimeAgo(p.createdAt) : '') + '</div>' +
             '</div>' +
-            '<div style="display:flex;gap:4px;flex-shrink:0;">' +
-              '<span style="font-size:11px;color:var(--muted);">👁 ' + (p.viewCount || 0) + '</span>' +
             '</div>' +
           '</div>' +
           '<div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;">' +
@@ -22136,10 +22137,10 @@
         </div>
         <div style="background:#fff;border:1px solid #f0ebe5;border-left:3px solid #8b5cf6;border-radius:12px;padding:16px 12px;text-align:center;box-shadow:0 2px 8px rgba(139,92,246,.08);">
           <div style="width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,#f5f3ff,#ede9fe);display:flex;align-items:center;justify-content:center;margin:0 auto 10px;">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
           </div>
-          <div style="font-size:22px;font-weight:900;color:#1a1a2e;" id="bp-stat-views">0</div>
-          <div style="font-size:10px;font-weight:600;color:#9a8578;text-transform:uppercase;letter-spacing:.5px;margin-top:2px;">Views</div>
+          <div style="font-size:14px;font-weight:900;color:#1a1a2e;" id="bp-stat-lastactive">—</div>
+          <div style="font-size:10px;font-weight:600;color:#9a8578;text-transform:uppercase;letter-spacing:.5px;margin-top:2px;">Last Active</div>
         </div>
       </div>
 
@@ -22749,11 +22750,17 @@
       var postsEl = document.getElementById('bp-stat-posts');
       var connEl = document.getElementById('bp-stat-connections');
       var coinsEl = document.getElementById('bp-stat-coins');
-      var viewsEl = document.getElementById('bp-stat-views');
+      var lastActiveEl = document.getElementById('bp-stat-lastactive');
       if (postsEl && stats.posts !== undefined) postsEl.textContent = stats.posts;
       if (connEl && stats.connections !== undefined) connEl.textContent = stats.connections;
       if (coinsEl && stats.coins !== undefined) coinsEl.textContent = stats.coins;
-      if (viewsEl && stats.views !== undefined) viewsEl.textContent = stats.views;
+      if (lastActiveEl) {
+        if (stats.lastActiveTs) {
+          lastActiveEl.textContent = bpTimeAgo(stats.lastActiveTs);
+        } else {
+          lastActiveEl.textContent = 'No posts';
+        }
+      }
     }
 
     function bpUpdateBrokerButtons() {
