@@ -4124,6 +4124,20 @@
         transform: translateX(0);
       }
 
+      .mob-ds-hamburger {
+        display: flex !important;
+        align-items: center;
+        justify-content: center;
+        width: 40px;
+        height: 40px;
+        border-radius: 10px !important;
+        background: var(--bg2) !important;
+        border: 1px solid var(--border) !important;
+        font-size: 18px !important;
+        flex-shrink: 0;
+        color: var(--ink) !important;
+      }
+
       .ds-topbar {
         left: 0;
       }
@@ -12316,7 +12330,7 @@
       if (show) {
         if (txt) txt.textContent = msg || 'Loading...';
         el.classList.add('show');
-        const cap = Math.min(Math.max(maxMs || 35000, 5000), 300000);
+        const cap = Math.min(Math.max(maxMs || 15000, 5000), 300000);
         _loaderSafetyTimer = setTimeout(() => {
           el.classList.remove('show');
           toast('That took too long — please check your connection and try again.', 'error');
@@ -13405,12 +13419,10 @@
           return; // block ALL navigation including login-page while banned
         }
       }
-      // Force-close the partner-dashboard opening animation overlay whenever
-      // navigating away — prevents it getting stuck on screen as a watermark.
-      if (id !== 'partner-dashboard') {
-        var _refOverlay = document.getElementById('rn-refer-open-overlay');
-        if (_refOverlay) _refOverlay.style.display = 'none';
-      }
+      // Always force-close the refer animation overlay and loader on any navigation
+      var _refOverlay = document.getElementById('rn-refer-open-overlay');
+      if (_refOverlay) _refOverlay.style.display = 'none';
+      setLoader(false);
       document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
       const el = document.getElementById(id);
       if (el) el.classList.add('active');
@@ -13638,11 +13650,9 @@
     async function goToPartnerArea() {
       if (!user) { finishLoggedOutState(); return; }
       closeModal();
-      if (await checkUserBan()) return;
+      try { if (await checkUserBan()) return; } catch(_) { /* ignore ban-check errors, proceed */ }
       setLoader(true, 'Checking partner status...');
       try {
-        // First check: does ANY accepted row exist? (Prevents a newer pending/rejected row
-        // from hiding a real accepted row just because it has a later created_at timestamp.)
         const { data: acceptedRow, error: accErr } = await withTimeout(
           sb.from('partner_requests').select('*').eq('user_id', user.id).eq('status', 'accepted').limit(1).maybeSingle(),
           6000, 'Could not check partner status. Please try again.'
@@ -13651,7 +13661,6 @@
 
         let data = acceptedRow;
         if (!data) {
-          // No accepted row — fall back to most recent row for pending/rejected display
           const { data: latestRow, error: latestErr } = await withTimeout(
             sb.from('partner_requests').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(1).maybeSingle(),
             6000, 'Could not check partner status. Please try again.'
